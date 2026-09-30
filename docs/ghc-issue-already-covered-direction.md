@@ -1,6 +1,6 @@
 # GHC issue: wrong direction in the `isAutoRule` check of `alreadyCovered`
 
-Draft, not filed yet; the text from "## Summary" down is the body to file, in the tracker's bug template. Title: **Specialise: wrong direction in the `isAutoRule` check of `alreadyCovered`, so an imported, more general auto rule blocks a specialisation**. Verified on 2026-09-29 on HEAD 10.1.20260925 (nightly bindist of commit `9f48a5b908`, and the same commit built with and without the fix), on 9.14.1, on 9.14.2-rc2 (bindist `9.14.1.20260916`) and on 9.12.2; re-verified on 2026-09-30, claim by claim, including with the fix for the sibling draft `docs/ghc-issue-cbv-dictionary-case.md` applied as well. Found while reducing GHC [#26895](https://gitlab.haskell.org/ghc/ghc/-/work_items/26895).
+Filed as GHC [#27873](https://gitlab.haskell.org/ghc/ghc/-/work_items/27873) on 2026-09-30; the text from "## Summary" down is the filed body, in the tracker's bug template. Title: **Specialise: wrong direction in the `isAutoRule` check of `alreadyCovered`, so an imported, more general auto rule blocks a specialisation**. Verified on 2026-09-29 on HEAD 10.1.20260925 (nightly bindist of commit `9f48a5b908`, and the same commit built with and without the fix), on 9.14.1, on 9.14.2-rc2 (bindist `9.14.1.20260916`) and on 9.12.2; re-verified on 2026-09-30, claim by claim, including with the fix for the sibling draft `docs/ghc-issue-cbv-dictionary-case.md` applied as well. Found while reducing GHC [#26895](https://gitlab.haskell.org/ghc/ghc/-/work_items/26895).
 
 ## Summary
 

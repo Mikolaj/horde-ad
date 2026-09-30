@@ -1,6 +1,6 @@
 # GHC issue: under `-fworker-wrapper-cbv`, a worker evaluates its dictionary argument with `case`, and importers stop specialising what it calls
 
-Draft, not filed yet; the text from "## Summary" down is the body to file, in the tracker's bug template. Title: **HEAD: with `-fworker-wrapper-cbv`, a worker evaluates its dictionary argument with `case`, and the specialisation of an imported function no longer cascades to the functions it calls**. Verified on 2026-09-29 on HEAD 10.1.20260925 (nightly bindist of commit `9f48a5b908`, and the same commit built from source), against 9.14.1 and 9.14.2-rc2 (bindist `9.14.1.20260916`), which are not affected, with a constraint-tuple version of the reproducer. On 2026-09-30 the history below was traced from `-dverbose-core2core` and the commits it names, without bisecting, and the reproducer, now with `Num t`, the workarounds and the proposed fix were verified on HEAD and 9.14.1. Found while reducing GHC [#26895](https://gitlab.haskell.org/ghc/ghc/-/work_items/26895), whose HEAD-only slowdown of `INLINEABLE` it causes; it is separate from the `alreadyCovered` bug drafted beside it in `docs/ghc-issue-already-covered-direction.md`.
+Draft, not filed yet; the text from "## Summary" down is the body to file, in the tracker's bug template. Title: **HEAD: with `-fworker-wrapper-cbv`, a worker evaluates its dictionary argument with `case`, and the specialisation of an imported function no longer cascades to the functions it calls**. Verified on 2026-09-29 on HEAD 10.1.20260925 (nightly bindist of commit `9f48a5b908`, and the same commit built from source), against 9.14.1 and 9.14.2-rc2 (bindist `9.14.1.20260916`), which are not affected, with a constraint-tuple version of the reproducer. On 2026-09-30 the history below was traced from `-dverbose-core2core` and the commits it names, without bisecting, and the reproducer, now with `Num t`, the workarounds and the proposed fix were verified on HEAD and 9.14.1. Found while reducing GHC [#26895](https://gitlab.haskell.org/ghc/ghc/-/work_items/26895), whose HEAD-only slowdown of `INLINEABLE` it causes; it is separate from GHC [#27873](https://gitlab.haskell.org/ghc/ghc/-/work_items/27873), filed from `docs/ghc-issue-already-covered-direction.md`.
 
 ## Summary
 
@@ -64,7 +64,7 @@ Add no eval for a dictionary argument, as before c56567ec, in [`mkStrictFieldSeq
 
 With it, `Repro` specialises both functions, for each of the four kinds of constraint above, and the exported unfolding of `$wf` has no `case` on the dictionary. The GHC testsuite has not been run with it yet.
 
-On horde-ad's test from #26895 with plain `INLINEABLE` (HEAD with the `alreadyCovered` fix; times are medians of three interleaved runs), the fix restores the allocation of a build without the flag exactly, and keeps the speed that the flag buys:
+On horde-ad's test from #26895 with plain `INLINEABLE` (HEAD with the fix of #27873; times are medians of three interleaved runs), the fix restores the allocation of a build without the flag exactly, and keeps the speed that the flag buys:
 
 | horde-ad compiled | allocated | time |
 |---|---|---|
@@ -75,6 +75,7 @@ On horde-ad's test from #26895 with plain `INLINEABLE` (HEAD with the `alreadyCo
 ### Related
 
 - #26895: on HEAD, plain `INLINEABLE` on horde-ad's recursive `interpretAst` is as slow as the phase-annotated variants. There, the specialisation of `interpretAst` at the target type stops after one of its per-span copies for this reason; the table above shows what the fix does to it.
+- #27873: the other bug behind #26895, a wrong direction in the specialiser's `alreadyCovered`; the measurements above include its fix.
 - !14272, #26158, #19747: the removal of the dictionary-case special case, and why.
 - #26722: the eval on strict worker arguments; #27071: why `refineDefaultAlt` skips unary classes.
 
