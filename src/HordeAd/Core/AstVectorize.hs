@@ -21,9 +21,10 @@ import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
+import GHC.IO.Unsafe (noDuplicate)
 import GHC.TypeLits (type (+), type (<=?))
 import System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
-import System.IO.Unsafe (unsafePerformIO)
+import System.IO.Unsafe (unsafeDupablePerformIO, unsafePerformIO)
 
 import Data.Array.Nested (type (++))
 import Data.Array.Nested.Convert (withShsFromShR, withShsFromShX)
@@ -672,7 +673,8 @@ mkTraceRule :: forall y z s. KnownSpan s
             -> AstTensor AstMethodLet s y
             -> AstTensor AstMethodLet s y
 {-# NOINLINE mkTraceRule #-}
-mkTraceRule prefix from !fromFTK caseAnalysed nwords to = unsafePerformIO $ do
+mkTraceRule prefix from !fromFTK caseAnalysed nwords to =
+  unsafeDupablePerformIO $ do
   enabled <- readIORef traceRuleEnabledRef
   let width = traceWidth
       constructorName =
@@ -685,6 +687,7 @@ mkTraceRule prefix from !fromFTK caseAnalysed nwords to = unsafePerformIO $ do
       ruleName = prefix ++ "." ++ constructorName
       ruleNamePadded = take 21 $ ruleName ++ repeat ' '
   when enabled $ do
+    noDuplicate  -- tracing has effects that must not be repeated
     nestingLevel <- readIORef traceNestingLevel
     modifyIORef' traceNestingLevel succ
     -- Force in the correct order:

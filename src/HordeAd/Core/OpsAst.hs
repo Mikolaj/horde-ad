@@ -24,7 +24,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (OrderingI (..), cmpNat, type (+), type (-), type (<=?))
-import System.IO.Unsafe (unsafePerformIO)
+import System.IO.Unsafe (unsafeDupablePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested (Replicate, type (++))
@@ -101,10 +101,10 @@ revArtifactFromForwardPass
   -> FullShapeTK x
   -> (AstArtifactRev x z, Delta (AstRaw FullSpan) z)
 -- Break the inline chain to prevent false positives in inspection testing
--- and protect the unsafePerformIO.
+-- and protect the unsafeDupablePerformIO.
 {-# NOINLINE revArtifactFromForwardPass #-}
 revArtifactFromForwardPass cotangentHandling
-                           forwardPass xftk = unsafePerformIO $ do
+                           forwardPass xftk = unsafeDupablePerformIO $ do
   -- IO and bangs and the compound function to fix the numbering of variables
   -- for pretty-printing and prevent sharing the impure values
   -- in tests that reset the impure counters.
@@ -147,9 +147,9 @@ revArtifactFromForwardPassDt
   -> FullShapeTK x
   -> (AstArtifactRev x z, Delta (AstRaw FullSpan) z)
 -- Break the inline chain to prevent false positives in inspection testing
--- and protect the unsafePerformIO.
+-- and protect the unsafeDupablePerformIO.
 {-# NOINLINE revArtifactFromForwardPassDt #-}
-revArtifactFromForwardPassDt forwardPass xftk = unsafePerformIO $ do
+revArtifactFromForwardPassDt forwardPass xftk = unsafeDupablePerformIO $ do
   -- IO and bangs and the compound function to fix the numbering of variables
   -- for pretty-printing and prevent sharing the impure values
   -- in tests that reset the impure counters.
@@ -185,9 +185,9 @@ fwdArtifactFromForwardPass
   -> FullShapeTK x
   -> (AstArtifactFwd x z, Delta (AstRaw FullSpan) z)
 -- Break the inline chain to prevent false positives in inspection testing
--- and protect the unsafePerformIO.
+-- and protect the unsafeDupablePerformIO.
 {-# NOINLINE fwdArtifactFromForwardPass #-}
-fwdArtifactFromForwardPass forwardPass xftk = unsafePerformIO $ do
+fwdArtifactFromForwardPass forwardPass xftk = unsafeDupablePerformIO $ do
   (!varPrimalD, astVarD, astVarPrimal, var, astVar0) <- funToAstFwdIO xftk
   let !(D primalBody delta) = forwardPass astVarPrimal var astVar0
   let !derivative =
@@ -223,7 +223,7 @@ astBuild1Vectorize
   -> (AstInt AstMethodLet -> AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
 {-# NOINLINE astBuild1Vectorize #-}
-astBuild1Vectorize k stk f = unsafePerformIO $ do
+astBuild1Vectorize k stk f = unsafeDupablePerformIO $ do
   varx <- funToAstIntIO (0, fromSNat' k - 1) f
   build1Vectorize k stk varx
 
@@ -1797,7 +1797,7 @@ astLetFunNoSimplify a f = case a of
   AstFromPrimal v -> astLetFunNoSimplify v (f . fromPrimal)
   AstFromDual v -> astLetFunNoSimplify v (f . fromDual)
   AstFromPlain v -> astLetFunNoSimplify v (f . fromPlain)
-  _ -> unsafePerformIO $ case ftkAst a of
+  _ -> unsafeDupablePerformIO $ case ftkAst a of
     ftk@FTKScalar -> do
         var <- funToAstAutoBoundsIO ftk a
         pure $! AstLet var a (f $ astVar var)

@@ -25,7 +25,7 @@ import Data.Maybe (fromMaybe)
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
-import System.IO.Unsafe (unsafePerformIO)
+import System.IO.Unsafe (unsafeDupablePerformIO, unsafePerformIO)
 import Type.Reflection (Typeable, typeRep)
 
 import Data.Array.Nested (type (++))
@@ -286,7 +286,7 @@ astIsSmall _ AstVar{} = True
 astIsSmall _ AstShare{} = True
 astIsSmall _ AstConcreteK{} = True
 astIsSmall _ (AstConcreteS a) | fromSNat' (Nested.srank a) == 0 = True
-astIsSmall lax t = unsafePerformIO $ do
+astIsSmall lax t = unsafeDupablePerformIO $ do
   unsafeTotalSharing <- readIORef unsafeTotalSharingRef
   return $! if | unsafeTotalSharing -> False
                | lax -> astIsSmallN 50 t > 0

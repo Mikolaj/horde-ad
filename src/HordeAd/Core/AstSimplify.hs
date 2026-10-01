@@ -88,7 +88,7 @@ import GHC.TypeLits
   , type (<=)
   , type (<=?)
   )
-import System.IO.Unsafe (unsafePerformIO)
+import System.IO.Unsafe (unsafeDupablePerformIO)
 import Type.Reflection (typeRep)
 import Unsafe.Coerce (unsafeCoerce)
 
@@ -2405,7 +2405,7 @@ shareIx :: forall s shm y. KnownSpan s
         -> (AstIxS AstMethodLet shm -> AstTensor AstMethodLet s y)
         -> AstTensor AstMethodLet s y
 {-# NOINLINE shareIx #-}
-shareIx ix f = unsafePerformIO $ do
+shareIx ix f = unsafeDupablePerformIO $ do
   let shareI :: AstInt AstMethodLet
              -> IO ( Maybe (IntVarName, AstInt AstMethodLet)
                    , AstInt AstMethodLet )
@@ -5373,13 +5373,13 @@ astLetFun :: forall y z s s2. (KnownSpan s, KnownSpan s2)
 astLetFun a f | astIsSmall True a = f a
 astLetFun a f = case a of
   AstConvUp c ftkz v ->
-    unsafePerformIO $ do
+    unsafeDupablePerformIO $ do
       var <- funToAstNoBoundsIO (ftkAst v)
       pure $! astLet var v (f $ astConvertUp c ftkz $ astVar var)
   Ast.AstFromPrimal v -> astLetFun v (f . fromPrimal)
   Ast.AstFromDual v -> astLetFun v (f . fromDual)
   Ast.AstFromPlain v -> astLetFun v (f . fromPlain)
-  _ -> unsafePerformIO $ case ftkAst a of
+  _ -> unsafeDupablePerformIO $ case ftkAst a of
     ftk@FTKScalar -> do
         var <- funToAstAutoBoundsIO ftk a
         pure $! astLet var a (f $ astVar var)

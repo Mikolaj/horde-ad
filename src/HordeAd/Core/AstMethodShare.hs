@@ -15,7 +15,7 @@ import Prelude
 
 import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
-import System.IO.Unsafe (unsafePerformIO)
+import System.IO.Unsafe (unsafeDupablePerformIO)
 
 import Data.Array.Nested (MapJust)
 import Data.Array.Nested qualified as Nested
@@ -473,7 +473,7 @@ astShareNoSimplify a = case a of
   AstFromPrimal v -> fromPrimal $ astShareNoSimplify v
   AstFromDual v -> fromDual $ astShareNoSimplify v
   AstFromPlain v -> fromPlain $ astShareNoSimplify v
-  _ -> unsafePerformIO $ case ftkAst a of
+  _ -> unsafeDupablePerformIO $ case ftkAst a of
     ftk@FTKScalar -> do
         var <- funToAstAutoBoundsIO ftk a
         pure $! astShare var a

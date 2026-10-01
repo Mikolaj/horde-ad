@@ -16,7 +16,7 @@ module HordeAd.Core.DeltaFreshId
 import Prelude
 
 import Control.Concurrent.Counter (Counter, add, new, set)
-import System.IO.Unsafe (unsafePerformIO)
+import System.IO.Unsafe (unsafeDupablePerformIO, unsafePerformIO)
 
 import HordeAd.Core.Delta
 
@@ -42,11 +42,11 @@ unsafeGetFreshId :: IO Int
 {-# INLINE unsafeGetFreshId #-}
 unsafeGetFreshId = add unsafeGlobalCounter 1
 
--- Tests don't show a speedup from `unsafeDupablePerformIO`,
--- perhaps due to counter gaps that it may introduce.
+-- Why @unsafeDupablePerformIO@ and not @unsafePerformIO@
+-- is explained in the header of "HordeAd.Core.AstFreshId".
 --
 -- | The impurity exported from this module by @shareDelta@,
--- stemming from the use of @unsafeGetFreshId@ under @unsafePerformIO@,
+-- stemming from the use of @unsafeGetFreshId@ under @unsafeDupablePerformIO@,
 -- is thread-safe, admits parallel tests
 -- and does not require @-fno-full-laziness@ nor @-fno-cse@.
 --
@@ -56,7 +56,7 @@ unsafeGetFreshId = add unsafeGlobalCounter 1
 shareDelta :: forall y target.
               Delta target y -> Delta target y
 {-# NOINLINE shareDelta #-}
-shareDelta d = unsafePerformIO $ do
+shareDelta d = unsafeDupablePerformIO $ do
   n <- unsafeGetFreshId
   return $! case d of
     DeltaShare{} -> d  -- should not happen, but older/lower id is safer anyway

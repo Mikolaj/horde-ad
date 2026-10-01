@@ -2,8 +2,20 @@
 -- generate fresh variables and sometimes also produce AST terms
 -- by applying functions to such variables. This module encapsulates
 -- the impurity, though some functions are in IO and they are used
--- with @unsafePerformIO@ outside, so some of the impurity escapes
+-- with @unsafeDupablePerformIO@ outside, so some of the impurity escapes
 -- and is encapsulated elsewhere.
+--
+-- Fresh identifiers are drawn under @unsafeDupablePerformIO@ throughout
+-- the library, not @unsafePerformIO@, whose @noDuplicate#@ walks
+-- the evaluation stack on every call whenever more than one capability
+-- runs (tasty raises the count to the number of processors even for
+-- sequential tests), which is costly on deep stacks. A duplicated
+-- evaluation is harmless: the counters are atomic, so each copy gets
+-- distinct identifiers, and each result binds its variables together
+-- with their uses, so the worst outcome is a counter gap or a lost
+-- opportunity for sharing. The counters themselves are created with
+-- @unsafePerformIO@, because two copies of a counter would hand out
+-- duplicate identifiers.
 module HordeAd.Core.AstFreshId
   ( funToAstIO, funToAst
   , funToAstIntIO, funToAstInt
@@ -20,7 +32,7 @@ import Prelude
 import Control.Concurrent.Counter (Counter, add, new, set)
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import GHC.Exts (IsList (..))
-import System.IO.Unsafe (unsafePerformIO)
+import System.IO.Unsafe (unsafeDupablePerformIO, unsafePerformIO)
 import Type.Reflection (typeRep)
 
 import Data.Array.Nested.Shaped.Shape
@@ -61,7 +73,7 @@ funToAst :: KnownSpan s
          => FullShapeTK y -> (AstTensor ms s y -> AstTensor ms s2 z)
          -> (AstVarName '(s, y), AstTensor ms s2 z)
 {-# NOINLINE funToAst #-}
-funToAst ftk = unsafePerformIO . funToAstIO ftk
+funToAst ftk = unsafeDupablePerformIO . funToAstIO ftk
 
 funToAstIntIO :: (Int, Int) -> (AstInt ms -> AstTensor ms s2 z)
               -> IO (IntVarName, AstTensor ms s2 z)
@@ -75,7 +87,7 @@ funToAstIntIO bds f = do
 funToAstInt :: (Int, Int) -> (AstInt ms -> AstTensor ms s2 z)
             -> (IntVarName, AstTensor ms s2 z)
 {-# NOINLINE funToAstInt #-}
-funToAstInt bds = unsafePerformIO . funToAstIntIO bds
+funToAstInt bds = unsafeDupablePerformIO . funToAstIntIO bds
 
 funToAstIntMaybeIO :: Maybe (Int, Int) -> ((IntVarName, AstInt ms) -> a)
                    -> IO a
@@ -90,7 +102,7 @@ funToAstIntMaybeIO mbounds f = do
 
 funToAstIntMaybe :: Maybe (Int, Int) -> ((IntVarName, AstInt ms) -> a) -> a
 {-# NOINLINE funToAstIntMaybe #-}
-funToAstIntMaybe mbounds = unsafePerformIO . funToAstIntMaybeIO mbounds
+funToAstIntMaybe mbounds = unsafeDupablePerformIO . funToAstIntMaybeIO mbounds
 
 funToAstAutoBoundsIO :: forall r s ms. KnownSpan s
                      => FullShapeTK (TKScalar r) -> AstTensor ms s (TKScalar r)
@@ -169,4 +181,4 @@ funToVarsIxS
   :: ShS sh -> (AstVarListS sh -> AstIxS ms sh -> AstTensor ms s2 z)
   -> AstTensor ms s2 z
 {-# NOINLINE funToVarsIxS #-}
-funToVarsIxS sh = unsafePerformIO . funToVarsIxIOS sh
+funToVarsIxS sh = unsafeDupablePerformIO . funToVarsIxIOS sh
