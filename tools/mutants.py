@@ -357,6 +357,18 @@ MUTANTS = [
     ('core-diff --module matching no module accepted', 'core-diff.py',
      '    if sub is not None and not any(sub in k for t in trees for k in t):\n',
      '    if False:\n', ST),
+    # check-doc-examples-07 (2026-10-02): a quotation of another repository's
+    # code read as this one's, by each path a permalink reaches it.
+    ('check-doc-examples quotation never detected', 'check-doc-examples.py',
+     '                cur, src = [], quoted_from(prev, defs)\n',
+     '                cur, src = [], None\n', ST),
+    ('check-doc-examples permalink into this repository taken for a quotation', 'check-doc-examples.py',
+     '                                capture_output=True).returncode != 0:\n',
+     '                                capture_output=True).returncode != 0 or True:\n', ST),
+    ('check-doc-examples permalink through a reference definition missed', 'check-doc-examples.py',
+     '             if k in defs]\n', '             if False]\n', ST),
+    ('check-doc-examples inline permalink missed', 'check-doc-examples.py',
+     '    urls = [m.group(0) for m in PERMALINK_RE.finditer(line)]\n', '    urls = []\n', ST),
     # pragma-calls (2026-09-30): each watched failing its self-test before
     # it was written down here.
     ('pragma-calls specialisation prefix no longer normalised', 'pragma-calls.py',

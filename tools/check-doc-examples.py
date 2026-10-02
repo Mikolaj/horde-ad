@@ -32,7 +32,12 @@ against its own imports rather than this repo's sources. The self-test carries
 a control for the skip. A reproducer that needs no `main` names some other
 module instead, and that name is a declaration rather than a reference, so
 `local_names` takes it: its own control is a block declaring a module and using
-nothing.
+nothing. A block quoting another repository's code -- GHC's, say -- is skipped
+and listed too, its names resolving there: one whose preceding line pins
+a permalink, inline or through a reference definition, to a commit this
+repository does not hold (check-doc-examples-07). A permalink into this
+repository's own history leaves the block checked, and the self-test carries
+both controls.
 
 Both are deliberately narrow. What they cannot see is the more common
 defect: an example naming a real thing that is nonetheless the *wrong*
@@ -74,7 +79,7 @@ thirteen Haskell fences yielding thirteen capitalised names, and six
 rather than the verdict, since
 "0 unresolved" reads the same whether the extractor works or finds
 nothing to work on. The counts are not printed -- load the module and
-call `strip_comments`/`NAME_RE` over `fenced_bodies` yourself -- and they move
+call `strip_comments`/`NAME_RE` over the bodies `fenced_bodies` returns -- and they move
 whenever a document gains or loses a fence, so re-take them with the edit
 rather than reading a stale one as a pass.
 
@@ -109,6 +114,12 @@ DECL_RE = re.compile(r"^(?:type|data|newtype|class)\s+([A-Z][A-Za-z0-9_]*)",
                      re.M)
 CTOR_RE = re.compile(r"^(?:data|newtype)\s+[A-Z].*?=(.*?)(?=^\S|\Z)", re.S | re.M)
 NAME_RE = re.compile(r"\b([A-Z][A-Za-z0-9_]{3,})\b")
+# A pinned permalink, GitHub's `/blob/SHA/` or GitLab's `/-/blob/SHA/`, and
+# a reference definition and a reference use, which may carry one instead.
+PERMALINK_RE = re.compile(r"https?://[^\s)<>\]]+?/blob/([0-9a-f]{7,40})/"
+                          r"[^\s)<>\]]*")
+LINKDEF_RE = re.compile(r"^ {0,3}\[([^\]]+)\]:\s*(\S+)", re.M)
+LINKREF_RE = re.compile(r"\[([^\]]*)\](?:\[([^\]]*)\])?")
 
 
 def sources():
@@ -133,22 +144,45 @@ def sources():
                         errors="replace").read() for f in paths)
 
 
+def quoted_from(line, defs):
+    """The permalink LINE pins, inline or through a reference definition
+    in DEFS, to a commit this repository does not hold; None otherwise."""
+    urls = [m.group(0) for m in PERMALINK_RE.finditer(line)]
+    urls += [defs[k] for k in (((m.group(2) or m.group(1)).lower())
+                               for m in LINKREF_RE.finditer(line))
+             if k in defs]
+    for url in urls:
+        m = PERMALINK_RE.match(url)
+        if m and subprocess.run(["git", "cat-file", "-e",
+                                 m.group(1) + "^{commit}"],
+                                capture_output=True).returncode != 0:
+            return url
+    return None
+
+
 def fenced_bodies(text):
-    """The bodies of the document's fenced blocks in FENCE_LANGS, each
-    dedented by its fence's indentation, a block left open included."""
-    bodies, cur = [], None
+    """[(body, source)] of the document's fenced blocks in FENCE_LANGS, each
+    body dedented by its fence's indentation, a block left open included;
+    source is the permalink a quotation of another repository's code is
+    pinned by, on the last non-blank line before its fence, else None."""
+    defs = {k.lower(): u for k, u in LINKDEF_RE.findall(text)}
+    out, cur, src, prev = [], None, None, ""
     for line, kind, info in common.fence_scan(text.splitlines()):
         if kind == "open":
-            cur = [] if info.split()[:1] and info.split()[0] in FENCE_LANGS \
-                else None
+            if info.split()[:1] and info.split()[0] in FENCE_LANGS:
+                cur, src = [], quoted_from(prev, defs)
+            else:
+                cur = None
         elif kind == "in" and cur is not None:
             cur.append(line)
         elif kind == "close" and cur is not None:
-            bodies.append("\n".join(cur) + "\n")
+            out.append(("\n".join(cur) + "\n", src))
             cur = None
+        if line.strip():
+            prev = line
     if cur is not None:
-        bodies.append("\n".join(cur) + "\n")
-    return bodies
+        out.append(("\n".join(cur) + "\n", src))
+    return out
 
 
 def strip_comments(code):
@@ -184,8 +218,12 @@ def check_types(doc, text, src):
     # issue reproducer, say), not an excerpt of this repo's API: its names
     # resolve against its own imports, which this checker cannot see, so
     # the block is skipped rather than failed.
-    bodies = [b for b in fenced_bodies(text)
-              if not re.search(r"^module\s+Main\b", b, re.M)]
+    blocks = fenced_bodies(text)
+    for _, quote in blocks:
+        if quote:
+            print(f"note {doc}: a quotation of {quote}, not checked")
+    bodies = [b for b, quote in blocks if quote is None
+              and not re.search(r"^module\s+Main\b", b, re.M)]
     code = strip_comments("".join(bodies))
     if not code.strip():
         return 0
@@ -225,6 +263,8 @@ def check_outputs(doc, text, normsrc):
 SELF_TEST_TYPE = "ControlTypeThatCannotExistAnywhere"
 SELF_TEST_SKIP = "ControlTypeInsideStandaloneProgram"
 SELF_TEST_MOD = "ControlModuleNamingItself"
+SELF_TEST_QUOTE = "ControlTypeInsideForeignQuotation"
+SELF_TEST_OWN = "ControlTypeAfterOwnPermalink"
 SELF_TEST_OUT = "control output present in no tracked source of this repository"
 
 
@@ -244,7 +284,9 @@ def self_test():
     drowns in its own; the ALL-CAPS comment word must not read as a type;
     and the last output is lifted verbatim from the sources, so failing
     to match it would mean the output branch had stopped resolving
-    anything at all.
+    anything at all. Two quotations pinned to commits nobody holds, one
+    inline and one through a reference definition, are listed and not
+    checked, while the block after a permalink into HEAD is checked.
     """
     src = sources()
     if src is None:
@@ -256,6 +298,12 @@ def self_test():
     if not real:
         print("self-test: no usable source line found", file=sys.stderr)
         return 2
+    head = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True,
+                          text=True).stdout.strip()
+    if not head:
+        print("self-test: git names no HEAD here", file=sys.stderr)
+        return 2
+    far = "https://gitlab.example.org/g/g/-/blob/%s/x.hs#L1"
     doc = (
         "# check-doc-examples self-test control\n\n"
         "```hs\n"
@@ -280,16 +328,32 @@ def self_test():
         "```hs\n"
         ">>> realExpr\n"
         f"{real}\n"
-        "```\n")
+        "```\n\n"
+        f"[quoted]({far % ('0' * 40)})\n\n"
+        "```hs\n"
+        f"quoted :: {SELF_TEST_QUOTE}\n"
+        "```\n\n"
+        "[quoted again][far]\n\n"
+        "```hs\n"
+        f"again :: {SELF_TEST_QUOTE}\n"
+        "```\n\n"
+        f"[here](https://github.com/x/y/blob/{head}/x.hs#L1)\n\n"
+        "```hs\n"
+        f"own :: {SELF_TEST_OWN}\n"
+        "```\n\n"
+        f"[far]: {far % ('1' * 40)}\n")
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         types = check_types("<self-test>", doc, src)
         outs = check_outputs("<self-test>", doc, norm(src))
     lines = [ln for ln in buf.getvalue().splitlines() if ln.strip()]
-    ok = (types == 1 and outs == 1
+    ok = (types == 2 and outs == 1
           and any(SELF_TEST_TYPE in ln for ln in lines)
+          and any(SELF_TEST_OWN in ln for ln in lines)
+          and sum("a quotation of" in ln for ln in lines) == 2
           and not any("Local" in ln or "NOTE" in ln
                       or SELF_TEST_SKIP in ln or SELF_TEST_MOD in ln
+                      or SELF_TEST_QUOTE in ln
                       for ln in lines))
     for ln in lines:
         print("  " + ln)
@@ -319,7 +383,7 @@ def self_test():
         ok = False
         print("  the from-the-root control did not run")
     print(f"\nself-test: {types} type finding(s), {outs} output finding(s),"
-          f" expected 1 and 1")
+          f" expected 2 and 1")
     print("self-test: PASS --- both branches fire and no control was reported"
           if ok else
           "self-test: FAIL --- a branch has stopped firing, or a control"

@@ -1376,6 +1376,33 @@
    ],
    "bug_exit": 0,
    "bug_text": "0 unresolved"
+  },
+  {
+   "id": "check-doc-examples-07",
+   "program": "check-doc-examples.py",
+   "name": "a fenced block quoting another repository's code, pinned by a permalink on the line before it, had its names resolved against this repository's sources and failed every one",
+   "family": "other:quotation-read-as-claim",
+   "fix_rev": "self",
+   "trigger": "a line linking https://gitlab.example.org/g/g/-/blob/<a commit this repository lacks>/x.hs#L1, then a ```haskell block naming NoSuchQuotedType",
+   "ok": "note d.md: a quotation of <the permalink>, not checked; exit 0",
+   "bug": "FAIL d.md: type NoSuchQuotedType --- defined neither here nor in the sources, exit 1",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "review",
+   "notes": "Found by the /code-review max run of 2026-10-02 over drop-recursive-inline: docs/ghc-issue-cbv-dictionary-case.md quotes GHC's Specialise.hs under a pinned GitLab permalink, and eight GHC-internal types made check-all's doc examples step red. A permalink into a commit this repository holds leaves the block checked, so quoting this repository's own code is still read as a claim about it.",
+   "plant_cmd": "mkdir repo && cd repo && git init -q . && printf 'module A where\\nx :: Int\\nx = 1\\n' > A.hs && printf '%s\\n' '# T' '' '[Specialise.hs, line 1](https://gitlab.example.org/g/g/-/blob/0123456789abcdef0123456789abcdef01234567/x.hs#L1)' '' '```haskell' 'f :: NoSuchQuotedType' '```' > d.md && git add -A && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm c",
+   "env": {
+    "GIT_DIR": "{tmp}/repo/.git",
+    "GIT_WORK_TREE": "{tmp}/repo"
+   },
+   "invoke": [
+    "{tmp}/repo/d.md"
+   ],
+   "expect_exit": 0,
+   "expect_text": "a quotation of https://gitlab.example.org/g/g/-/blob/0123456789abcdef0123456789abcdef01234567/x.hs#L1, not checked",
+   "expect_absent": "NoSuchQuotedType",
+   "bug_exit": 1,
+   "bug_text": "FAIL d.md: type NoSuchQuotedType"
   }
  ]
 }
