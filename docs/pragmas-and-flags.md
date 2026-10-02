@@ -138,7 +138,7 @@ for robustness rather than speed.
 
 | Flag | Change | Effect |
 |---|---|---|
-| `-flate-dmd-anal` | removed | instructions unchanged on every row, allocation unchanged; package build −9% on the baseline and −8% on top of the pragma removals |
+| `-flate-dmd-anal` | removed | instructions unchanged on every row, allocation unchanged, wall time over all 204 rows −0.3%; package build −9% on the baseline and −5.6% on top of the pragma removals |
 | `-fworker-wrapper-cbv` | kept | without it `gather48` +3.8% instructions, `scatter48` +2.2%, `cnn-6x6` +2.1%, `100/cgrad k list` +3.8%, at unchanged allocation; its build cost, 17% on the baseline, is within noise once the pragmas go |
 | `-fspecialise-aggressively` | kept | `cgrad` +48% without it |
 | `-fpolymorphic-specialisation` | kept | `grad k MapAccum` +41% without it |
@@ -156,6 +156,24 @@ it also stops importers from specialising what a worker calls, GHC
 makes a CAFlessTest build with the flag 25% faster than one without it; on
 9.14.1 CAFlessTest's mutator time does not move with this commit.
 `-flate-specialise` was not measured; the `.cabal` file's comment on it stands.
+
+`-flate-dmd-anal` was measured again on top of the pragma removals, with
+interleaved builds and interleaved wall-time pairs. Four builds in the order
+without, with, with, without put its cost at 5.9% of the package build (library
++5.0%, the rest +6.5%), so removing it saves 5.6%, not the 8% of the single
+build in the table below. Its wall time over every row of the four suites, the
+median of four palindromic pairs per row, has a geometric mean of +0.3%, the
+rows ranging from −10% to +14%. CAFlessTest, a test suite rather than a
+benchmark, ran 12% slower with it: the flag exposes GHC
+[#27885](https://gitlab.haskell.org/ghc/ghc/-/work_items/27885), which makes
+the loop of the backward pass non-tail recursive, and every `unsafePerformIO`
+drawing a fresh identifier then walked the deep stack in the runtime's
+`threadPaused`. Drawing them under `unsafeDupablePerformIO` instead (the module
+header of `HordeAd.Core.AstFreshId`) brings the flag's cost on CAFlessTest to
+1%, and the fix proposed in that issue removes the stack growth itself. On GHC
+HEAD (commit `234bab0816` with the fixes of #27873 and #27874) the flag costs
+8.7% of the build and its wall time over the 204 rows has a geometric mean of
++0.2%.
 
 ## Build time
 
