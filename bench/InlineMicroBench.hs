@@ -291,7 +291,7 @@ main = do
         , bench "treverse-P4" $ whnf (treverse snatK stkP4) adBP4
         , bench "tappend-P4" $ whnf (\u -> tappend snatK snatK stkP4 u u) adBP4
         , bench "tunravelToListShare-P4" $
-            whnf (length . tunravelToListShare snatK stkP4) adBP4
+            whnf (foldr seq () . tunravelToListShare snatK stkP4) adBP4
         , bench "tsize-P4" $ whnf (tsize stkP4) adP4
         ]
     , bgroup "AstRaw"
@@ -301,7 +301,7 @@ main = do
         , bench "tappend-P4" $
             whnf (\u -> tappend snatK snatK stkP4 u u) (rawOf aBP4)
         , bench "tunravelToListShare-P4" $
-            whnf (length . tunravelToListShare snatK stkP4) (rawOf aBP4)
+            whnf (foldr seq () . tunravelToListShare snatK stkP4) (rawOf aBP4)
         , bench "tsize-P4" $ whnf (tsize stkP4) (rawOf aP4)
         ]
     , bgroup "Ast"
