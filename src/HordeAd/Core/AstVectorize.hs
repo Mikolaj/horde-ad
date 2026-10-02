@@ -66,7 +66,15 @@ build1Vectorize snat@SNat stk (!var, !v0) = do
   let width = 1000 * traceWidth
       startTerm = Ast.AstBuild1 snat stk (var, v0)
   when enabled $ do
-    noDuplicate  -- tracing has effects that must not be repeated
+    -- Not needed: the only caller, astBuild1Vectorize, runs this under
+    -- unsafePerformIO, whose noDuplicate# has claimed the evaluation before
+    -- this branch runs, so no second thread can be here at once and the
+    -- effects below run once. It would be needed again if build1Vectorize were
+    -- ever run under unsafeDupablePerformIO, which tools/check-fresh-draws.py
+    -- refuses unless its ALLOW table lists the caller; mkTraceRule, which that
+    -- table does list, keeps its own noDuplicate for exactly that reason (the
+    -- header of HordeAd.Core.AstFreshId).
+    -- noDuplicate  -- tracing has effects that must not be repeated
     writeIORef traceNestingLevel 0
     hPutStrLnFlush stderr $
       "\n"
