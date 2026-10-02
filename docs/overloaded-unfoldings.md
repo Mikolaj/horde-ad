@@ -45,8 +45,8 @@ below used `tools/ticky-diff.py` and `tools/core-diff.py`:
    `inlineMicroBench` and `shortMnistForCI`. Exact: an unmodified control build
    reproduced R's figures to the byte. Unrelated edits can still move a row
    by up to 1.5%, so 0.5% is the noise margin.
-2. Estimated cycles per call, from cachegrind with cache simulation, Ir + 10 ×
-   (I1mr + D1mr + D1mw) + 100 × (ILmr + DLmr + DLmw), as the difference
+2. Estimated cycles per call, from cachegrind with cache simulation, Ir + 10 *
+   (I1mr + D1mr + D1mw) + 100 * (ILmr + DLmr + DLmw), as the difference
    of an `--iters 2N` and an `--iters N` run divided by N. It replaces
    `perf stat`, which the VM does not support, and is deterministic.
 3. Wall time, only as interleaved A/B pairs, one benchmark per process, reading

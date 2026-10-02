@@ -81,7 +81,7 @@ changed the verdict on one of them.
 | `OpsTensor.hs` | 2 `INLINE` (`rfold`, `rscan`) | as above |
 | `ADEngine.hs` | 12 `INLINE` | Core 0.83; allocation unchanged |
 | `Core/AstInterpret.hs` | 3 `INLINE` (`interpretAstDual`, `interpretAstR1`, `interpretAstR2`) | Core 0.99; allocation unchanged, instructions within 0.03% |
-| `example/MnistData.hs` | 8 `SPECIALISE` | Core 0.96 with `MnistFcnnRanked1`'s four, `MnistData`'s own 0.59; rank-1 VTA MNIST −1.7% allocation |
+| `example/MnistData.hs` | 8 `SPECIALISE` | Core 0.96 with `MnistFcnnRanked1`'s four, `MnistData`'s own 0.59; rank-1 VTA MNIST -1.7% allocation |
 | `example/MnistFcnnRanked1.hs` | 4 `SPECIALISE` on `afcnnMnistLoss1`, plus a commented-out one | as above |
 
 "Core" is the size of the optimised Core summed over every module
@@ -139,14 +139,14 @@ been chosen for robustness rather than speed.
 
 | Flag | Change | Effect |
 |---|---|---|
-| `-flate-dmd-anal` | removed | instructions unchanged on every row, allocation unchanged, wall time over all 204 rows −0.3%; package build −9% on the baseline and −5.6% on top of the pragma removals |
+| `-flate-dmd-anal` | removed | instructions unchanged on every row, allocation unchanged, wall time over all 204 rows -0.3%; package build -9% on the baseline and -5.6% on top of the pragma removals |
 | `-fworker-wrapper-cbv` | kept | without it `gather48` +3.8% instructions, `scatter48` +2.2%, `cnn-6x6` +2.1%, `100/cgrad k list` +3.8%, at unchanged allocation; its build cost, 17% on the baseline, is within noise once the pragmas go |
 | `-fspecialise-aggressively` | kept | `cgrad` +48% without it |
 | `-fpolymorphic-specialisation` | kept | `grad k MapAccum` +41% without it |
 | `-fdicts-cheap` | kept | `grad k MapAccum` 6.4 times without it |
 | `-fkeep-auto-rules` | kept | `grad` +2--8% without it |
-| `-O2` | not added | `cgrad k MapAccum` −1.1 to −1.4%, micro-benchmarks up to −5%: under 2% on everything but micro-benchmarks, so its constituents were not bisected |
-| `-fspec-constr` | not added | the same −1.1% on `cgrad` |
+| `-O2` | not added | `cgrad k MapAccum` -1.1 to -1.4%, micro-benchmarks up to -5%: under 2% on everything but micro-benchmarks, so its constituents were not bisected |
+| `-fspec-constr` | not added | the same -1.1% on `cgrad` |
 | `-fliberate-case` | not added | no effect |
 
 `-fworker-wrapper-cbv` makes workers take strict arguments evaluated, which
@@ -164,7 +164,7 @@ in the order without, with, with, without put its cost at 5.9% of the package
 build (library +5.0%, the rest +6.5%), so removing it saves 5.6%, not the 8%
 of the single build in the table below. Its wall time over every row of the four
 suites, the median of four palindromic pairs per row, has a geometric mean
-of +0.3%, the rows ranging from −10% to +14%. CAFlessTest, a test suite rather
+of +0.3%, the rows ranging from -10% to +14%. CAFlessTest, a test suite rather
 than a benchmark, ran 12% slower with it: the flag exposes GHC
 [#27885](https://gitlab.haskell.org/ghc/ghc/-/work_items/27885), which makes
 the loop of the backward pass non-tail recursive, and every `unsafePerformIO`
@@ -172,9 +172,10 @@ drawing a fresh identifier then walked the deep stack in the runtime's
 `threadPaused`. Drawing them under `unsafeDupablePerformIO` instead (the module
 header of `HordeAd.Core.AstFreshId`) brings the flag's cost on CAFlessTest
 to 1%, and the fix proposed in that issue removes the stack growth itself.
-On GHC HEAD (commit `234bab0816` with the fixes of #27873 and #27874) the flag
-costs 8.7% of the build and its wall time over the 204 rows has a geometric mean
-of +0.2%.
+On GHC HEAD (commit `234bab0816` with the fixes of GHC
+[#27873](https://gitlab.haskell.org/ghc/ghc/-/work_items/27873) and #27874)
+the flag costs 8.7% of the build and its wall time over the 204 rows has
+a geometric mean of +0.2%.
 
 ## Build time
 
