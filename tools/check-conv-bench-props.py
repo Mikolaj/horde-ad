@@ -199,6 +199,11 @@ import subprocess
 import sys
 import tempfile
 
+# Beside this file, which a path import (a defect case's unit) leaves off
+# sys.path.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import common  # noqa: E402
+
 MIN_R2 = 0.95
 MIN_SAMPLES = 10
 MIN_ALLOC_R2 = 0.999
@@ -227,14 +232,12 @@ class Tracked(dict):
         return super().__getitem__(k)
 
 
-def regression(report, responder, hint):
+def regression(regs, name, responder, hint):
     """The named regression against iteration count. criterion always fits
     "time"; the others have to be asked for at collection time."""
-    for reg in report["reportAnalysis"]["anRegress"]:
-        if reg["regResponder"] == responder:
-            return reg
-    usage_error(f"no {responder}-vs-iters regression for"
-                f" {report['reportName']} --- {hint}")
+    if responder in regs:
+        return regs[responder]
+    usage_error(f"no {responder}-vs-iters regression for {name} --- {hint}")
 
 
 def load(paths):
@@ -248,39 +251,33 @@ def load(paths):
         # read as a property failure (check-conv-bench-props-02), and so
         # does a collection that does not partition the suite.
         try:
-            with open(path) as f:
-                reports = json.load(f)[2]
-            if not isinstance(reports, list):
-                raise TypeError("the third element is not a list of reports")
-        except (OSError, ValueError, LookupError, TypeError) as e:
-            usage_error(f"{path}: not a readable criterion --json collection"
-                        f" ({type(e).__name__}: {e})")
-        for report in reports:
+            reports = common.criterion_reports(path)
+        except common.CriterionError as e:
+            usage_error(str(e))
+        for name, regs, report in reports:
             try:
-                name = report["reportName"]
-                report["reportAnalysis"]["anRegress"]
-                len(report["reportMeasured"])
+                samples = len(report["reportMeasured"])
             except (KeyError, TypeError) as e:
                 usage_error(f"{path}: a report without {e} is not criterion's")
             if name in t:
                 usage_error(f"benchmark collected twice, the second time"
                             f" in {path} (the files must partition the"
                             f" suite): {name}")
-            treg = regression(report, "time", "criterion fits this one"
+            treg = regression(regs, name, "time", "criterion fits this one"
                               " always, so the file is not criterion"
                               " --json output")
-            areg = regression(report, "allocated", "collect with"
+            areg = regression(regs, name, "allocated", "collect with"
                               " --regress allocated:iters and +RTS -T")
             try:
-                t[name] = treg["regCoeffs"]["iters"]["estPoint"]
-                alloc[name] = areg["regCoeffs"]["iters"]["estPoint"]
-                fit[name] = (len(report["reportMeasured"]),
-                             treg["regRSquare"]["estPoint"],
-                             areg["regRSquare"]["estPoint"])
-            except (KeyError, TypeError) as e:
-                # The regression's own fields, which the guard above did
-                # not reach (check-conv-bench-props-04).
-                usage_error(f"{path}: the regressions of {name} lack {e}")
+                t[name] = common.slope(path, name, treg)
+                alloc[name] = common.slope(path, name, areg)
+                fit[name] = (samples,
+                             common.estimate(path, name, treg,
+                                             "regRSquare", "estPoint"),
+                             common.estimate(path, name, areg,
+                                             "regRSquare", "estPoint"))
+            except common.CriterionError as e:
+                usage_error(str(e))
     return t, alloc, fit
 
 
@@ -565,6 +562,12 @@ def self_test():
         # is not a finding (check-conv-bench-props-03).
         expect("missing benchmark", run(other), 2, "missing from the JSON",
                "6x6/S-exec")
+        # Exit 2 for a null, criterion's NaN, where a number belongs
+        # (check-conv-bench-props-05).
+        write(other, [report(n, ar2=None if n == "6x6/S-exec" else 1.0)
+                      for n in names])
+        expect("null R2", run("--allocation-only", other), 2,
+               "not a finite number", "6x6/S-exec")
         write(other, [report(n, n=8 if n == "6x6/S-exec" else 20,
                              r2=0.8 if n == "6x6/H-exec" else 1.0,
                              ar2=0.99 if n == "6x6/S-exec-raw" else 1.0)

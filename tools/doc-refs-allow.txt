@@ -9,7 +9,7 @@
 # Adding an entry is also the easy way to silently defang the checker, so
 # re-run its docstring's non-vacuity test after touching this file.
 #
-# The file holds three paths and no more. Two groups that could have been
+# The file holds a few paths and no more. Two groups that could have been
 # here were removed rather than lost:
 #
 # * Seven prose fragments --- `.md`, `.cabal`, `blob/master`, `group/bench`,
@@ -26,8 +26,7 @@
 #   it, so an upstream rename passed unnoticed. If a checkout is missing,
 #   the checker stops and says so rather than falling back to this file.
 #
-# Of the three entries, `Repro.hs` and `ReproLib.hs` are the plain kind,
-# their reason beside them.
+# The reproducer names are the plain kind, their reason beside them.
 # `.mcp.json` is neither kind. It is not a name the checker
 # should stop reading, but a name whose existence depends on who is
 # looking: the inner sandbox bind-mounts /dev/null over eleven dotfile
@@ -48,3 +47,7 @@ Repro.hs
 # A reproducer that needs a second module, because the defect is between
 # modules, names that module `ReproLib.hs` on the same terms.
 ReproLib.hs
+# Three filed GHC issues (#27879, #27880, #27885) name their second
+# module `Lib.hs`, and their documents are the filed bodies, so the name
+# stays as filed.
+Lib.hs

@@ -49,7 +49,7 @@ unclassified rather than guessed at:
            has no makefile.
   cabal    `cabal test|bench|build|haddock|run <name>` resolved against
            the stanza names declared in the repo's cabal file(s), plus the
-           package name itself. Only a name immediately following the
+           package name itself and cabal's own `all`. Only a name immediately following the
            subcommand is read, so the flag-first spellings the documents
            also use (`cabal test --enable-optimization`) are skipped
            rather than guessed at.
@@ -169,6 +169,11 @@ import subprocess
 import sys
 import tempfile
 
+# Beside this file, which a path import (a defect case's unit) leaves off
+# sys.path.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import common  # noqa: E402
+
 # --- per-repo configuration -----------------------------------------
 # Porting this script to another repository should mean editing this
 # block and nothing else; everything below it is repo-agnostic. Each
@@ -207,7 +212,7 @@ fails like the first path.
 `Arith/Internal.hs` and `Data.Array.Strided.Arith` resolve in a
 sibling, by path and by module name.
 `Core/Ast.hs` and `bench/ConvVjpBench.hs` and `cabal test minimalTest`
-and `HordeAd.Core.Ops` and `HordeAd.ADEngine` and
+and `cabal build all` and `HordeAd.Core.Ops` and `HordeAd.ADEngine` and
 `+with_expensive_assertions` are passing controls.
 `Core/Ops.hs:297,1581` and `Core/Ops.hs:297` and `Core/Ops.hs:297-320`
 are pass 1's to check, while the malformed `Core/Ops.hs:297,` stays
@@ -245,6 +250,7 @@ SELF_TEST_PROSE = ["noSuchProseSuite", "noSuchIndentedSuite"]
 # `~` and `/` ones, never resolved against what happens to be mounted.
 SELF_TEST_EXTERNAL = ["../no-such-checkout/tools/t.py"]
 SELF_TEST_OK = ["Core/Ast.hs", "bench/ConvVjpBench.hs", "minimalTest",
+                "target cabal all",
                 "Arith/Internal.hs", "Data.Array.Strided.Arith",
                 "HordeAd.Core.Ops", "HordeAd.ADEngine",
                 "with_expensive_assertions", "--restamp"]
@@ -268,7 +274,6 @@ PATH_EXT = ("hs", "ts", "mjs", "py", "cabal", "html", "md", "yaml", "yml",
 TICK_RE = re.compile(r"`([^`\n]+)`")
 # Up to three spaces of indentation, as CommonMark has it: four make the
 # line indented code (check-doc-refs-08).
-FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 
 
 def unwrapped(text):
@@ -294,18 +299,6 @@ def unwrapped(text):
 WRAP80_MISSING = False
 
 
-def chdir_root(paths):
-    """Run from the repository root whatever the cwd -- the configuration's
-    paths are root-relative -- and return PATHS rebased to it. Outside a
-    repository nothing moves."""
-    # answered dropped-status: an empty top is the failure, and the next line tests it
-    top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
-                         capture_output=True, text=True).stdout.strip()
-    if not top:
-        return paths
-    paths = [os.path.relpath(os.path.abspath(p), top) for p in paths]
-    os.chdir(top)
-    return paths
 CITE_RE = re.compile(r":\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*$")
 # The comma form is `check-plan-citations.py`'s: its `spans` expands
 # "222,1581" and "353,362,771-781" and checks every member. Recognising
@@ -456,14 +449,9 @@ def command_text(text, flat):
     # shown inside a tilde block is content. One boolean flipped by any
     # fence line read it as the closer, and the phase stayed inverted for
     # the rest of the document (check-doc-refs-05).
-    fence = None
-    for line in text.splitlines():
-        m = FENCE_RE.match(line)
-        if m and fence is None:
-            fence = m.group(1)
-        elif m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):
-            fence = None
-        elif fence or line.startswith("    ") or line.startswith("\t"):
+    for line, kind, _ in common.fence_scan(text.splitlines()):
+        if kind == "in" or (kind is None and (line.startswith("    ")
+                                               or line.startswith("\t"))):
             parts.append(line)
     return "\n".join(parts)
 
@@ -662,7 +650,7 @@ def check_commands(text, flat, targets, stanzas, ours, allow_make,
                 failures += 1
 
     for name in sorted(set(CABAL_RE.findall(commands))):
-        if name in stanzas:
+        if name in stanzas or name == "all":
             print(f"ok   target cabal {name}")
         elif name in allow_cabal:
             print(f"allow target cabal {name} --- absent on purpose, see"
@@ -852,7 +840,7 @@ def main():
     # rows are root-relative like the rest of the configuration, and
     # dispatched first it reported BLOCKED from any subdirectory
     # (check-doc-refs-07).
-    docs = chdir_root(args)
+    docs = common.chdir_root(args)
     if "--self-test" in sys.argv[1:]:
         return self_test()
     docs = docs or ["CLAUDE.md"]

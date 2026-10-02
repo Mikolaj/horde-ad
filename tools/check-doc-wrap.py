@@ -70,6 +70,11 @@ import subprocess
 import sys
 import tempfile
 
+# Beside this file, which a path import (a defect case's unit) leaves off
+# sys.path.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import common  # noqa: E402
+
 # Which form a document keeps cannot be read off its bytes -- long lines mean
 # badly wrapped or deliberately unwrapped, and nothing in the file says which
 # -- but it CAN be read off its history. The committed version is at whichever
@@ -117,20 +122,6 @@ def committed_form(rel):
     return None
 
 
-def chdir_root(paths):
-    """Run from the repository root whatever the cwd -- the configuration's
-    paths are root-relative -- and return PATHS rebased to it. Outside a
-    repository nothing moves."""
-    # answered dropped-status: an empty top is the failure, and the next line tests it
-    top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
-                         capture_output=True, text=True).stdout.strip()
-    if not top:
-        return paths
-    paths = [os.path.relpath(os.path.abspath(p), top) for p in paths]
-    os.chdir(top)
-    return paths
-
-
 def tracked_markdown():
     """Every Markdown file git has, which is what the lists used to spell."""
     p = subprocess.run(["git", "ls-files", "*.md"],
@@ -148,36 +139,36 @@ def tracked_markdown():
 # plain "1990. The year" is a real list item and is left alone.
 FAKE_MARKER = re.compile(r"^\s*(\d+[a-z]|[a-z]|[A-Z]|[ivxlcIVXLC]+)[.)]\s")
 REAL_MARKER = re.compile(r"^\s*([-*+]\s|\d{1,9}[.)]\s)")
-# Up to three spaces of indentation, as CommonMark has it: four make the line
-# indented code, on either side of a block (check-doc-wrap-08).
-FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
+HEADING = re.compile(r"^ {0,3}#{1,6}(\s|$)")
 
 
 def fake_markers(text):
-    """[(line number, line)] for enumerators Markdown will not read as such."""
-    # The open fence, kind and length: CommonMark closes a block only with
-    # a fence of the same character at least as long, so a backtick fence
-    # shown inside a tilde block is content. One boolean flipped by any
-    # fence line read it as the closer (check-doc-wrap-06).
-    # answered boolean-pair-state: the fence, the typed one, keeps kind and length
-    out, fence, code, blank = [], None, False, True
-    for i, l in enumerate(text.split("\n"), 1):
-        m = FENCE.match(l)
+    """[(line number, line)] for enumerators Markdown will not read as such,
+    on a line that starts a block. A continuation line is never read as a
+    list item, and at either fixed point its break is the formatter's, which
+    starts a line with `2x.` or `C.` wherever the text has one
+    (check-doc-wrap-09)."""
+    # Fenced code is common.fence_scan's to tell: one boolean flipped by
+    # any fence line read a backtick fence inside a tilde block as the
+    # closer (check-doc-wrap-06).
+    out, code, starts = [], False, True
+    for i, (l, kind, _) in enumerate(common.fence_scan(text.split("\n")), 1):
         indented = l.startswith("    ") or l.startswith("\t")
-        if m and fence is None:
-            fence = m.group(1)
-        elif m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):
-            fence = None
-        elif fence is None and indented and (blank or code):
+        if kind:
+            pass
+        elif indented and (starts or code):
             # An indented code block: four spaces after a blank line, and
             # every indented line after that. A shell `case` arm in one was
             # reported as an enumerator (check-doc-wrap-07).
             code = True
-        elif fence is None and FAKE_MARKER.match(l) and not REAL_MARKER.match(l):
+        elif starts and FAKE_MARKER.match(l) and not REAL_MARKER.match(l):
             out.append((i, l.strip()))
         if l.strip() and not indented:
             code = False
-        blank = not l.strip()
+        # The next line starts a block after a blank line, a heading,
+        # a fence line or a line of indented code, which nothing continues.
+        starts = (not l.strip() or kind in ("open", "close") or code
+                  or bool(HEADING.match(l)))
     return out
 
 
@@ -409,7 +400,12 @@ def self_test():
             got = fake_markers("para\n\n    x) echo hi;;\n    y) echo ho;;\n")
             expect("indented code block", len(got), 0, "")
             got = fake_markers("para\n    a) foo\n")
-            expect("indented paragraph continuation", len(got), 1, "")
+            expect("indented paragraph continuation", len(got), 0, "")
+            # Only a line that starts a block is read as a list item.
+            got = fake_markers("para ends at\n2x. continued\n")
+            expect("continuation line", len(got), 0, "")
+            got = fake_markers("para\n\n2x. starts\n# H\nb) starts\n")
+            expect("block starts", len(got), 2, "")
             # A fence line indented four spaces is code, not a fence, on
             # either side of a block.
             got = fake_markers("para\n\n    ```\n1a. shown\n")
@@ -477,7 +473,7 @@ def main():
     # checker here does: this one's self-test names no root-relative path,
     # but two siblings' did and reported wrongly from a subdirectory.
     args = [a for a in sys.argv[1:] if a != "--self-test"]
-    docs = chdir_root(args)
+    docs = common.chdir_root(args)
     if sys.argv[1:] == ["--self-test"]:
         return self_test()
     docs = docs or tracked_markdown()

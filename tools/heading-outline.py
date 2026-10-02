@@ -59,12 +59,16 @@ import os
 import re
 import sys
 
+# Beside this file, which a path import (a defect case's unit) leaves off
+# sys.path.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import common  # noqa: E402
+
 ATX = re.compile(r'^(#{1,6}) +(.*?)\s*#*\s*$')
 RULE_EQ = re.compile(r'^=+\s*$')
 RULE_DASH = re.compile(r'^-+\s*$')
 # Up to three spaces of indentation, as CommonMark has it: four make the
 # line indented code (heading-outline-05).
-FENCE = re.compile(r'^ {0,3}(`{3,}|~{3,})')
 # What may sit between frontmatter's delimiters: a key or a continuation.
 # Anything else says the opening `---` was a rule; a YAML comment would
 # too, since `#` is how a heading framed by two rules opens.
@@ -99,23 +103,13 @@ def frontmatter_end(lines):
 def outline(path):
     lines = open(path, encoding='utf-8').read().splitlines()
     headings = []
-    fence = None
     prev = ''
     body = frontmatter_end(lines)
-    for i, line in enumerate(lines):
-        if i < body:
-            continue
-        # The open fence, kind and length: CommonMark closes a block only
-        # with a fence of the same character at least as long. One boolean
-        # flipped by any fence line let a backtick fence inside a tilde
-        # block promote the fenced `#` lines and swallow every heading
-        # after it (heading-outline-03).
-        m = FENCE.match(line)
-        if m and fence is None:
-            fence = m.group(1)
-        elif m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):
-            fence = None
-        if m or fence:
+    # Fenced code is common.fence_scan's to tell: one boolean flipped by
+    # any fence line let a backtick fence inside a tilde block promote the
+    # fenced `#` lines and swallow every heading after it (heading-outline-03).
+    for i, (line, kind, _) in enumerate(common.fence_scan(lines[body:]), body):
+        if kind:
             prev = ''      # neither a fence nor its contents underlines
             continue
         atx = ATX.match(line)

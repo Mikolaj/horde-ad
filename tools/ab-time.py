@@ -25,12 +25,16 @@ Exit 0 when every pair ran, 2 when one did not: a run failing, or its JSON
 without one report carrying a time regression.
 """
 
-import json
 import os
 import statistics
 import subprocess
 import sys
 import tempfile
+
+# Beside this file, which a path import (a defect case's unit) leaves off
+# sys.path.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import common  # noqa: E402
 
 
 def slope(binary, name):
@@ -44,17 +48,16 @@ def slope(binary, name):
         if r.returncode != 0:
             raise ValueError(f'{binary} on {name} exited {r.returncode}: '
                              + r.stderr[-500:])
-        with open(path) as fh:
-            reports = json.load(fh)[2]
+        reports = common.criterion_reports(path)
     finally:
         os.unlink(path)
     if len(reports) != 1:
         raise ValueError(f'{name} matched {len(reports)} benchmarks, not 1')
-    regs = {g['regResponder']: g
-            for g in reports[0]['reportAnalysis']['anRegress']}
+    _, regs, _ = reports[0]
     if 'time' not in regs:
         raise ValueError(f'{name}: no time regression in the report')
-    return regs['time']['regCoeffs']['iters']['estPoint']
+    # A CriterionError is a ValueError, so main's exit 2 covers it.
+    return common.slope(path, name, regs['time'])
 
 
 def pairs(a, b, n, name, log):
@@ -111,6 +114,12 @@ def self_test():
             bad.append(f'not interleaved: {order}')
         if main([bins[0], bins[1], '1', 'none']) != 2:
             bad.append('a name matching no benchmark did not exit 2')
+        nul = os.path.join(td, 'N')
+        with open(nul, 'w') as fh:
+            fh.write(FAKE.format(secs=[None], calls=calls, tag='N'))
+        os.chmod(nul, 0o755)
+        if main([bins[0], nul, '1', 'g/x']) != 2:
+            bad.append('a null slope did not exit 2')
     for b in bad:
         print('FAIL', b)
     print('self-test', 'FAILED' if bad else 'passed')

@@ -20,7 +20,9 @@ looked at, so a shared shell script could drift unseen.
 TWIN_ROOT names the sibling's tools directory. Absent -- unmounted, or
 hidden by the outer wrapper -- the run is BLOCKED with exit 2, the same
 ruling as check-doc-refs.py's siblings: an unverified sync must not read
-as a passing one. Exit 1 when a shared tool drifts, 0 when none does.
+as a passing one. So is a twin directory sharing no file with this one, as
+on a branch without tools/ or a partial mount (check-twin-sync-04). Exit 1
+when a shared tool drifts, 0 when none does.
 Files present in only one checkout are noted, not failed: a tool can be
 legitimately unported.
 
@@ -31,7 +33,8 @@ verdict names the file, not the hunk -- the fix is to diff the two
 copies and port, which no summary replaces.
 
 Non-vacuity: run --self-test. It copies this repo's tools into a scratch
-"twin", confirms the identical copies pass, then confirms that a docstring-only
+"twin", confirms the identical copies pass and an empty twin is BLOCKED,
+then confirms that a docstring-only
 change and a configuration-only change both still pass while a mutated
 code line fails, and that a shared shell script is compared whole while a
 TWIN_SKIP file is not. Each mutation asserts that its target text exists, the
@@ -39,12 +42,18 @@ configuration case having replaced a literal TWIN_ROOT that only this repo's
 copy carries. That the self-test bites is mutants.py's to show.
 """
 import ast
+import contextlib
 import glob
+import io
 import os
 import shutil
-import subprocess
 import sys
 import tempfile
+
+# Beside this file, which a path import (a defect case's unit) leaves off
+# sys.path.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import common  # noqa: E402
 
 # --- per-repo configuration -----------------------------------------
 TWIN_ROOT = "../LambdaHack/tools"
@@ -56,16 +65,6 @@ MARKER_BEGIN = "# --- per-repo configuration"
 MARKER_END = "# --- end per-repo configuration"
 # Config constants of scripts that predate the marker block.
 CONFIG_NAMES = ("SEARCH_ROOTS", "PUBLISHED_REF", "TWIN_ROOT")
-
-
-def chdir_root():
-    """Run from the repository root whatever the cwd, TWIN_ROOT being
-    root-relative. Outside a repository nothing moves."""
-    # answered dropped-status: an empty top is the failure, and the next line tests it
-    top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
-                         capture_output=True, text=True).stdout.strip()
-    if top:
-        os.chdir(top)
 
 
 def comparable(text):
@@ -127,6 +126,13 @@ def self_test():
         drifted, _, _, same = compare(here, twin)
         if drifted or not same:
             bad.append("identical twin read as drifted: %r" % drifted)
+        empty = os.path.join(td, "empty")
+        os.makedirs(empty)
+        with contextlib.redirect_stdout(io.StringIO()):
+            codes = verdict(here, twin), verdict(here, empty)
+        if codes != (0, 2):
+            bad.append("identical twin and one sharing no tool exited %r,"
+                       " not (0, 2)" % (codes,))
         victim = os.path.join(twin, myself)
         text = open(victim, encoding="utf-8").read()
 
@@ -193,20 +199,29 @@ def main():
     if sys.argv[1:]:
         print("usage: check-twin-sync.py [--self-test]", file=sys.stderr)
         return 2
-    chdir_root()
-    here = os.path.dirname(os.path.abspath(__file__))
-    if not os.path.isdir(TWIN_ROOT):
-        print(f"BLOCKED --- twin checkout not available: {TWIN_ROOT}")
+    common.chdir_root()
+    return verdict(os.path.dirname(os.path.abspath(__file__)), TWIN_ROOT)
+
+
+def verdict(here, twin):
+    """Print the comparison of here and twin; the exit status."""
+    if not os.path.isdir(twin):
+        print(f"BLOCKED --- twin checkout not available: {twin}")
         print("An unverified sync is not a passing one; mount the checkout"
               " and re-run.")
         return 2
-    drifted, only_here, only_twin, same = compare(here, TWIN_ROOT)
+    drifted, only_here, only_twin, same = compare(here, twin)
+    if not drifted and not same:
+        print(f"BLOCKED --- {twin} shares no tool with this checkout, so"
+              f" nothing was compared; check out the branch that carries"
+              f" its tools and re-run.")
+        return 2
     for name in same:
         print(f"ok   {name}: identical below docstring and configuration")
     for name in only_here:
-        print(f"note {name}: no copy in {TWIN_ROOT}")
+        print(f"note {name}: no copy in {twin}")
     for name in only_twin:
-        print(f"note {name}: only in {TWIN_ROOT}")
+        print(f"note {name}: only in {twin}")
     for name in drifted:
         print(f"FAIL {name}: the copies disagree below docstring and"
               f" configuration --- a fix landed in one repo only; diff the"

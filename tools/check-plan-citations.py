@@ -32,9 +32,11 @@ commit its citations were last verified against.
 Pinned GitHub permalinks (`https://github.com/.../blob/<commit>/<path>#L12`
 or `#L12-L34`) are also checked, against the pinned commit via
 `git show <commit>:<path>` --- they never drift, so this catches typos,
-wrong ranges and links whose commit or path is not in this repository
-(foreign-repo links cannot be verified locally and are reported as
-failures).
+wrong ranges and links whose commit or path is not in this repository.
+This repository is the GitHub one that PUBLISHED_REF's remote names; a link
+into any other is listed as not checked, there being nothing local to check
+it against, and with no GitHub remote every link is taken for this
+repository's.
 
 `git show` proves only that the commit is in *this* clone's object
 database, which an unpushed or squashed-away commit is too --- such a link
@@ -255,6 +257,11 @@ import subprocess
 import sys
 import tempfile
 
+# Beside this file, which a path import (a defect case's unit) leaves off
+# sys.path.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import common  # noqa: E402
+
 SEARCH_ROOTS = ["src", "test", "bench", "example", "tools", ".github", "."]
 # The ref a pinned commit has to be reachable from to count as published.
 # `git show` is an object-database lookup with no reachability requirement,
@@ -263,18 +270,6 @@ SEARCH_ROOTS = ["src", "test", "bench", "example", "tools", ".github", "."]
 PUBLISHED_REF = "origin/master"
 
 
-def chdir_root(paths):
-    """Run from the repository root whatever the cwd -- the configuration's
-    paths are root-relative -- and return PATHS rebased to it. Outside a
-    repository nothing moves."""
-    # answered dropped-status: an empty top is the failure, and the next line tests it
-    top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
-                         capture_output=True, text=True).stdout.strip()
-    if not top:
-        return paths
-    paths = [os.path.relpath(os.path.abspath(p), top) for p in paths]
-    os.chdir(top)
-    return paths
 
 # The extensions are check-doc-refs.py's PATH_EXT: that pass skips every
 # backticked `path:NN` token as this one's, so an extension missing here is
@@ -285,7 +280,7 @@ CITE_RE = re.compile(
     r"\.(?:hs|ts|py|c|h|cabal|mjs|html|md|txt|yaml|yml|json|sh)|Makefile)"
     r":(\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*)")
 URL_RE = re.compile(
-    r"https://github\.com/[\w.-]+/[\w.-]+/blob/([0-9a-f]{7,40})/"
+    r"https://github\.com/([\w.-]+/[\w.-]+)/blob/([0-9a-f]{7,40})/"
     r"([A-Za-z0-9_./-]+)#L(\d+)(?:-L(\d+))?")
 # The document's own stamp, in either shape the documents use: an inline
 # `hash` or a blockquoted **hash**, always followed by an ISO date in
@@ -323,6 +318,18 @@ def reachable_from(sha, ref):
         return None
     return subprocess.run(["git", "merge-base", "--is-ancestor", sha, ref],
                           capture_output=True).returncode == 0
+
+
+def own_slug():
+    """OWNER/REPO, lower-cased, of the GitHub repository PUBLISHED_REF's
+    remote names; None when that remote is absent or not on GitHub."""
+    # answered dropped-status: a failed lookup prints no URL, which matches
+    # nothing below and so leaves every link checked as this repository's
+    url = subprocess.run(["git", "remote", "get-url",
+                          PUBLISHED_REF.split("/", 1)[0]],
+                         capture_output=True, text=True).stdout.strip()
+    m = re.search(r"github\.com[:/]([\w.-]+/[\w.-]+?)(?:\.git)?/?$", url)
+    return m.group(1).lower() if m else None
 
 
 def published(sha):
@@ -488,6 +495,7 @@ def self_test():
             git("config", "user.email", "t@t")
             git("config", "user.name", "t")
             git("config", "commit.gpgsign", "false")
+            git("remote", "add", "origin", "https://github.com/x/y.git")
             open("a.hs", "w").write("line one\nline two\nline three\n")
             os.makedirs("sub")
             open("sub/b.py", "w").write("print(1)\n")
@@ -546,6 +554,8 @@ def self_test():
                 "%s#L0 pinned zero. %s#L3-L1 pinned backwards.\n"
                 "https://github.com/ghc/ghc/blob/0123456789abcdef01234567"
                 "89abcdef01234567/x.hs#L1 foreign.\n"
+                "https://github.com/x/y/blob/0123456789abcdef01234567"
+                "89abcdef01234567/a.hs#L1 own, commit missing.\n"
                 "%s#L1-L3 unpublished.\n\n"
                 "Citations were verified against the tree at commit"
                 " `0000000aa` (2020-01-01).\n"
@@ -556,6 +566,7 @@ def self_test():
                      "UNRESOLVED", "OUT-OF-RANGE", "PROSE-LINE",
                      "AMBIGUOUS", "ORPHANED", "UNPUBLISHED",
                      "not in this repository",
+                     "in ghc/ghc, another repository, not checked",
                      "ok   a.hs:1 |", "ok   .dot.yaml:1 |",
                      "ok   d.json:1 |", "ok   s.sh:1 |",
                      "a.hs#L1 @", "13 failed", "a.hs:0-0 --- OUT",
@@ -673,7 +684,7 @@ def main():
     # From the root before anything, the self-test included, as every
     # checker here does: this one's self-test names no root-relative path,
     # but two siblings' did and reported wrongly from a subdirectory.
-    docs = chdir_root(args)
+    docs = common.chdir_root(args)
     if "--self-test" in flags:
         return self_test()
     docs = docs or ["CLAUDE.md"]
@@ -736,10 +747,15 @@ def check(doc, do_restamp):
             continue
         span = f"{lo}" if lo == hi else f"{lo}-{hi}"
         print(f"ok   {name}:{span} | {lines[lo - 1].strip()[:80]}")
-    urlcites = sorted({(m.group(1), m.group(2), int(m.group(3)),
-                        int(m.group(4) or m.group(3)))
+    urlcites = sorted({(m.group(1).lower(), m.group(2), m.group(3),
+                        int(m.group(4)), int(m.group(5) or m.group(4)))
                        for m in URL_RE.finditer(text)})
-    for sha, path, lo, hi in urlcites:
+    own = own_slug()
+    for slug, sha, path, lo, hi in urlcites:
+        if own is not None and slug != own:
+            print(f"note {path}#L{lo}-L{hi} @ {sha[:9]} --- in {slug},"
+                  f" another repository, not checked")
+            continue
         proc = subprocess.run(["git", "show", f"{sha}:{path}"],
                               capture_output=True, text=True)
         if proc.returncode != 0:

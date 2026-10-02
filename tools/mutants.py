@@ -136,9 +136,9 @@ MUTANTS = [
     ('check-doc-wrap BLOCKED folded back into exit 1', 'check-doc-wrap.py',
      "    return 1 if bad else (2 if blocked else 0)\n", "    return 1 if bad or blocked else 0\n", ST),
     # check-doc-wrap: a fence closed by one of another kind (check-doc-wrap-06)
-    ('check-doc-wrap closes a block with a fence of any kind', 'check-doc-wrap.py',
-     "        elif m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):\n",
-     "        elif m:\n", ST),
+    ('check-doc-wrap closes a block with a fence of any kind', 'common.py',
+     '        elif (m and m.group(2)[0] == fence[0]\n',
+     '        elif (m and True\n', 'cd {dir} && python3 check-doc-wrap.py --self-test'),
     # check-doc-wrap: "a repository tracking no Markdown reports BLOCKED rather than
     # 0 of 0 failed" (2026-08-28)
     ('check-doc-wrap repository tracking no Markdown reported as 0 of 0 failed', 'check-doc-wrap.py',
@@ -195,19 +195,20 @@ MUTANTS = [
      "                     and not LIST_ITEM.match(prev))\n", "                     and True)\n", ST),
     # heading-outline: the original fenced-`#`/`===` branch of the hand recipe
     ('heading-outline fenced lines read as headings', 'heading-outline.py',
-     "        if m or fence:\n", "        if False:\n", ST),
+     '        if kind:\n',
+     '        if False:\n', ST),
     # heading-outline: a fence closed by one of another kind (heading-outline-03)
-    ('heading-outline closes a block with a fence of any kind', 'heading-outline.py',
-     "        elif m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):\n",
-     "        elif m:\n", ST),
+    ('heading-outline closes a block with a fence of any kind', 'common.py',
+     '        elif (m and m.group(2)[0] == fence[0]\n',
+     '        elif (m and True\n', 'cd {dir} && python3 heading-outline.py --self-test'),
     # heading-outline: any leading rule taken for frontmatter (heading-outline-04)
     ('heading-outline any leading rule read as frontmatter', 'heading-outline.py',
      "        if lines[i].strip() and not YAML_LINE.match(lines[i]):\n            return 0\n",
      "        if False:\n            return 0\n", ST),
     # check-doc-refs: a fence closed by one of another kind (check-doc-refs-05)
-    ('check-doc-refs closes a block with a fence of any kind', 'check-doc-refs.py',
-     "        elif m and m.group(1)[0] == fence[0] and len(m.group(1)) >= len(fence):\n",
-     "        elif m:\n", ST),
+    ('check-doc-refs closes a block with a fence of any kind', 'common.py',
+     '        elif (m and m.group(2)[0] == fence[0]\n',
+     '        elif (m and True\n', 'cd {dir} && python3 check-doc-refs.py --self-test'),
     # check-doc-refs: SIBLING_ROOTS = [] degrades local drift to SKIP (check-doc-refs-06)
     ('check-doc-refs no sibling configured degrades local drift', 'check-doc-refs.py',
      "            if sib_active or not SIBLING_ROOTS:\n", "            if sib_active:\n", ST),
@@ -217,14 +218,12 @@ MUTANTS = [
     # want of the siblings, which the runner reads as a judge that did not
     # run, so the judge says 2 is its catch
     ('check-doc-refs self-test dispatched before chdir_root', 'check-doc-refs.py',
-     '    docs = chdir_root(args)\n    if "--self-test" in sys.argv[1:]:\n        return self_test()\n',
-     '    if "--self-test" in sys.argv[1:]:\n        return self_test()\n    docs = chdir_root(args)\n',
-     'cd {dir} && python3 {file} --self-test; rc=$?; [ $rc -eq 2 ] && exit 1; exit $rc'),
+     '    docs = common.chdir_root(args)\n    if "--self-test" in sys.argv[1:]:\n        return self_test()\n',
+     '    if "--self-test" in sys.argv[1:]:\n        return self_test()\n    docs = common.chdir_root(args)\n', 'cd {dir} && python3 {file} --self-test; rc=$?; [ $rc -eq 2 ] && exit 1; exit $rc'),
     # check-doc-examples: the same (check-doc-examples-04)
     ('check-doc-examples self-test dispatched before chdir_root', 'check-doc-examples.py',
-     '    docs = chdir_root(args)\n    if "--self-test" in sys.argv[1:]:\n        return self_test()\n',
-     '    if "--self-test" in sys.argv[1:]:\n        return self_test()\n    docs = chdir_root(args)\n',
-     'cd {dir} && python3 {file} --self-test'),
+     '    docs = common.chdir_root(args)\n    if "--self-test" in sys.argv[1:]:\n        return self_test()\n',
+     '    if "--self-test" in sys.argv[1:]:\n        return self_test()\n    docs = common.chdir_root(args)\n', 'cd {dir} && python3 {file} --self-test'),
     # check-plan-citations: CITE_RE blind to json and sh (check-plan-citations-07)
     ('check-plan-citations CITE_RE blind to json and sh', 'check-plan-citations.py',
      '    r"\\.(?:hs|ts|py|c|h|cabal|mjs|html|md|txt|yaml|yml|json|sh)|Makefile)"\n',
@@ -235,16 +234,20 @@ MUTANTS = [
      '    except OSError as e:\n        raise\n', ST),
     # check-conv-bench-props: an unreadable collection tracebacks at exit 1 again
     # (check-conv-bench-props-02)
-    ('check-conv-bench-props unreadable collection tracebacks instead of exit 2', 'check-conv-bench-props.py',
-     '        except (OSError, ValueError, LookupError, TypeError) as e:\n            usage_error(f"{path}: not a readable criterion --json collection"\n                        f" ({type(e).__name__}: {e})")\n',
-     '        except (OSError, ValueError, LookupError, TypeError) as e:\n            raise\n', ST),
+    # (the reader is common.py's since 2026-10-02, the judge still this tool)
+    ('check-conv-bench-props unreadable collection tracebacks instead of exit 2', 'common.py',
+     '    except (OSError, ValueError, LookupError, TypeError) as e:\n',
+     '    except (OSError, ValueError, LookupError, TypeError) as e:\n        raise\n',
+     'cd {dir} && python3 check-conv-bench-props.py --self-test'),
     # check-doc-wrap: indented code no longer exempt (check-doc-wrap-07)
     ('check-doc-wrap indented code block read as prose', 'check-doc-wrap.py',
-     "        elif fence is None and indented and (blank or code):\n", "        elif False:\n", ST),
+     '        elif indented and (starts or code):\n',
+     '        elif False:\n', ST),
     # check-doc-wrap: a fence line at any indentation opens or closes a block again
     # (check-doc-wrap-08)
-    ('check-doc-wrap indented fence line read as a fence', 'check-doc-wrap.py',
-     'FENCE = re.compile(r"^ {0,3}(`{3,}|~{3,})")\n', 'FENCE = re.compile(r"^\\s*(`{3,}|~{3,})")\n', ST),
+    ('check-doc-wrap indented fence line read as a fence', 'common.py',
+     'FENCE = re.compile(r"^( {0,3})(`{3,}|~{3,})(.*)$")\n',
+     'FENCE = re.compile(r"^(\\s*)(`{3,}|~{3,})(.*)$")\n', 'cd {dir} && python3 check-doc-wrap.py --self-test'),
     # bang-lazy-check: a same-named binding in another module's dump stands in
     # for the candidate's own (bang-lazy-check-02)
     ('bang-lazy-check verdict from a foreign module of the same name', 'bang-lazy-check.py',
@@ -259,8 +262,9 @@ MUTANTS = [
      "    if not args or unknown:\n", "    if not args:\n", SELFTEST),
     # bench-baseline: a regression missing a field tracebacks at 1 again
     # (bench-baseline-04)
-    ('bench-baseline malformed regression tracebacks instead of exit 2', 'bench-baseline.py',
-     '                usage_error(f"{p}: the regressions of {name} lack {e}")\n', "                raise\n", ST),
+    ('bench-baseline malformed regression tracebacks instead of exit 2', 'common.py',
+     '        raise CriterionError(f"{path}: the regressions of {name} lack {e}")\n', "        raise\n",
+     'cd {dir} && python3 bench-baseline.py --self-test'),
     # check-conv-bench-props: a missing benchmark exits 1 again
     # (check-conv-bench-props-03)
     ('check-conv-bench-props missing benchmark exits 1', 'check-conv-bench-props.py',
@@ -268,12 +272,14 @@ MUTANTS = [
      '            sys.exit(f"benchmark missing from the JSON (not a full run?): {k}")\n', ST),
     # check-conv-bench-props: a regression missing a field tracebacks at 1 again
     # (check-conv-bench-props-04)
-    ('check-conv-bench-props malformed regression tracebacks instead of exit 2', 'check-conv-bench-props.py',
-     '                usage_error(f"{path}: the regressions of {name} lack {e}")\n', "                raise\n", ST),
+    ('check-conv-bench-props malformed regression tracebacks instead of exit 2', 'common.py',
+     '        raise CriterionError(f"{path}: the regressions of {name} lack {e}")\n', "        raise\n",
+     'cd {dir} && python3 check-conv-bench-props.py --self-test'),
     # check-doc-refs: a fence line at any indentation opens a block again
     # (check-doc-refs-08)
-    ('check-doc-refs indented fence line read as a fence', 'check-doc-refs.py',
-     'FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")\n', 'FENCE_RE = re.compile(r"^\\s*(`{3,}|~{3,})")\n', ST),
+    ('check-doc-refs indented fence line read as a fence', 'common.py',
+     'FENCE = re.compile(r"^( {0,3})(`{3,}|~{3,})(.*)$")\n',
+     'FENCE = re.compile(r"^(\\s*)(`{3,}|~{3,})(.*)$")\n', 'cd {dir} && python3 check-doc-refs.py --self-test'),
     # check-doc-refs: a ../ path into an unconfigured checkout resolved against
     # the mount again (check-doc-refs-09)
     ('check-doc-refs unconfigured checkout resolved against the mount', 'check-doc-refs.py',
@@ -285,8 +291,9 @@ MUTANTS = [
      "            blocked = True\n            continue\n", "            sys.exit(2)\n", ST),
     # heading-outline: a fence line at any indentation opens a block again
     # (heading-outline-05)
-    ('heading-outline indented fence line read as a fence', 'heading-outline.py',
-     "FENCE = re.compile(r'^ {0,3}(`{3,}|~{3,})')\n", "FENCE = re.compile(r'^\\s*(`{3,}|~{3,})')\n", ST),
+    ('heading-outline indented fence line read as a fence', 'common.py',
+     'FENCE = re.compile(r"^( {0,3})(`{3,}|~{3,})(.*)$")\n',
+     'FENCE = re.compile(r"^(\\s*)(`{3,}|~{3,})(.*)$")\n', 'cd {dir} && python3 heading-outline.py --self-test'),
     # check-doc-examples: the from-the-root control may agree at exit 2 again
     # (check-doc-examples-05). Judged with README.md aside, where the self-test
     # must FAIL: the judge is that failure, so it passes on the guarded checker
@@ -317,6 +324,35 @@ MUTANTS = [
      '        ta, tb = slope(a, name), slope(b, name)\n', '        tb, ta = slope(b, name), slope(a, name)\n', ST),
     ('ab-time mean in place of the median', 'ab-time.py',
      '    return statistics.median(ratios), min(ratios), max(ratios)\n', '    return statistics.mean(ratios), min(ratios), max(ratios)\n', ST),
+    # check-plan-citations-10 (2026-10-02): a link into another repository
+    # resolved here and failed.
+    ('check-plan-citations foreign permalink checked as this repository\'s', 'check-plan-citations.py',
+     '        if own is not None and slug != own:\n', '        if False:\n', ST),
+    # check-doc-refs-10 (2026-10-02): cabal's own `all` read as a stanza.
+    ('check-doc-refs cabal all read as a stanza name', 'check-doc-refs.py',
+     '        if name in stanzas or name == "all":\n', '        if name in stanzas:\n', ST),
+    # check-doc-wrap-09 (2026-10-02): a continuation line read for an
+    # enumerator.
+    ('check-doc-wrap continuation line read for an enumerator', 'check-doc-wrap.py',
+     '        elif starts and FAKE_MARKER.match(l) and not REAL_MARKER.match(l):\n',
+     '        elif FAKE_MARKER.match(l) and not REAL_MARKER.match(l):\n', ST),
+    # check-twin-sync-04 (2026-10-02): a twin sharing no tool passed.
+    ('check-twin-sync twin sharing no tool passes', 'check-twin-sync.py',
+     '    if not drifted and not same:\n', '    if False:\n', ST),
+    # bench-baseline-05, -06, check-conv-bench-props-05 and ab-time-01
+    # (2026-10-02): a null estimate or a NaN tolerance taken as a number.
+    ('common finite() accepts a null', 'common.py',
+     '    return (isinstance(v, (int, float)) and not isinstance(v, bool)\n'
+     '            and math.isfinite(v))\n', '    return True\n',
+     'cd {dir} && python3 bench-baseline.py --self-test'),
+    ('common estimate() returns what it finds unchecked', 'common.py',
+     '    if not finite(v):\n', '    if False:\n',
+     'cd {dir} && python3 check-conv-bench-props.py --self-test'),
+    ('ab-time slope read past the shared reader', 'ab-time.py',
+     "    return common.slope(path, name, regs['time'])\n",
+     "    return regs['time']['regCoeffs']['iters']['estPoint']\n", ST),
+    ('bench-baseline tolerance range unchecked', 'bench-baseline.py',
+     '    if not common.finite(v) or v < 0:\n', '    if False:\n', ST),
     # core-diff-01 (2026-10-02): a --module matching nothing passed.
     ('core-diff --module matching no module accepted', 'core-diff.py',
      '    if sub is not None and not any(sub in k for t in trees for k in t):\n',

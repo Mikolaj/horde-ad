@@ -436,10 +436,10 @@
    "proved": "ran",
    "harm": "latent",
    "discovery": "review",
-   "notes": "Only --without-siblings, a human's decision, may degrade the verdict; a port with no sibling to consult has nothing to wait for. Ported from LambdaHack on 2026-09-04, where a code review found it; this copy carried the defect until the port commit, so the audit replays the bug direction here.",
+   "notes": "Only --without-siblings, a human's decision, may degrade the verdict; a port with no sibling to consult has nothing to wait for. Ported from LambdaHack on 2026-09-04, where a code review found it; this copy carried the defect until the port commit, so the audit replays the bug direction here. Since 2026-10-02 the program imports common.py, which the plant copies beside port.py, read at the revision under test, wherever the program imports it.",
    "plant": "port the program by editing SIBLING_ROOTS to [], then run it over a document naming a path that is not there",
    "plant_cmd": "git init -q . && mkdir engine-src && printf 'ok\\n' > engine-src/Real.hs && printf '%s\\n' '`engine-src/Real.hs` is real and `engine-src/Nope.hs` is drift.' > d.md && git add -A && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm c",
-   "plant_py": "(ctx.text.index('SIBLING_ROOTS = [\"../ox-arrays\", \"../orthotope\"]'), {'prog': [p for p in [t + '/port.py'] if open(p, 'w').write(ctx.text.replace('SIBLING_ROOTS = [\"../ox-arrays\", \"../orthotope\"]', 'SIBLING_ROOTS = []'))][0]})[1]",
+   "plant_py": "(ctx.text.index('SIBLING_ROOTS = [\"../ox-arrays\", \"../orthotope\"]'), [open(t + '/common.py', 'w').write((ctx.root / 'common.py').read_text() if ctx.rev is None else ctx.corpus.git('show', '%s:%s' % (ctx.rev, (ctx.root / 'common.py').relative_to(ctx.repo)), text=True).stdout) for _ in [0] if 'import common' in ctx.text], {'prog': [p for p in [t + '/port.py'] if open(p, 'w').write(ctx.text.replace('SIBLING_ROOTS = [\"../ox-arrays\", \"../orthotope\"]', 'SIBLING_ROOTS = []'))][0]})[2]",
    "invoke": [
     "d.md"
    ],
@@ -1146,6 +1146,236 @@
    "expect_text": "no module's path contains NoSuchModule",
    "bug_exit": 0,
    "bug_absent": "no module"
+  },
+  {
+   "id": "check-plan-citations-10",
+   "program": "check-plan-citations.py",
+   "name": "a pinned permalink into another GitHub repository was resolved with git show in this one and FAILed as not in this repository, although CLAUDE.md puts foreign-repo links outside the rule",
+   "family": "environment-decides",
+   "fix_rev": "self",
+   "trigger": "a document in a repository whose origin is github.com/Mikolaj/horde-ad, linking https://github.com/haskell/vector/blob/<sha>/src/V.hs#L1",
+   "ok": "the link is noted as another repository's and not checked: exit 0",
+   "bug": "FAIL ... commit or path not in this repository, exit 1",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "review",
+   "notes": "Found by the /code-review max run of 2026-10-02 over drop-recursive-inline: the two vector-issue drafts made check-all's doc citations step exit 1 with eleven such lines, while gitlab.haskell.org permalinks were never extracted at all, so the verdict depended on the host name. This repository's own slug is read from the remote PUBLISHED_REF names; with no GitHub remote every link is still checked as this repository's.",
+   "plant_cmd": "mkdir repo && cd repo && git init -q . && git remote add origin https://github.com/Mikolaj/horde-ad.git && printf 'x\\n' > a.hs && printf '%s\\n' 'See https://github.com/haskell/vector/blob/fd2ebe1530aa45e9dd5b2c4d2fe2a1c3e2b8a9d1/src/V.hs#L1 there.' > d.md && git add -A && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm c",
+   "env": {
+    "GIT_DIR": "{tmp}/repo/.git",
+    "GIT_WORK_TREE": "{tmp}/repo"
+   },
+   "invoke": [
+    "{tmp}/repo/d.md"
+   ],
+   "expect_exit": 0,
+   "expect_text": "another repository, not checked",
+   "expect_absent": "FAIL",
+   "bug_exit": 1,
+   "bug_text": "not in this repository"
+  },
+  {
+   "id": "check-doc-refs-10",
+   "program": "check-doc-refs.py",
+   "name": "cabal's built-in target in `cabal build all` was read as a stanza name and FAILed as no such stanza",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "a document saying `cabal build all --enable-optimization`",
+   "ok": "ok target cabal all, exit 0",
+   "bug": "FAIL target cabal all --- no such cabal stanza, exit 1",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "review",
+   "notes": "Found by the /code-review max run of 2026-10-02 over drop-recursive-inline, from docs/pragmas-and-flags.md, which made check-all's doc refs step exit 1.",
+   "plant_cmd": "mkdir -p ox-arrays orthotope repo && cd repo && git init -q . && printf 'name: x\\nversion: 0\\n\\ntest-suite ok\\n  type: exitcode-stdio-1.0\\n  main-is: T.hs\\n' > x.cabal && printf '%s\\n' 'Build with `cabal build all --enable-optimization` first.' > d.md && git add -A && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm c",
+   "env": {
+    "GIT_DIR": "{tmp}/repo/.git",
+    "GIT_WORK_TREE": "{tmp}/repo"
+   },
+   "invoke": [
+    "{tmp}/repo/d.md"
+   ],
+   "expect_exit": 0,
+   "expect_text": "ok   target cabal all",
+   "expect_absent": "FAIL",
+   "bug_exit": 1,
+   "bug_text": "FAIL target cabal all --- no such cabal stanza"
+  },
+  {
+   "id": "check-doc-wrap-09",
+   "program": "check-doc-wrap.py",
+   "name": "fake_markers read every line, continuation lines included, so a document at wrap80's fixed point failed wherever the formatter broke a line just before a token such as 2x., C. or e)",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "a committed paragraph at the wrapped fixed point whose second line wrap80 begins with `2x. Then`",
+   "ok": "no enumerator reported, exit 0",
+   "bug": "FAIL d.md: line 4 opens with an enumerator Markdown does not read as one, exit 1",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "notes": "Found by the /code-review max run of 2026-10-02 over drop-recursive-inline. Watched in wrap80 on the day: it pulls a word down rather than start a line with 1. or 2., which could interrupt a paragraph, but starts one with 2x., C., e) or iv. freely. Markdown never reads a continuation line as a list item, and at either fixed point every continuation break is the formatter's, so only a paragraph's first line can carry the writer's mistake.",
+   "plant_cmd": "mkdir repo && cd repo && git init -q . && printf '# T\\n\\nThe new rule shaves the loop by a factor of two over all the runs, by roughly\\n2x. Then the rest of the sentence follows on.\\n' > d.md && git add -A && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm c",
+   "env": {
+    "GIT_DIR": "{tmp}/repo/.git",
+    "GIT_WORK_TREE": "{tmp}/repo"
+   },
+   "invoke": [
+    "{tmp}/repo/d.md"
+   ],
+   "expect_exit": 0,
+   "expect_absent": "enumerator",
+   "bug_exit": 1,
+   "bug_text": "line 4 opens with an enumerator Markdown does not read as one"
+  },
+  {
+   "id": "check-twin-sync-04",
+   "program": "check-twin-sync.py",
+   "name": "only a missing twin directory was BLOCKED: one that existed but shared no file with this one printed notes and 0 drifted, exit 0, so check-all counted a sync nothing had compared as passed",
+   "family": "vacuous-check",
+   "fix_rev": "self",
+   "trigger": "../LambdaHack/tools present and empty, as on a branch without tools/ or a partial mount",
+   "ok": "BLOCKED --- the twin shares no tool with this checkout, exit 2",
+   "bug": "note lines and 0 drifted, exit 0",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "notes": "Found by the /code-review max run of 2026-10-02 over drop-recursive-inline; a finder reproduced exit 0 with an empty twin directory. The tool's own BLOCKED message says an unverified sync is not a passing one, which held only for the directory's absence.",
+   "plant_cmd": "mkdir -p LambdaHack/tools repo && cd repo && git init -q . && printf 'x\\n' > f && git add -A && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm c",
+   "env": {
+    "GIT_DIR": "{tmp}/repo/.git",
+    "GIT_WORK_TREE": "{tmp}/repo"
+   },
+   "invoke": [],
+   "expect_exit": 2,
+   "expect_text": "shares no tool",
+   "bug_exit": 0,
+   "bug_text": "0 drifted"
+  },
+  {
+   "id": "bench-baseline-05",
+   "program": "bench-baseline.py",
+   "name": "a slope criterion wrote as null, its NaN, was taken as the figure, so --emit or a diff died in a traceback at exit 1, the status of a finding, where a collection it cannot read is 2",
+   "family": "error-as-value",
+   "fix_rev": "self",
+   "trigger": "a report whose time regression has estPoint null",
+   "ok": "exit 2, naming the benchmark and the null",
+   "bug": "TypeError traceback, exit 1",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "notes": "Found by the /code-review max run of 2026-10-02 over drop-recursive-inline, in bench-baseline.py:181, ab-time.py:64 and check-conv-bench-props.py:324 alike; fixed once, in the criterion reader the three now share.",
+   "plant_cmd": "printf %s '[null,null,[{\"reportName\":\"g/x\",\"reportAnalysis\":{\"anRegress\":[{\"regResponder\":\"time\",\"regCoeffs\":{\"iters\":{\"estPoint\":null}}},{\"regResponder\":\"allocated\",\"regCoeffs\":{\"iters\":{\"estPoint\":0.2}}}]}}]]' > c.json",
+   "invoke": [
+    "--emit",
+    "{tmp}/c.json"
+   ],
+   "expect_exit": 2,
+   "expect_text": "not a finite number",
+   "bug_exit": 1,
+   "bug_text": "TypeError"
+  },
+  {
+   "id": "bench-baseline-06",
+   "program": "bench-baseline.py",
+   "name": "--alloc-tol nan was accepted, and every comparison against NaN is false, so nothing could move beyond tolerance and every diff passed",
+   "family": "domain-unchecked",
+   "fix_rev": "self",
+   "trigger": "--alloc-tol nan over a collection whose allocation halved against the baseline",
+   "ok": "exit 2, the tolerance refused",
+   "bug": "nothing moved beyond tolerance  PASS, exit 0",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "notes": "Found by the /code-review max run of 2026-10-02 over drop-recursive-inline. --time-tol took the same value, and so did a baseline row; all three now want a finite number, a tolerance a non-negative one.",
+   "plant_cmd": "printf %s '[null,null,[{\"reportName\":\"g/x\",\"reportAnalysis\":{\"anRegress\":[{\"regResponder\":\"time\",\"regCoeffs\":{\"iters\":{\"estPoint\":1.0}}},{\"regResponder\":\"allocated\",\"regCoeffs\":{\"iters\":{\"estPoint\":1000}}}]}}]]' > c.json && printf 'g/x\\t1.0\\t2000\\n' > b.tsv",
+   "invoke": [
+    "--alloc-tol",
+    "nan",
+    "--baseline",
+    "{tmp}/b.tsv",
+    "{tmp}/c.json"
+   ],
+   "expect_exit": 2,
+   "expect_text": "finite",
+   "bug_exit": 0,
+   "bug_text": "PASS"
+  },
+  {
+   "id": "check-conv-bench-props-05",
+   "program": "check-conv-bench-props.py",
+   "name": "an R2 criterion wrote as null, its NaN, reached the slope-quality gate, whose comparison died in a traceback at exit 1, the status of a property failure",
+   "family": "error-as-value",
+   "fix_rev": "self",
+   "trigger": "a report whose allocated regression has regRSquare estPoint null",
+   "ok": "exit 2, naming the benchmark and the null",
+   "bug": "TypeError traceback, exit 1",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "notes": "Found by the /code-review max run of 2026-10-02 over drop-recursive-inline; the same defect as bench-baseline-05, fixed once in the shared criterion reader.",
+   "plant_cmd": "printf %s '[null,null,[{\"reportName\":\"extra/one\",\"reportMeasured\":[0,0,0,0,0,0,0,0,0,0,0,0],\"reportAnalysis\":{\"anRegress\":[{\"regResponder\":\"time\",\"regCoeffs\":{\"iters\":{\"estPoint\":1.0}},\"regRSquare\":{\"estPoint\":1.0}},{\"regResponder\":\"allocated\",\"regCoeffs\":{\"iters\":{\"estPoint\":1.0}},\"regRSquare\":{\"estPoint\":null}}]}}]]' > c.json",
+   "invoke": [
+    "--allocation-only",
+    "{tmp}/c.json"
+   ],
+   "expect_exit": 2,
+   "expect_text": "not a finite number",
+   "bug_exit": 1,
+   "bug_text": "TypeError"
+  },
+  {
+   "id": "ab-time-01",
+   "program": "ab-time.py",
+   "name": "a slope criterion wrote as null, its NaN, was divided by, and the TypeError escaped the handler that turns a failed run into exit 2, so the run died in a traceback at exit 1",
+   "family": "error-as-value",
+   "fix_rev": "self",
+   "trigger": "a benchmark binary whose --json report has the time estPoint null",
+   "ok": "exit 2, naming the benchmark and the null",
+   "bug": "TypeError traceback, exit 1",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "notes": "Found by the /code-review max run of 2026-10-02 over drop-recursive-inline; the same defect as bench-baseline-05, fixed once in the shared criterion reader.",
+   "plant_cmd": "printf '%s\\n' '#!/usr/bin/env python3' 'import json, sys' 'a = sys.argv' 'json.dump([None, None, [{\"reportName\": \"x\", \"reportAnalysis\": {\"anRegress\": [{\"regResponder\": \"time\", \"regCoeffs\": {\"iters\": {\"estPoint\": None}}}]}}]], open(a[a.index(\"--json\") + 1], \"w\"))' > fake && chmod +x fake",
+   "invoke": [
+    "{tmp}/fake",
+    "{tmp}/fake",
+    "1",
+    "x"
+   ],
+   "expect_exit": 2,
+   "expect_text": "not a finite number",
+   "bug_exit": 1,
+   "bug_text": "TypeError"
+  },
+  {
+   "id": "check-doc-examples-06",
+   "program": "check-doc-examples.py",
+   "name": "FENCE_RE matched only a backtick fence at column 0, so a tilde fence and a fence indented under a list item went unread and an undefined type in either passed",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "a ~~~haskell block naming NoSuchTildeType, and a ```hs block indented three spaces under `1. ` naming NoSuchListType",
+   "ok": "both types reported, 2 unresolved, exit 1",
+   "bug": "0 unresolved, exit 0",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "notes": "Found by the /code-review max run of 2026-10-02 over drop-recursive-inline: the one fence scanner of four that the branch had not brought to CommonMark's fences. Fixed by moving all four onto one scanner in common.py (43.1 of that review).",
+   "plant_cmd": "mkdir repo && cd repo && git init -q . && printf 'module A where\\nx :: Int\\nx = 1\\n' > A.hs && printf '%s\\n' '# T' '' '~~~haskell' 'f :: NoSuchTildeType' '~~~' '' '1. An item:' '' '   ```hs' '   g :: NoSuchListType' '   ```' > d.md && git add -A && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm c",
+   "env": {
+    "GIT_DIR": "{tmp}/repo/.git",
+    "GIT_WORK_TREE": "{tmp}/repo"
+   },
+   "invoke": [
+    "{tmp}/repo/d.md"
+   ],
+   "expect_exit": 1,
+   "expect_text": [
+    "type NoSuchTildeType",
+    "type NoSuchListType"
+   ],
+   "bug_exit": 0,
+   "bug_text": "0 unresolved"
   }
  ]
 }

@@ -101,10 +101,29 @@ import subprocess
 import sys
 import tempfile
 
+# Beside this file, which a path import (a defect case's unit) leaves off
+# sys.path.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import common  # noqa: E402
+
 
 def usage_error(msg):
     print(msg, file=sys.stderr)
     sys.exit(2)
+
+
+def tolerance(flag, text):
+    """A tolerance flag's value: a finite, non-negative fraction. Every
+    comparison against a NaN is false, so `nan` would pass any movement
+    (bench-baseline-06)."""
+    try:
+        v = float(text)
+    except ValueError:
+        usage_error(f"{flag} wants a number, not {text!r}")
+    if not common.finite(v) or v < 0:
+        usage_error(f"{flag} wants a finite, non-negative number, not"
+                    f" {text!r}")
+    return v
 
 
 def parse_args(args):
@@ -119,15 +138,12 @@ def parse_args(args):
             if i + 1 >= len(args):
                 usage_error(f"{a} needs a value")
             i += 1
-            try:
-                if a == "--baseline":
-                    baseline_path = args[i]
-                elif a == "--alloc-tol":
-                    alloc_tol = float(args[i])
-                else:
-                    time_tol = float(args[i])
-            except ValueError:
-                usage_error(f"{a} wants a number, not {args[i]!r}")
+            if a == "--baseline":
+                baseline_path = args[i]
+            elif a == "--alloc-tol":
+                alloc_tol = tolerance(a, args[i])
+            else:
+                time_tol = tolerance(a, args[i])
         elif a == "--emit":
             pass
         elif a.startswith("-"):
@@ -154,20 +170,10 @@ def read_collection(paths):
     out = {}
     for p in paths:
         try:
-            with open(p) as f:
-                reports = json.load(f)[2]
-            if not isinstance(reports, list):
-                raise TypeError("the third element is not a list of reports")
-        except (OSError, ValueError, LookupError, TypeError) as e:
-            usage_error(f"{p}: not a readable criterion --json collection"
-                        f" ({type(e).__name__}: {e})")
-        for r in reports:
-            try:
-                name = r["reportName"]
-                regs = {g["regResponder"]: g
-                        for g in r["reportAnalysis"]["anRegress"]}
-            except (KeyError, TypeError) as e:
-                usage_error(f"{p}: a report without {e} is not criterion's")
+            reports = common.criterion_reports(p)
+        except common.CriterionError as e:
+            usage_error(str(e))
+        for name, regs, _ in reports:
             if name in out:
                 usage_error(f"benchmark collected twice, the second time in"
                             f" {p} (the files must partition the suite):"
@@ -178,12 +184,10 @@ def read_collection(paths):
                                 f" -- collect with --regress allocated:iters"
                                 f" and +RTS -T")
             try:
-                out[name] = tuple(regs[w]["regCoeffs"]["iters"]["estPoint"]
+                out[name] = tuple(common.slope(p, name, regs[w])
                                   for w in ("time", "allocated"))
-            except (KeyError, TypeError) as e:
-                # The regression's own fields, which the guard above did
-                # not reach (bench-baseline-04).
-                usage_error(f"{p}: the regressions of {name} lack {e}")
+            except common.CriterionError as e:
+                usage_error(str(e))
     return out
 
 
@@ -217,6 +221,8 @@ def main(argv):
                 try:
                     name, t, a = line.rstrip("\n").split("\t")
                     base[name] = (float(t), float(a))
+                    if not all(map(common.finite, base[name])):
+                        raise ValueError
                 except ValueError:
                     usage_error(f"{baseline_path}:{n}: not a baseline row"
                                 f" (name, time, allocation, tab-separated):"
@@ -301,6 +307,11 @@ def self_test():
         expect("flag without value", run(a, "--baseline"), 2, "needs a value")
         expect("non-numeric tolerance", run(a, "--baseline", tsv,
                                             "--alloc-tol", "x"), 2, "number")
+        expect("NaN tolerance", run(a, "--baseline", tsv,
+                                    "--alloc-tol", "nan"), 2, "finite")
+        nul = os.path.join(td, "null.json")
+        collection(nul, {"g/x": (None, 0.2)})
+        expect("null slope", run("--emit", nul), 2, "not a finite number")
         p = run("--emit", a)
         expect("emit", p, 0, "g/x\t0.001\t0.2")
         open(tsv, "w").write("# header\n" + p.stdout)

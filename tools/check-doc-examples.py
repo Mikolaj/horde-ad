@@ -73,7 +73,7 @@ thirteen Haskell fences yielding thirteen capitalised names, and six
 rather than the verdict, since
 "0 unresolved" reads the same whether the extractor works or finds
 nothing to work on. The counts are not printed -- load the module and
-call `strip_comments`/`NAME_RE` over `FENCE_RE` yourself -- and they move
+call `strip_comments`/`NAME_RE` over `fenced_bodies` yourself -- and they move
 whenever a document gains or loses a fence, so re-take them with the edit
 rather than reading a stale one as a pass.
 
@@ -91,6 +91,11 @@ import re
 import subprocess
 import sys
 
+# Beside this file, which a path import (a defect case's unit) leaves off
+# sys.path.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import common  # noqa: E402
+
 # --- per-repo configuration -----------------------------------------
 # The fenced-block languages whose contents are read as this repo's
 # source language, and the command listing the sources to resolve
@@ -99,26 +104,10 @@ FENCE_LANGS = ("hs", "haskell")
 SOURCE_LIST = 'git ls-files "*.hs"'
 # --- end per-repo configuration --------------------------------------
 
-FENCE_RE = re.compile(
-    r"^```(?:" + "|".join(FENCE_LANGS) + r")\n(.*?)^```", re.S | re.M)
 DECL_RE = re.compile(r"^(?:type|data|newtype|class)\s+([A-Z][A-Za-z0-9_]*)",
                      re.M)
 CTOR_RE = re.compile(r"^(?:data|newtype)\s+[A-Z].*?=(.*?)(?=^\S|\Z)", re.S | re.M)
 NAME_RE = re.compile(r"\b([A-Z][A-Za-z0-9_]{3,})\b")
-
-
-def chdir_root(paths):
-    """Run from the repository root whatever the cwd -- the configuration's
-    paths are root-relative -- and return PATHS rebased to it. Outside a
-    repository nothing moves."""
-    # answered dropped-status: an empty top is the failure, and the next line tests it
-    top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
-                         capture_output=True, text=True).stdout.strip()
-    if not top:
-        return paths
-    paths = [os.path.relpath(os.path.abspath(p), top) for p in paths]
-    os.chdir(top)
-    return paths
 
 
 def sources():
@@ -141,6 +130,24 @@ def sources():
         return None
     return "".join(open(os.path.join(top or ".", f), encoding="utf-8",
                         errors="replace").read() for f in paths)
+
+
+def fenced_bodies(text):
+    """The bodies of the document's fenced blocks in FENCE_LANGS, each
+    dedented by its fence's indentation, a block left open included."""
+    bodies, cur = [], None
+    for line, kind, info in common.fence_scan(text.splitlines()):
+        if kind == "open":
+            cur = [] if info.split()[:1] and info.split()[0] in FENCE_LANGS \
+                else None
+        elif kind == "in" and cur is not None:
+            cur.append(line)
+        elif kind == "close" and cur is not None:
+            bodies.append("\n".join(cur) + "\n")
+            cur = None
+    if cur is not None:
+        bodies.append("\n".join(cur) + "\n")
+    return bodies
 
 
 def strip_comments(code):
@@ -176,7 +183,7 @@ def check_types(doc, text, src):
     # issue reproducer, say), not an excerpt of this repo's API: its names
     # resolve against its own imports, which this checker cannot see, so
     # the block is skipped rather than failed.
-    bodies = [b for b in FENCE_RE.findall(text)
+    bodies = [b for b in fenced_bodies(text)
               if not re.search(r"^module\s+Main\b", b, re.M)]
     code = strip_comments("".join(bodies))
     if not code.strip():
@@ -191,11 +198,11 @@ def check_types(doc, text, src):
     return failures
 
 
-def check_outputs(doc, text, src):
-    if src is None:
+def check_outputs(doc, text, normsrc):
+    """normsrc is the sources normalised, once for every document."""
+    if normsrc is None:
         return 0
     lines = text.splitlines()
-    normsrc = norm(src)
     failures = i = 0
     while i < len(lines):
         if not lines[i].startswith(">>>"):
@@ -276,7 +283,7 @@ def self_test():
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
         types = check_types("<self-test>", doc, src)
-        outs = check_outputs("<self-test>", doc, src)
+        outs = check_outputs("<self-test>", doc, norm(src))
     lines = [ln for ln in buf.getvalue().splitlines() if ln.strip()]
     ok = (types == 1 and outs == 1
           and any(SELF_TEST_TYPE in ln for ln in lines)
@@ -337,7 +344,7 @@ def main():
     # subdirectory-agreement row fired from any subdirectory on an unbroken
     # checker (check-doc-examples-04).
     args = [a for a in sys.argv[1:] if a != "--self-test"]
-    docs = chdir_root(args)
+    docs = common.chdir_root(args)
     if "--self-test" in sys.argv[1:]:
         return self_test()
     docs = docs or ["README.md"]
@@ -347,10 +354,11 @@ def main():
         print(f"BLOCKED: {SOURCE_LIST!r} listed no file, nothing checked")
         return 2
     failures = 0
+    normsrc = None if src is None else norm(src)
     for doc in docs:
         text = open(doc, encoding="utf-8").read()
         failures += check_types(doc, text, src)
-        failures += check_outputs(doc, text, src)
+        failures += check_outputs(doc, text, normsrc)
     print(f"\n{failures} unresolved in {len(docs)} document(s)"
           f" --- a clean run here still does not read the document for you.")
     return 1 if failures else 0
