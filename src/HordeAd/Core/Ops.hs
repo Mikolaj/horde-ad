@@ -249,7 +249,9 @@ class ShareTensor (target :: Target) where
                       => SNat k -> SingletonTK y
                       -> target (BuildTensorKind k y)
                       -> [target y]
-  -- INLINE: see the note at tappend in class LetTensor.
+  -- INLINE: see the note at tappend in class LetTensor. Without the pragma
+  -- AstRaw's tunravelToListShare took 4.5% more instructions and 1.2% more
+  -- allocation (GHC 10.1.20260918, 2026-10-02).
   {-# INLINE tunravelToListShare #-}
   tunravelToListShare snat@SNat stk u = case stk of
     STKScalar -> let !uShared = tshare u
