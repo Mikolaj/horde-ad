@@ -41,7 +41,7 @@
 -- which is the claim about enclosing thunks above. A duplicated evaluation
 -- does not always survive: work allocating some 10^5 list cells or more always
 -- lost one copy at the next pause, while short work, a draw among it, finished
--- twice.
+-- twice. The programs and their runs are in @docs/fresh-draws.md@.
 --
 -- What this costs is @noDuplicate#@. With one capability it returns at
 -- once, a few nanoseconds per draw, which is the state of the criterion
