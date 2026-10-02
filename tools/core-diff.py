@@ -61,6 +61,7 @@ def scan(root):
             for line in txt.split('\n'):
                 if not line or line[0] in ' \t=-{' or line.startswith(SKIP):
                     continue
+                # answered spaced-split: a column-0 Core binder is one word
                 tok = line.split(' ')[0]
                 if re.match(r'[A-Za-z_$]', tok):
                     names[re.sub(r"([A-Za-z_$'])[0-9]+\b", r'\1', tok)] += 1
