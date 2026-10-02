@@ -42,6 +42,7 @@ STEPS = [
     ('check-doc-examples self-test', ['python3', '{root}/check-doc-examples.py', '--self-test']),
     ('check-doc-refs self-test', ['python3', '{root}/check-doc-refs.py', '--self-test']),
     ('check-doc-wrap self-test', ['python3', '{root}/check-doc-wrap.py', '--self-test']),
+    ('check-fresh-draws self-test', ['python3', '{root}/check-fresh-draws.py', '--self-test']),
     ('check-plan-citations self-test', ['python3', '{root}/check-plan-citations.py', '--self-test']),
     ('check-twin-sync self-test', ['python3', '{root}/check-twin-sync.py', '--self-test']),
     ('core-diff self-test', ['python3', '{root}/core-diff.py', '--self-test']),
