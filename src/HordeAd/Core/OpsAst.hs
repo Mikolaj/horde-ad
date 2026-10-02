@@ -24,7 +24,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (OrderingI (..), cmpNat, type (+), type (-), type (<=?))
-import System.IO.Unsafe (unsafeDupablePerformIO)
+import System.IO.Unsafe (unsafeDupablePerformIO, unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested (Replicate, type (++))
@@ -101,10 +101,10 @@ revArtifactFromForwardPass
   -> FullShapeTK x
   -> (AstArtifactRev x z, Delta (AstRaw FullSpan) z)
 -- Break the inline chain to prevent false positives in inspection testing
--- and protect the unsafeDupablePerformIO.
+-- and protect the unsafePerformIO.
 {-# NOINLINE revArtifactFromForwardPass #-}
 revArtifactFromForwardPass cotangentHandling
-                           forwardPass xftk = unsafeDupablePerformIO $ do
+                           forwardPass xftk = unsafePerformIO $ do
   -- IO and bangs and the compound function to fix the numbering of variables
   -- for pretty-printing and prevent sharing the impure values
   -- in tests that reset the impure counters.
@@ -147,9 +147,9 @@ revArtifactFromForwardPassDt
   -> FullShapeTK x
   -> (AstArtifactRev x z, Delta (AstRaw FullSpan) z)
 -- Break the inline chain to prevent false positives in inspection testing
--- and protect the unsafeDupablePerformIO.
+-- and protect the unsafePerformIO.
 {-# NOINLINE revArtifactFromForwardPassDt #-}
-revArtifactFromForwardPassDt forwardPass xftk = unsafeDupablePerformIO $ do
+revArtifactFromForwardPassDt forwardPass xftk = unsafePerformIO $ do
   -- IO and bangs and the compound function to fix the numbering of variables
   -- for pretty-printing and prevent sharing the impure values
   -- in tests that reset the impure counters.
@@ -185,9 +185,9 @@ fwdArtifactFromForwardPass
   -> FullShapeTK x
   -> (AstArtifactFwd x z, Delta (AstRaw FullSpan) z)
 -- Break the inline chain to prevent false positives in inspection testing
--- and protect the unsafeDupablePerformIO.
+-- and protect the unsafePerformIO.
 {-# NOINLINE fwdArtifactFromForwardPass #-}
-fwdArtifactFromForwardPass forwardPass xftk = unsafeDupablePerformIO $ do
+fwdArtifactFromForwardPass forwardPass xftk = unsafePerformIO $ do
   (!varPrimalD, astVarD, astVarPrimal, var, astVar0) <- funToAstFwdIO xftk
   let !(D primalBody delta) = forwardPass astVarPrimal var astVar0
   let !derivative =

@@ -2,20 +2,25 @@
 -- generate fresh variables and sometimes also produce AST terms
 -- by applying functions to such variables. This module encapsulates
 -- the impurity, though some functions are in IO and they are used
--- with @unsafeDupablePerformIO@ outside, so some of the impurity escapes
--- and is encapsulated elsewhere.
+-- with @unsafeDupablePerformIO@ or @unsafePerformIO@ outside, so some
+-- of the impurity escapes and is encapsulated elsewhere.
 --
--- Fresh identifiers are drawn under @unsafeDupablePerformIO@ throughout
--- the library, not @unsafePerformIO@, whose @noDuplicate#@ walks
--- the evaluation stack on every call whenever more than one capability
--- runs (tasty raises the count to the number of processors even for
--- sequential tests), which is costly on deep stacks. A duplicated
--- evaluation is harmless: the counters are atomic, so each copy gets
--- distinct identifiers, and each result binds its variables together
--- with their uses, so the worst outcome is a counter gap or a lost
--- opportunity for sharing. The counters themselves are created with
--- @unsafePerformIO@, because two copies of a counter would hand out
--- duplicate identifiers.
+-- Fresh identifiers are drawn per operation under @unsafeDupablePerformIO@,
+-- not @unsafePerformIO@, whose @noDuplicate#@ walks the evaluation stack
+-- on every call whenever more than one capability runs (tasty raises
+-- the count to the number of processors even for sequential tests), which
+-- is costly on deep stacks. A thunk that two threads evaluate at once then
+-- runs twice: the counters being atomic, each copy gets distinct
+-- identifiers, but the thunk may be updated with either copy's result,
+-- so a result read twice can come back from different copies, a variable
+-- from one with a term from the other, which binds a different variable.
+-- Callers of the pair-returning functions below must therefore read both
+-- halves of a result in one evaluation, as a strict constructor storing
+-- them does. The artifact builders in "HordeAd.Core.OpsAst", whose results
+-- reach user code that may share them across threads and match them
+-- lazily, keep @unsafePerformIO@, at the cost of one stack walk
+-- per artifact. The counters themselves are created with @unsafePerformIO@,
+-- because two copies of a counter would hand out duplicate identifiers.
 module HordeAd.Core.AstFreshId
   ( funToAstIO, funToAst
   , funToAstIntIO, funToAstInt

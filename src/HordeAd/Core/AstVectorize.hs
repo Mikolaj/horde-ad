@@ -66,6 +66,7 @@ build1Vectorize snat@SNat stk (!var, !v0) = do
   let width = 1000 * traceWidth
       startTerm = Ast.AstBuild1 snat stk (var, v0)
   when enabled $ do
+    noDuplicate  -- tracing has effects that must not be repeated
     writeIORef traceNestingLevel 0
     hPutStrLnFlush stderr $
       "\n"
