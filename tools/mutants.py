@@ -94,7 +94,7 @@ MUTANTS = [
      '        if re.search(r"\\b" + n + r"\\b", src):\n', ST),
     # check-doc-examples: "removing the skip in a copy turned it red" (module Main)
     ('check-doc-examples module Main skip removed', 'check-doc-examples.py',
-     '              if not re.search(r"^module\\s+Main\\b", b, re.M)]\n', '              if True]\n', ST),
+     '              and not re.search(r"^module\\s+Main\\b", b, re.M)]\n', '              and True]\n', ST),
     # check-doc-examples: "removing that line from a copy reported the module's name"
     ('check-doc-examples module header no longer a doc-local name', 'check-doc-examples.py',
      '    for m in re.finditer(r"^module\\s+([\\w.]+)", code, re.M):\n        out |= set(m.group(1).split("."))\n',
