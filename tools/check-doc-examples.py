@@ -10,7 +10,8 @@ document's illustrative Haskell lives in fenced blocks, unbackticked, and
 its claim is not "this name exists" but "this is what the library does".
 Two shapes of that claim are mechanical:
 
-  types    a capitalised name in a ```hs block that is neither defined in
+  types    a capitalised name in a FENCE_LANGS block, fenced with
+           backticks or tildes, that is neither defined in
            the document itself -- including the constructors of a `data`
            it declares -- nor present in any tracked .hs file. That is a
            name the example invents or has outlived.
