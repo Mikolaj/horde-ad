@@ -47,7 +47,6 @@ Repro.hs
 # A reproducer that needs a second module, because the defect is between
 # modules, names that module `ReproLib.hs` on the same terms.
 ReproLib.hs
-# Three filed GHC issues (#27879, #27880, #27885) name their second
-# module `Lib.hs`, and their documents are the filed bodies, so the name
-# stays as filed.
+# Filed GHC issues name their second module `Lib.hs` too, and their
+# documents are the filed bodies, so the name stays as filed.
 Lib.hs

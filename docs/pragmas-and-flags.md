@@ -171,8 +171,10 @@ the loop of the backward pass non-tail recursive, and every `unsafePerformIO`
 drawing a fresh identifier then walked the deep stack in the runtime's
 `threadPaused`. Drawing them under `unsafeDupablePerformIO` instead (the module
 header of `HordeAd.Core.AstFreshId`) brings the flag's cost on CAFlessTest
-to 1%, and the fix proposed in that issue removes the stack growth itself.
-On GHC HEAD (commit `234bab0816` with the fixes of GHC
+to 1%, measured before the artifact builders went back to `unsafePerformIO`, one
+stack walk per artifact, for the reason that header gives; and the fix proposed
+in that issue removes the stack growth itself. On GHC HEAD (commit `234bab0816`
+with the fixes of GHC
 [#27873](https://gitlab.haskell.org/ghc/ghc/-/work_items/27873) and #27874)
 the flag costs 8.7% of the build and its wall time over the 204 rows has
 a geometric mean of +0.2%.
