@@ -232,6 +232,45 @@ CAFlessTest, once through, allocates 6.4% more than the baseline (407 GB against
 383 GB); its mutator time did not move over three interleaved pairs
 with `-fworker-wrapper-cbv` dropped, and is lower in the one run with it.
 
+## Forty-three of the `OpsConcrete` pragmas back
+
+A later commit restores 43 of the 115 `OpsConcrete` pragma lines and drops
+that module's `-fno-expose-overloaded-unfoldings`, for the 6.4% of CAFlessTest
+allocation above, which is what those pragmas had bought. They are the two
+classes whose callers lose most without them: the higher-order operations,
+taking a function or an `HFun` argument (the builds, maps and zips, gathers
+and scatters, `liftVR` and its twins, `tmapAccumLC`, `tscan`, `tlambda`,
+`tapply` and the derivative operations), and those that dispatch
+on the element type with `typeRep`, directly or through `contFromTypeable`
+and `contFromTKAllNum` (`tkcast`, the integral conversions with their local
+`cast`s, the index helpers and, again, the gathers, scatters
+and `tmapAccumLC`). Without `INLINE`, a caller at a known element type calls
+one generic compiled copy, which makes an unknown call and boxes its result
+for every element, or dispatches at every call. The other 72 lines stay
+removed: with the two classes back, the whole suite and each of its tests
+that had moved allocate what they did before `0a8d839b`.
+
+Measured on 2026-10-02 on GHC HEAD (commit `234bab0816` with the fixes
+of #27873 and #27874 and the one proposed in #27885), against the tree
+without them. Mutator times are ratios within one session of interleaved
+runs, two of each variant; build times are from one build of each variant,
+the tree without them taking the mean of two:
+
+| Variant | CAFlessTest allocation | Mutator time | Package build |
+|---|---|---|---|
+| without them | 396.8 GB | 1 | 1298 s |
+| only the opt-out dropped | 389.8 GB | 0.986 | 1399 s |
+| the higher-order class, opt-out dropped | 382.7 GB | 1.002 | 1751 s |
+| both classes, opt-out dropped (adopted) | 372.1 GB | 0.976 | 2016 s |
+| every pragma `0a8d839b` removed | 372.3 GB | 0.982 | 2231 s |
+
+The adopted variant buys 2.4% of CAFlessTest's mutator time for 55% more
+build time. The benchmarks, whose allocation barely moved without
+the pragmas (above), were not measured again with them: what they serve is
+CAFlessTest, which computes at `Concrete` from test modules. Comments
+at `tscan` and `tkcast`, the first of each class in `OpsConcrete`, carry
+the figures.
+
 ## Pitfalls met
 
 - Allocation screening is blind to `-fworker-wrapper-cbv`: removing it left

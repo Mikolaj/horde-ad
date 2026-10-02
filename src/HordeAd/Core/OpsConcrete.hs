@@ -1,7 +1,3 @@
-{-# LANGUAGE CPP #-}
-#if MIN_VERSION_GLASGOW_HASKELL(9,12,1,0)
-{-# OPTIONS_GHC -fno-expose-overloaded-unfoldings #-}
-#endif
 {-# LANGUAGE AllowAmbiguousTypes, ViewPatterns #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.KnownNat.Solver #-}
 {-# OPTIONS_GHC -fplugin GHC.TypeLits.Normalise #-}
@@ -87,6 +83,23 @@ instance LetTensor Concrete where
       let g !yn !ym = f yn (xfromK $ Concrete ym)
       in VS.foldl' g x0 (xtoVector es)
     _ -> foldl' f x0 (tunravelToListShare k stk es) -}
+  -- The higher-order operations of this module, those taking a function
+  -- or an HFun argument, of which this is the first, keep their INLINE,
+  -- and the module exposes its overloaded unfoldings. A caller at a known
+  -- element type then gets its function inlined into the vector loop,
+  -- where without them it calls one generic compiled copy that makes
+  -- an unknown call and boxes the result for every element. Measured
+  -- on 2026-10-02 on GHC HEAD 234bab08 with the fixes of
+  -- https://gitlab.haskell.org/ghc/ghc/-/work_items/27873,
+  -- https://gitlab.haskell.org/ghc/ghc/-/work_items/27874 and
+  -- https://gitlab.haskell.org/ghc/ghc/-/work_items/27885, together
+  -- with the typeRep dispatchers' pragmas (see tkcast): CAFlessTest
+  -- allocates 372.1 GB instead of 396.8 GB (-6.2%), no more than with
+  -- every pragma that 0a8d839b removed (372.3 GB), and its mutator time
+  -- is 2.4% lower, while the package builds in 2016 s instead of 1298 s
+  -- (+55%). With the higher-order operations' pragmas alone, it allocates
+  -- 382.7 GB, its mutator time does not move, and the build takes 1751 s.
+  {-# INLINE tscan #-}
   tscan k nstk stk f x0 as =
     case NonEmpty.nonEmpty $ scanl' f x0 $ tunravelToListShare k stk as of
       Just nl -> tfromList (snatSucc k) nstk nl
@@ -320,9 +333,20 @@ instance BaseTensor Concrete where
     --
     -- Benchmarks indicate this lowers allocation considerably, but increases
     -- runtime just as considerably, so it's disabled for now.
+  -- The operations of this module that dispatch on the element type
+  -- with typeRep, directly or through contFromTypeable or contFromTKAllNum,
+  -- of which this is the first, keep their INLINE, the local casts' too,
+  -- so that a caller at known types gets one monomorphic kernel instead
+  -- of the dispatch running in one generic compiled copy at every call.
+  -- Without them, but with the higher-order operations' pragmas (tscan has
+  -- the setup), CAFlessTest allocates 382.7 GB instead of 372.1 GB
+  -- and its mutator time is 2.6% higher, while the package builds
+  -- in 1751 s instead of 2016 s.
+  {-# INLINE tkcast #-}
   tkcast @r1 @r2 a =
     let cast :: (Differentiable r1', Differentiable r2')
              => Concrete (TKScalar r1') -> Concrete (TKScalar r2')
+        {-# INLINE cast #-}
         cast = Concrete . realToFrac . unConcrete
     -- Specializing just for the cases covered by realToFrac rules
     -- in GHC.Internal.Float, except for the Int cases that the RealFrac
@@ -339,9 +363,11 @@ instance BaseTensor Concrete where
   tkargMax = Concrete . targMaxK . unConcrete
   {-# INLINE trfloor #-}
   trfloor = Concrete . liftVR (V.map floor) . unConcrete
+  {-# INLINE trfromIntegral #-}
   trfromIntegral @r1 @r2 a =
     let cast :: (GoodScalar r1', Integral r1', NumScalar r2')
              => Concrete (TKR n r1') -> Concrete (TKR n r2')
+        {-# INLINE cast #-}
         cast = Concrete . liftVR (V.map fromIntegral) . unConcrete
     in case typeRep @r1 of
         Is @Int -> case typeRep @r2 of
@@ -404,6 +430,7 @@ instance BaseTensor Concrete where
     let cast :: ( Differentiable r1', NumScalar r1'
                 , Differentiable r2', NumScalar r2' )
              => Concrete (TKR n r1') -> Concrete (TKR n r2')
+        {-# INLINE cast #-}
         cast = Concrete . liftVR (V.map realToFrac) . unConcrete
     in case typeRep @r1 of
       Is @Double -> case typeRep @r2 of
@@ -419,9 +446,11 @@ instance BaseTensor Concrete where
   triota n = trfromIntegral $ Concrete $ Nested.riota @Int n
   {-# INLINE tsfloor #-}
   tsfloor = Concrete . liftVS (V.map floor) . unConcrete
+  {-# INLINE tsfromIntegral #-}
   tsfromIntegral @r1 @r2 a =
     let cast :: (GoodScalar r1', Integral r1', NumScalar r2')
              => Concrete (TKS sh r1') -> Concrete (TKS sh r2')
+        {-# INLINE cast #-}
         cast = Concrete . liftVS (V.map fromIntegral) . unConcrete
     in case typeRep @r1 of
         Is @Int -> case typeRep @r2 of
@@ -484,6 +513,7 @@ instance BaseTensor Concrete where
     let cast :: ( Differentiable r1', NumScalar r1'
                 , Differentiable r2', NumScalar r2' )
              => Concrete (TKS sh r1') -> Concrete (TKS sh r2')
+        {-# INLINE cast #-}
         cast = Concrete . liftVS (V.map realToFrac) . unConcrete
     in case typeRep @r1 of
       Is @Double -> case typeRep @r2 of
@@ -498,9 +528,11 @@ instance BaseTensor Concrete where
   tsiota @n = tsfromIntegral $ Concrete $ Nested.siota @Int (SNat @n)
   {-# INLINE txfloor #-}
   txfloor = Concrete . liftVX (V.map floor) . unConcrete
+  {-# INLINE txfromIntegral #-}
   txfromIntegral @r1 @r2 a =
     let cast :: (GoodScalar r1', Integral r1', NumScalar r2')
              => Concrete (TKX sh r1') -> Concrete (TKX sh r2')
+        {-# INLINE cast #-}
         cast = Concrete . liftVX (V.map fromIntegral) . unConcrete
     in case typeRep @r1 of
         Is @Int -> case typeRep @r2 of
@@ -563,6 +595,7 @@ instance BaseTensor Concrete where
     let cast :: ( Differentiable r1', NumScalar r1'
                 , Differentiable r2', NumScalar r2' )
              => Concrete (TKX sh r1') -> Concrete (TKX sh r2')
+        {-# INLINE cast #-}
         cast = Concrete . liftVX (V.map realToFrac) . unConcrete
     in case typeRep @r1 of
       Is @Double -> case typeRep @r2 of
@@ -617,6 +650,7 @@ instance BaseTensor Concrete where
   tkbuild1 = tbuild1K
   {-# INLINE tkbuild #-}
   tkbuild @sh = tbuildK (knownShS @sh)
+  {-# INLINE trbuild1 #-}
   trbuild1 @n @x k f =
     let g :: Int -> RepConcrete (TKR2 n x)
         g i = unConcrete $ f (Concrete i)
@@ -630,6 +664,7 @@ instance BaseTensor Concrete where
         _ ->
           Concrete $ Nested.rfromListOuterN k $ NonEmpty.fromList
           $ map g [0 .. k - 1]
+  {-# INLINE trbuild #-}
   trbuild @_ @n @x shm f =
     let g ix = unConcrete $ f (fmapConcrete ix)
     in case knownSTK @x of
@@ -637,7 +672,9 @@ instance BaseTensor Concrete where
         Concrete $ Nested.rgeneratePrim shm (Nested.runScalar . g)
       _ | Dict <- eltDictRep (knownSTK @x) ->
         Concrete $ Nested.runNest $ Nested.rgenerate shm g
+  {-# INLINE trmap0N #-}
   trmap0N f t = Concrete $ tmap0NR (unConcrete . f . Concrete) (unConcrete t)
+  {-# INLINE trzipWith0N #-}
   trzipWith0N f t u =
     Concrete
     $ tzipWith0NR (\v w -> unConcrete $ f (Concrete v) (Concrete w))
@@ -646,11 +683,14 @@ instance BaseTensor Concrete where
   tsbuild1 @_ @sh  = tbuild1S (knownShS @sh)
   {-# INLINE tsbuild #-}
   tsbuild @shm @shn  = tbuildS (knownShS @shm) (knownShS @shn)
+  {-# INLINE tsmap0N #-}
   tsmap0N f v = Concrete $ tmap0NS (unConcrete . f . Concrete) (unConcrete v)
+  {-# INLINE tszipWith0N #-}
   tszipWith0N f t u =
     Concrete
     $ tzipWith0NS (\v w -> unConcrete $ f (Concrete v) (Concrete w))
                   (unConcrete t) (unConcrete u)
+  {-# INLINE txbuild1 #-}
   txbuild1 @k @sh @x f =
     let g :: Int -> RepConcrete (TKX2 sh x)
         g i = unConcrete $ f (Concrete i)
@@ -666,6 +706,7 @@ instance BaseTensor Concrete where
         _ ->
           Concrete $ Nested.mfromListOuterSN SNat $ NonEmpty.fromList
           $ map g [0 .. valueOf @k - 1]
+  {-# INLINE txbuild #-}
   txbuild @shm @shn @x shm f =
     let g ix = unConcrete $ f (fmapConcrete ix)
     in case knownSTK @x of
@@ -677,16 +718,21 @@ instance BaseTensor Concrete where
   {-# INLINE tmapAccumLDer #-}
   tmapAccumLDer _ k _ bftk eftk (ConcreteFun f) _df _rf =
     tmapAccumLC k bftk eftk f
+  {-# INLINE tapply #-}
   tapply (ConcreteFun f) = Concrete . f . unConcrete
+  {-# INLINE tlambda #-}
   tlambda _ f = ConcreteFun $ unConcrete . unHFun f . Concrete
   -- The code for tvjp and tjvp in this instance is similar as for the
   -- ADVal ranked instance, because the type family instance is the same.
+  {-# INLINE tgrad #-}
   tgrad @_ @r xftk h | Dict0 <- lemTKScalarAllNumAD (Proxy @r) =
     ConcreteFun
     $ unConcrete . snd . crevOnParams Nothing (unHFun h) xftk . Concrete
+  {-# INLINE tvjp #-}
   tvjp xftk h = ConcreteFun $ \db_a ->
     unConcrete $ snd
     $ crevOnParamsDt (Concrete $ fst db_a) (unHFun h) xftk (Concrete $ snd db_a)
+  {-# INLINE tjvp #-}
   tjvp xftk h = ConcreteFun $ \da_a ->
     unConcrete $ snd
     $ cfwdOnParams xftk (Concrete $ snd da_a) (unHFun h) (Concrete $ fst da_a)
@@ -908,6 +954,7 @@ tmapAccumLC
   -> Concrete accy
   -> Concrete (BuildTensorKind k ey)
   -> Concrete (TKProduct accy (BuildTensorKind k by))
+{-# INLINE tmapAccumLC #-}
 tmapAccumLC k (FTKScalar @z1) eftk f !acc0 !es
   | Just Refl <- testEquality (typeRep @z1) (typeRep @Z1) =
     let h :: Concrete accy -> Concrete ey -> Concrete accy
@@ -983,6 +1030,7 @@ targMaxK = ixsHead . Nested.smaxIndexPrim
 tbuild1K :: (KnownNat k, GoodScalar r)
          => (IntOf Concrete -> Concrete (TKScalar r))
          -> Concrete (TKS '[k] r)
+{-# INLINE tbuild1K #-}
 tbuild1K @k f =
   let g i = unConcrete $ f (Concrete i)
   in Concrete $ Nested.sfromVector (SNat :$$ ZSS)
@@ -991,6 +1039,7 @@ tbuild1K @k f =
 tbuildK :: GoodScalar r
         => ShS sh -> (IxSOf Concrete sh -> Concrete (TKScalar r))
         -> Concrete (TKS sh r)
+{-# INLINE tbuildK #-}
 tbuildK sh f =
   let g ix = unConcrete $ f (fmapConcrete ix)
   in Concrete $ Nested.sgeneratePrim sh g
@@ -1016,6 +1065,7 @@ liftVR
   :: (Nested.PrimElt r1, Nested.PrimElt r2)
   => (VS.Vector r1 -> VS.Vector r2)
   -> Nested.Ranked n r1 -> Nested.Ranked n r2
+{-# INLINE liftVR #-}
 liftVR f = Ranked.liftRanked1 (Mixed.mliftNumElt1 (`liftVEltwise1` f))
 
 manyHotNR :: forall m n x. (KnownNat m, KnownSTK x)
@@ -1040,6 +1090,7 @@ manyHotNR (FTKR shRanked x) upd | Dict <- eltDictRep (knownSTK @x)
 tindexZR :: forall m n x. (KnownNat n, KnownSTK x)
          => Concrete (TKR2 (m + n) x) -> IxROf Concrete m
          -> Concrete (TKR2 n x)
+{-# INLINE tindexZR #-}
 tindexZR = case knownSTK @x of
   STKScalar @r -> contFromTypeable @r tindexZRDict
   _ -> tindexZRSlow
@@ -1079,6 +1130,7 @@ tindexZRScalar (Concrete v) ix = case SNat @n of
 tindex0R :: forall m r. GoodScalar r
          => Concrete (TKR m r) -> IxROf Concrete m
          -> Concrete (TKScalar r)
+{-# INLINE tindex0R #-}
 tindex0R = contFromTypeable @r tindex0RDict
 
 tindex0RImpl :: forall m r. GoodScalar r
@@ -1117,6 +1169,7 @@ tscatterZR
   => IShR p -> Concrete (TKR2 (m + n) x)
   -> (IxROf Concrete m -> IxROf Concrete p)
   -> Concrete (TKR2 (p + n) x)
+{-# INLINE tscatterZR #-}
 tscatterZR = case knownSTK @x of
   STKScalar @r ->  -- we don't use full dictionary from FTKScalar
     contFromTKAllNum @r tscatterZRDict
@@ -1209,6 +1262,7 @@ tgatherZR
   => IShR m -> Concrete (TKR2 (p + n) x)
   -> (IxROf Concrete m -> IxROf Concrete p)
   -> Concrete (TKR2 (m + n) x)
+{-# INLINE tgatherZR #-}
 tgatherZR = case knownSTK @x of
   STKScalar @r ->  -- we don't use full dictionary from FTKScalar
     contFromTypeable @r tgatherZRDict
@@ -1250,6 +1304,7 @@ tgatherZ1R
   => Int -> Concrete (TKR2 (p + n) x)
   -> (IntOf Concrete -> IxROf Concrete p)
   -> Concrete (TKR2 (1 + n) x)
+{-# INLINE tgatherZ1R #-}
 tgatherZ1R = case knownSTK @x of
   STKScalar @r ->  -- we don't use full dictionary from FTKScalar
     contFromTypeable @r tgatherZ1RDict
@@ -1325,6 +1380,7 @@ liftVS
   :: (Nested.PrimElt r1, Nested.PrimElt r)
   => (VS.Vector r1 -> VS.Vector r)
   -> Nested.Shaped sh r1 -> Nested.Shaped sh r
+{-# INLINE liftVS #-}
 liftVS f = Shaped.liftShaped1 (Mixed.mliftNumElt1 (`liftVEltwise1` f))
 
 manyHotNS :: forall shn shp x.
@@ -1350,6 +1406,7 @@ manyHotNS shn shp x upd | Dict <- eltDictRep (ftkToSTK x)
 tindexZS :: forall shm shn x. KnownSTK x
          => ShS shn -> Concrete (TKS2 (shm ++ shn) x) -> IxSOf Concrete shm
          -> Concrete (TKS2 shn x)
+{-# INLINE tindexZS #-}
 tindexZS = case knownSTK @x of
   STKScalar @r -> contFromTypeable @r tindexZSDict
   _ -> tindexZSSlow
@@ -1390,6 +1447,7 @@ tindexZSScalar shn (Concrete v) ix = case shn of
 tindex0S :: forall sh1 r. GoodScalar r
          => Concrete (TKS sh1 r) -> IxSOf Concrete sh1
          -> Concrete (TKScalar r)
+{-# INLINE tindex0S #-}
 tindex0S = contFromTypeable @r tindex0SDict
 
 tindex0SImpl :: forall sh1 r. GoodScalar r
@@ -1428,6 +1486,7 @@ tscatterZS
   -> Concrete (TKS2 (shm ++ shn) x)
   -> (IxSOf Concrete shm -> IxSOf Concrete shp)
   -> Concrete (TKS2 (shp ++ shn) x)
+{-# INLINE tscatterZS #-}
 tscatterZS = case knownSTK @x of
   STKScalar @r ->  -- we don't use full dictionary from FTKScalar
     contFromTKAllNum @r (tscatterZSDict @shm @shn)
@@ -1519,6 +1578,7 @@ tgatherZS
   -> Concrete (TKS2 (shp ++ shn) x)
   -> (IxSOf Concrete shm -> IxSOf Concrete shp)
   -> Concrete (TKS2 (shm ++ shn) x)
+{-# INLINE tgatherZS #-}
 tgatherZS = case knownSTK @x of
   STKScalar @r ->  -- we don't use full dictionary from FTKScalar
     contFromTypeable @r (tgatherZSDict @shm @shn)
@@ -1564,6 +1624,7 @@ tgatherZ1S
   -> Concrete (TKS2 (shp ++ shn) x)
   -> (IntOf Concrete -> IxSOf Concrete shp)
   -> Concrete (TKS2 (k ': shn) x)
+{-# INLINE tgatherZ1S #-}
 tgatherZ1S = case knownSTK @x of
   STKScalar @r ->  -- we don't use full dictionary from FTKScalar
     contFromTypeable @r (tgatherZ1SDict @k @shn)
@@ -1654,6 +1715,7 @@ tzipWith0NS f = Shaped.liftShaped2 (Mixed.mliftPrim2 f)
 tbuild1S :: forall k sh x. (KnownNat k, KnownSTK x)
          => ShS sh -> (IntOf Concrete -> Concrete (TKS2 sh x))
          -> Concrete (TKS2 (k ': sh) x)
+{-# INLINE tbuild1S #-}
 tbuild1S sh f = case knownSTK @x of
   STKScalar | ZSS <- sh ->
     tbuild1K (Concrete . Nested.sunScalar . unConcrete . f)
@@ -1668,6 +1730,7 @@ tbuild1S sh f = case knownSTK @x of
 tbuildS :: forall shm shn x. KnownSTK x
         => ShS shm -> ShS shn -> (IxSOf Concrete shm -> Concrete (TKS2 shn x))
         -> Concrete (TKS2 (shm ++ shn) x)
+{-# INLINE tbuildS #-}
 tbuildS shm shn f = case knownSTK @x of
   STKScalar | ZSS <- shn
             , Refl <- lemAppNil @shm ->
@@ -1686,6 +1749,7 @@ liftVX
   :: (Nested.PrimElt r1, Nested.PrimElt r)
   => (VS.Vector r1 -> VS.Vector r)
   -> Nested.Mixed sh r1 -> Nested.Mixed sh r
+{-# INLINE liftVX #-}
 liftVX f = Mixed.mliftNumElt1 (`liftVEltwise1` f)
 
 manyHotNX :: forall sh1 sh2 x. KnownSTK x
