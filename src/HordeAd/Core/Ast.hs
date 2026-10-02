@@ -701,6 +701,12 @@ data AstHFun s x z where
     -- the laziness is defeated. To make the variable argument strict
     -- we'd need to modify some other code fragments, while the performance
     -- impact seems mixed.
+    --
+    -- The two fields are often filled from one lazily evaluated pair, as
+    -- by tlambda, and read at different times, so whatever produces the
+    -- pair must have a single value however many threads force it, which is
+    -- why funToAst draws its variable under unsafePerformIO (the header of
+    -- "HordeAd.Core.AstFreshId").
 
 deriving instance Show (AstHFun s x z)
 

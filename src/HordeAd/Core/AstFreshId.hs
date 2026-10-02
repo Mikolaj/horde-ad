@@ -2,25 +2,75 @@
 -- generate fresh variables and sometimes also produce AST terms
 -- by applying functions to such variables. This module encapsulates
 -- the impurity, though some functions are in IO and they are used
--- with @unsafeDupablePerformIO@ or @unsafePerformIO@ outside, so some
--- of the impurity escapes and is encapsulated elsewhere.
+-- with @unsafePerformIO@ outside, so some of the impurity escapes
+-- and is encapsulated elsewhere.
 --
--- Fresh identifiers are drawn per operation under @unsafeDupablePerformIO@,
--- not @unsafePerformIO@, whose @noDuplicate#@ walks the evaluation stack
--- on every call whenever more than one capability runs (tasty raises
--- the count to the number of processors even for sequential tests), which
--- is costly on deep stacks. A thunk that two threads evaluate at once then
--- runs twice: the counters being atomic, each copy gets distinct
--- identifiers, but the thunk may be updated with either copy's result,
--- so a result read twice can come back from different copies, a variable
--- from one with a term from the other, which binds a different variable.
--- Callers of the pair-returning functions below must therefore read both
--- halves of a result in one evaluation, as a strict constructor storing
--- them does. The artifact builders in "HordeAd.Core.OpsAst", whose results
--- reach user code that may share them across threads and match them
--- lazily, keep @unsafePerformIO@, at the cost of one stack walk
--- per artifact. The counters themselves are created with @unsafePerformIO@,
--- because two copies of a counter would hand out duplicate identifiers.
+-- Every fresh identifier, here and in "HordeAd.Core.DeltaFreshId", is drawn
+-- under @unsafePerformIO@ and never under @unsafeDupablePerformIO@, and
+-- @tools/check-fresh-draws.py@, one of the checks @check-all tools@ runs,
+-- keeps it so: it permits the latter only in the definitions it lists,
+-- which draw nothing and compute the same result however often they run
+-- (@astIsSmall@ and @mkTraceRule@).
+--
+-- The reason is what a duplicated evaluation does. GHC claims a thunk under
+-- evaluation only when the evaluating thread next pauses, so two threads on
+-- different capabilities can both evaluate one thunk. @unsafePerformIO@ first
+-- runs @noDuplicate#@, which claims every thunk then under evaluation on the
+-- thread's stack, the enclosing ones as well as the innermost, so a second
+-- thread blocks and receives the first one's value: any value whose evaluation
+-- draws an identifier has one value, whoever forces it and however. Under
+-- @unsafeDupablePerformIO@ both copies run, the atomic counter gives each its
+-- own identifiers, and the thunk ends up updated with either copy's result,
+-- so a result read in two parts can mix the copies: a binder from one with
+-- a body from the other, which binds a different variable. @tlambda@ in
+-- "HordeAd.Core.OpsAst" stores the two halves of a @funToAst@ pair in the
+-- lazy fields of @AstLambda@, and @interpretAstHFun@ reads the binder and the
+-- body at different times, so a lambda that two threads force would come out
+-- binding one variable and using another. The library itself never evaluates
+-- one term from two threads; user code that interprets one artifact from
+-- several would, whenever the objective holds a fold, a scan, a mapAccum or a
+-- nested derivative.
+--
+-- A standalone mirror of @tlambda@, two threads on separate capabilities
+-- forcing a freshly built lazy pair 2,000,000 times at @-N3@, one reading
+-- the binder first and the other the body, tore 17520, 30213 and 35038
+-- lambdas under @unsafeDupablePerformIO@ and none under @unsafePerformIO@
+-- (2026-10-02). With the impure call behind a pure wrapper, as the body of
+-- @tgrad@'s lambda reaches its artifact, it tore 1177106 and 164623 times in
+-- 1,000,000 under the former, counted per thread, and never under the latter,
+-- which is the claim about enclosing thunks above. A duplicated evaluation
+-- does not always survive: work allocating some 10^5 list cells or more always
+-- lost one copy at the next pause, while short work, a draw among it, finished
+-- twice.
+--
+-- What this costs is @noDuplicate#@. With one capability it returns at
+-- once, a few nanoseconds per draw, which is the state of the criterion
+-- benchmarks, whose RTS options set no @-N@. With more it walks the stack
+-- down to the first frame already claimed, some 20 nanoseconds on a
+-- shallow stack and far more in deep non-tail recursion: tasty raises the
+-- capability count to the number of processors even for the sequential
+-- suites, and GHC https://gitlab.haskell.org/ghc/ghc/-/work_items/27885
+-- makes the backward-pass loop @evalRevFromnMap@ non-tail recursive under
+-- @-flate-dmd-anal@. Interpreting an artifact into @Concrete@ draws nothing,
+-- so only building, simplifying and differentiating terms pay, and the
+-- non-symbolic pipeline pays once per operation, in @shareDelta@.
+--
+-- Do not move the draws to @unsafeDupablePerformIO@ again. That was done
+-- on 2026-10-01 and measured, by the mutator time of the CAFlessTest suite
+-- under tasty, at 1.9% faster by default (two runs each) and 12.0% faster
+-- with @-flate-dmd-anal@ (four runs each), most of it the stack walks of that
+-- issue's deep stack; it made the lambdas above tearable and was reverted
+-- on 2026-10-02. A narrower variant, dupable only where an identifier
+-- merely names an existing term for sharing (@shareDelta@'s node ids and
+-- @astShareNoSimplify@'s variables), where any mix of copies only loses
+-- sharing, was considered and not adopted: its safety rests on the backward
+-- pass being linear and on one variable never naming two terms, which later
+-- code can break with nothing to notice. If the walks cost too much again,
+-- remove the deep stack, as the fix proposed in that issue does, or keep the
+-- sequential suites on one capability with tasty's @NumThreads 1@.
+--
+-- The counters are top-level constants created with @unsafePerformIO@, since
+-- two copies of one would hand out duplicate identifiers.
 module HordeAd.Core.AstFreshId
   ( funToAstIO, funToAst
   , funToAstIntIO, funToAstInt
@@ -37,7 +87,7 @@ import Prelude
 import Control.Concurrent.Counter (Counter, add, new, set)
 import Data.Type.Equality (testEquality, (:~:) (Refl))
 import GHC.Exts (IsList (..))
-import System.IO.Unsafe (unsafeDupablePerformIO, unsafePerformIO)
+import System.IO.Unsafe (unsafePerformIO)
 import Type.Reflection (typeRep)
 
 import Data.Array.Nested.Shaped.Shape
@@ -78,7 +128,7 @@ funToAst :: KnownSpan s
          => FullShapeTK y -> (AstTensor ms s y -> AstTensor ms s2 z)
          -> (AstVarName '(s, y), AstTensor ms s2 z)
 {-# NOINLINE funToAst #-}
-funToAst ftk = unsafeDupablePerformIO . funToAstIO ftk
+funToAst ftk = unsafePerformIO . funToAstIO ftk
 
 funToAstIntIO :: (Int, Int) -> (AstInt ms -> AstTensor ms s2 z)
               -> IO (IntVarName, AstTensor ms s2 z)
@@ -92,7 +142,7 @@ funToAstIntIO bds f = do
 funToAstInt :: (Int, Int) -> (AstInt ms -> AstTensor ms s2 z)
             -> (IntVarName, AstTensor ms s2 z)
 {-# NOINLINE funToAstInt #-}
-funToAstInt bds = unsafeDupablePerformIO . funToAstIntIO bds
+funToAstInt bds = unsafePerformIO . funToAstIntIO bds
 
 funToAstIntMaybeIO :: Maybe (Int, Int) -> ((IntVarName, AstInt ms) -> a)
                    -> IO a
@@ -107,7 +157,7 @@ funToAstIntMaybeIO mbounds f = do
 
 funToAstIntMaybe :: Maybe (Int, Int) -> ((IntVarName, AstInt ms) -> a) -> a
 {-# NOINLINE funToAstIntMaybe #-}
-funToAstIntMaybe mbounds = unsafeDupablePerformIO . funToAstIntMaybeIO mbounds
+funToAstIntMaybe mbounds = unsafePerformIO . funToAstIntMaybeIO mbounds
 
 funToAstAutoBoundsIO :: forall r s ms. KnownSpan s
                      => FullShapeTK (TKScalar r) -> AstTensor ms s (TKScalar r)
@@ -186,4 +236,4 @@ funToVarsIxS
   :: ShS sh -> (AstVarListS sh -> AstIxS ms sh -> AstTensor ms s2 z)
   -> AstTensor ms s2 z
 {-# NOINLINE funToVarsIxS #-}
-funToVarsIxS sh = unsafeDupablePerformIO . funToVarsIxIOS sh
+funToVarsIxS sh = unsafePerformIO . funToVarsIxIOS sh

@@ -665,6 +665,12 @@ ellipsisString width full = let cropped = take width full
 -- @to@ is evaluated (or diverges).
 -- TODO: switch away from IORefs to ensure correct blocking and then
 -- really display the first part of the message before @to@ diverges.
+--
+-- This runs under unsafeDupablePerformIO, a use that
+-- tools/check-fresh-draws.py permits: with tracing off it reads a flag and
+-- returns @to@, the same result however often it runs, and with tracing
+-- on noDuplicate claims the evaluation before any effect (the header of
+-- HordeAd.Core.AstFreshId says why fresh identifiers are drawn otherwise).
 mkTraceRule :: forall y z s. KnownSpan s
             => String
             -> AstTensor AstMethodLet s y

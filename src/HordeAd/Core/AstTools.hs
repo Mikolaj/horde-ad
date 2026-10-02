@@ -286,6 +286,11 @@ astIsSmall _ AstVar{} = True
 astIsSmall _ AstShare{} = True
 astIsSmall _ AstConcreteK{} = True
 astIsSmall _ (AstConcreteS a) | fromSNat' (Nested.srank a) == 0 = True
+-- The read of global state below runs under unsafeDupablePerformIO, a use that
+-- tools/check-fresh-draws.py permits: it draws nothing and the flag changes
+-- only in tests, so every evaluation computes the same result, and since it
+-- runs at every sharing decision, the stack walk of unsafePerformIO would be
+-- paid often (the header of HordeAd.Core.AstFreshId).
 astIsSmall lax t = unsafeDupablePerformIO $ do
   unsafeTotalSharing <- readIORef unsafeTotalSharingRef
   return $! if | unsafeTotalSharing -> False

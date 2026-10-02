@@ -24,7 +24,7 @@ import Data.Proxy (Proxy (Proxy))
 import Data.Type.Equality (gcastWith, testEquality, (:~:) (Refl))
 import Data.Vector.Generic qualified as V
 import GHC.TypeLits (OrderingI (..), cmpNat, type (+), type (-), type (<=?))
-import System.IO.Unsafe (unsafeDupablePerformIO, unsafePerformIO)
+import System.IO.Unsafe (unsafePerformIO)
 import Unsafe.Coerce (unsafeCoerce)
 
 import Data.Array.Nested (Replicate, type (++))
@@ -223,7 +223,7 @@ astBuild1Vectorize
   -> (AstInt AstMethodLet -> AstTensor AstMethodLet s y)
   -> AstTensor AstMethodLet s (BuildTensorKind k y)
 {-# NOINLINE astBuild1Vectorize #-}
-astBuild1Vectorize k stk f = unsafeDupablePerformIO $ do
+astBuild1Vectorize k stk f = unsafePerformIO $ do
   varx <- funToAstIntIO (0, fromSNat' k - 1) f
   build1Vectorize k stk varx
 
@@ -737,6 +737,13 @@ instance KnownSpan s => BaseTensor (AstTensor AstMethodLet s) where
       tpair (tproject1 res) (treverse k (ftkToSTK bftk) $ tproject2 res)
   tmapAccumLDer _ !k _ !bftk !eftk = astMapAccumLDer k bftk eftk
   tapply = astApply
+  -- Both halves of the pair below go into the lazy fields of AstLambda
+  -- as separate projections, read at different times, here and in tgrad,
+  -- tvjp and tjvp below. That is sound only because funToAst draws under
+  -- unsafePerformIO, so the pair has one value however many threads force it,
+  -- and the artifacts that the bodies of tgrad, tvjp and tjvp read lazily
+  -- are built under it too; the header of HordeAd.Core.AstFreshId says what
+  -- unsafeDupablePerformIO did to such lambdas.
   tlambda ftk f =
     let (var, ast) = funToAst ftk $ unHFun f
     in AstLambda var ast
@@ -1797,7 +1804,7 @@ astLetFunNoSimplify a f = case a of
   AstFromPrimal v -> astLetFunNoSimplify v (f . fromPrimal)
   AstFromDual v -> astLetFunNoSimplify v (f . fromDual)
   AstFromPlain v -> astLetFunNoSimplify v (f . fromPlain)
-  _ -> unsafeDupablePerformIO $ case ftkAst a of
+  _ -> unsafePerformIO $ case ftkAst a of
     ftk@FTKScalar -> do
         var <- funToAstAutoBoundsIO ftk a
         pure $! AstLet var a (f $ astVar var)

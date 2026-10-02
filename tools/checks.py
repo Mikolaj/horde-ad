@@ -3,11 +3,12 @@
 `{bin}` is the shared bin directory (`~/.claude/bin`), `{root}` this
 directory, `tools/`. What is here is the seconds-to-minutes half of
 CLAUDE.md's standing checks: every tool's self-test, the two linters over
-the Python and the shell here, the twin sync against LambdaHack, the
-mechanical document passes over every tracked `.md` but CHANGELOG.md, the
-defect records in both directions and the mutants. The Haskell build, the
-test suites and hlint stay in CLAUDE.md's list: a build inside a command
-meant to run often makes it run rarely.
+the Python and the shell here, the fresh-draw rule over the tracked Haskell,
+the twin sync against LambdaHack, the mechanical document passes over every
+tracked `.md` but CHANGELOG.md, the defect records in both directions
+and the mutants. The Haskell build, the test suites and hlint stay in
+CLAUDE.md's list: a build inside a command meant to run often makes it run
+rarely.
 
 A linter that cannot be found is a finding and not a skip: a probe decides
 and its silence fails the step by name. The twin sync and the reference check
@@ -53,6 +54,7 @@ STEPS = [
                   'cd "{root}" && { python3 -m pyflakes --version >/dev/null 2>&1 || { echo "python3 -m pyflakes --version failed, so tools/*.py went unlinted"; exit 1; }; } && python3 -m pyflakes *.py']),
     ('shellcheck', ['bash', '-c',
                     'cd "{root}/.." && { command -v shellcheck >/dev/null || { echo "shellcheck is not on PATH (command -v shellcheck finds nothing), so the shell scripts went unlinted"; exit 1; }; } && files=$(git ls-files "*.sh") && if [ -z "$files" ]; then echo "no tracked shell script; nothing linted"; else shellcheck -S warning -f gcc $files; fi']),
+    ('fresh draws',            ['python3', '{root}/check-fresh-draws.py']),
     ('twin sync',              ['python3', '{root}/check-twin-sync.py']),
     ('doc citations',          ['bash', '-c', DOCS % 'check-plan-citations.py']),
     ('doc refs',               ['bash', '-c', DOCS % 'check-doc-refs.py']),

@@ -169,10 +169,12 @@ than a benchmark, ran 12% slower with it: the flag exposes GHC
 [#27885](https://gitlab.haskell.org/ghc/ghc/-/work_items/27885), which makes
 the loop of the backward pass non-tail recursive, and every `unsafePerformIO`
 drawing a fresh identifier then walked the deep stack in the runtime's
-`threadPaused`. Drawing them under `unsafeDupablePerformIO` instead (the module
-header of `HordeAd.Core.AstFreshId`) brings the flag's cost on CAFlessTest
-to 1%, measured before the artifact builders went back to `unsafePerformIO`, one
-stack walk per artifact, for the reason that header gives; and the fix proposed
+`threadPaused`. Drawing them under `unsafeDupablePerformIO` instead brought
+the flag's cost on CAFlessTest to 1%, but let two threads forcing one lambda see
+its binder and its body from different evaluations, so every draw
+is under `unsafePerformIO` again (the module header of `HordeAd.Core.AstFreshId`
+has the measurements and the reasons), and the 12% is expected back, unmeasured,
+`astIsSmall` and `mkTraceRule` alone staying dupable, until the fix proposed
 in that issue removes the stack growth itself. On GHC HEAD (commit `234bab0816`
 with the fixes of GHC
 [#27873](https://gitlab.haskell.org/ghc/ghc/-/work_items/27873) and #27874)

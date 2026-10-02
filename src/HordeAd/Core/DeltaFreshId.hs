@@ -16,7 +16,7 @@ module HordeAd.Core.DeltaFreshId
 import Prelude
 
 import Control.Concurrent.Counter (Counter, add, new, set)
-import System.IO.Unsafe (unsafeDupablePerformIO, unsafePerformIO)
+import System.IO.Unsafe (unsafePerformIO)
 
 import HordeAd.Core.Delta
 
@@ -42,11 +42,14 @@ unsafeGetFreshId :: IO Int
 {-# INLINE unsafeGetFreshId #-}
 unsafeGetFreshId = add unsafeGlobalCounter 1
 
--- Why @unsafeDupablePerformIO@ and not @unsafePerformIO@
--- is explained in the header of "HordeAd.Core.AstFreshId".
+-- Node ids are drawn under @unsafePerformIO@ for the reasons, the measurements
+-- and the rejected alternatives in the header of "HordeAd.Core.AstFreshId". A
+-- node id only names a term for sharing, so a duplicated draw here would
+-- lose sharing and nothing else, but the rule is kept uniform, and
+-- @tools/check-fresh-draws.py@ checks it.
 --
 -- | The impurity exported from this module by @shareDelta@,
--- stemming from the use of @unsafeGetFreshId@ under @unsafeDupablePerformIO@,
+-- stemming from the use of @unsafeGetFreshId@ under @unsafePerformIO@,
 -- is thread-safe, admits parallel tests
 -- and does not require @-fno-full-laziness@ nor @-fno-cse@.
 --
@@ -56,7 +59,7 @@ unsafeGetFreshId = add unsafeGlobalCounter 1
 shareDelta :: forall y target.
               Delta target y -> Delta target y
 {-# NOINLINE shareDelta #-}
-shareDelta d = unsafeDupablePerformIO $ do
+shareDelta d = unsafePerformIO $ do
   n <- unsafeGetFreshId
   return $! case d of
     DeltaShare{} -> d  -- should not happen, but older/lower id is safer anyway
