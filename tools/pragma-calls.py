@@ -11,8 +11,9 @@ WORKTREE_B is the git checkout B was built from, whose uncommitted diff
 removes the pragmas. For each `INLINE`, `INLINABLE` or `NOINLINE` pragma
 the diff deletes, the script counts the occurrences of its target's name in
 every module's Core in both builds --- bare or module-qualified, and behind
-the `$s`, `$w` and similar prefixes of specialisations and workers --- and
-prints one line per pragma: DEAD when every module's count agrees, MOVED
+the `$s`, `$w` and similar prefixes of specialisations and workers, an
+operator without the parentheses its pragma writes it in --- and prints
+one line per pragma: DEAD when every module's count agrees, MOVED
 with the modules whose counts differ otherwise.
 
 This is the step between removing a whole group of pragmas and bisecting
@@ -28,7 +29,10 @@ Pragmas and optimisation flags). A name the diff removes a pragma from
 twice is marked, since its counts cover every binding of that name.
 
 The token counts of each dump tree are cached beside it, in
-DUMPS.tokens.pickle, since tokenising 1.5 GB of Core takes a minute.
+DUMPS.tokens.pickle, since tokenising 1.5 GB of Core takes a minute. The
+cache records every dump file's size and modification time and the
+tokeniser it was counted with, and is recounted when any of them differs,
+as after a rebuild into the same builddir.
 
 Exit 0 when the verdicts were printed, 2 when they could not be: a dump
 tree without `.dump-simpl` files, a WORKTREE that git cannot diff, or a
@@ -43,7 +47,8 @@ import re
 import subprocess
 import sys
 
-TOK = re.compile(r"[\w$'.]+")
+TOK = re.compile(r"(?:[A-Z][\w']*\.)*"
+                 r"(?:\$*[\w'][\w$']*|[!#$%&*+./<=>?@\\^|~:-]+)")
 PRAGMA = re.compile(r'-\s*\{-#\s*(?:INLINE|INLINABLE|INLINEABLE|NOINLINE)'
                     r'\s*(?:\[~?\d\])?\s*(\S+)\s*#-\}')
 
@@ -61,7 +66,10 @@ def pragmas(wt):
             cur = line[6:]
         m = PRAGMA.match(line)
         if m:
-            names.append((cur, m.group(1)))
+            n = m.group(1)
+            if n.startswith('(') and n.endswith(')'):
+                n = n[1:-1]
+            names.append((cur, n))
     return names
 
 
@@ -72,28 +80,40 @@ def normalise(tok):
     return re.sub(r'^(?:\$[a-z])+', '', tok)
 
 
+def signature(root):
+    """What a cached count must match: the tokeniser, and every dump file's
+    path, size and modification time."""
+    files = []
+    for dp, _, fs in os.walk(root):
+        for f in fs:
+            if '.dump-simpl' in f:
+                p = os.path.join(dp, f)
+                st = os.stat(p)
+                files.append((p, st.st_size, st.st_mtime_ns))
+    return TOK.pattern, sorted(files)
+
+
 def load(root):
     """Module key -> Counter of normalised tokens, cached beside root."""
     cache = root.rstrip('/') + '.tokens.pickle'
+    sig = signature(root)
     if os.path.exists(cache):
         with open(cache, 'rb') as fh:
-            return pickle.load(fh)
+            got = pickle.load(fh)
+        if isinstance(got, tuple) and len(got) == 2 and got[0] == sig:
+            return got[1]
     out = {}
-    for dp, _, fs in os.walk(root):
-        for f in fs:
-            if '.dump-simpl' not in f:
-                continue
-            p = os.path.join(dp, f)
-            op = gzip.open if f.endswith('.gz') else open
-            with op(p, 'rt', errors='replace') as fh:
-                raw = collections.Counter(TOK.findall(fh.read()))
-            c = collections.Counter()
-            for t, n in raw.items():
-                c[normalise(t)] += n
-            out[p.rsplit('/build/', 1)[-1].split('.dump-simpl')[0]] = c
+    for p, _, _ in sig[1]:
+        op = gzip.open if p.endswith('.gz') else open
+        with op(p, 'rt', errors='replace') as fh:
+            raw = collections.Counter(TOK.findall(fh.read()))
+        c = collections.Counter()
+        for t, n in raw.items():
+            c[normalise(t)] += n
+        out[p.rsplit('/build/', 1)[-1].split('.dump-simpl')[0]] = c
     if out:
         with open(cache, 'wb') as fh:
-            pickle.dump(out, fh)
+            pickle.dump((sig, out), fh)
     return out
 
 
@@ -123,7 +143,8 @@ def self_test():
         repo = os.path.join(td, 'repo')
         os.makedirs(repo)
         src = ('module M where\n{-# INLINE f #-}\nf x = x\n'
-               '{-# INLINE [1] g #-}\ng x = x\n{-# NOINLINE h #-}\nh x = x\n')
+               '{-# INLINE [1] g #-}\ng x = x\n{-# NOINLINE h #-}\nh x = x\n'
+               '{-# INLINE (+++) #-}\nxs +++ ys = xs\n')
         with open(os.path.join(repo, 'M.hs'), 'w') as fh:
             fh.write(src)
         git = ['git', '-C', repo, '-c', 'user.name=t', '-c', 'user.email=t@t']
@@ -132,28 +153,36 @@ def self_test():
             subprocess.run(git + cmd, check=True, capture_output=True)
         with open(os.path.join(repo, 'M.hs'), 'w') as fh:
             fh.write(src.replace('{-# INLINE f #-}\n', '')
-                        .replace('{-# INLINE [1] g #-}\n', ''))
+                        .replace('{-# INLINE [1] g #-}\n', '')
+                        .replace('{-# INLINE (+++) #-}\n', ''))
         dumps = {
             'A/build/src/M.dump-simpl': 'f = \\ x -> x\ng = \\ x -> x\n',
             'A/build/src/User.dump-simpl': 'u = \\ y -> y\nv = M.g 1\n',
             'B/build/src/M.dump-simpl': 'f = \\ x -> x\ng = \\ x -> x\n',
             'B/build/src/User.dump-simpl':
-                'u = \\ y -> M.f y\nw = $sf 2\nv = M.g 1\n',
+                'u = \\ y -> M.f y\nw = $sf 2\nv = M.g 1\nx = M.+++ y y\n',
         }
         for rel, text in dumps.items():
             os.makedirs(os.path.dirname(os.path.join(td, rel)), exist_ok=True)
             with open(os.path.join(td, rel), 'w') as fh:
                 fh.write(text)
         names = pragmas(repo)
-        if names != [('M.hs', 'f'), ('M.hs', 'g')]:
+        if names != [('M.hs', 'f'), ('M.hs', 'g'), ('M.hs', '+++')]:
             bad.append(f'pragmas the diff removes: {names}')
         got = verdicts(load(os.path.join(td, 'A')),
                        load(os.path.join(td, 'B')), names or [])
-        want = ['M.hs\tf\tMOVED User 0->2', 'M.hs\tg\tDEAD']
+        want = ['M.hs\tf\tMOVED User 0->2', 'M.hs\tg\tDEAD',
+                'M.hs\t+++\tMOVED User 0->1']
         if got != want:
             bad.append('verdicts:\n  ' + '\n  '.join(got))
         if not os.path.exists(os.path.join(td, 'A.tokens.pickle')):
             bad.append('token counts not cached')
+        # A dump rebuilt in place, its cache left from the run above.
+        with open(os.path.join(td, 'B/build/src/User.dump-simpl'), 'a') as fh:
+            fh.write('z = M.g 2\n')
+        if load(os.path.join(td, 'B')).get('src/User', {}).get('g') != 2:
+            bad.append('a dump rebuilt under its cache was read at the '
+                       'cached counts')
         empty = os.path.join(td, 'empty')
         os.makedirs(empty)
         if main([os.path.join(td, 'A'), empty, repo]) != 2:

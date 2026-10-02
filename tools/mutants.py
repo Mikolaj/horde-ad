@@ -302,6 +302,9 @@ MUTANTS = [
      "    name = re.sub(r'_sat_s[0-9A-Za-z]+', '_sat', name)\n", '', ST),
     ('ticky-diff file without the table read as an empty table', 'ticky-diff.py',
      '    return out if seen else None\n', '    return out\n', ST),
+    # ticky-diff-01 (2026-10-02): a row with no non-void argument has no kinds word.
+    ('ticky-diff kinds word dropped from a row that has none', 'ticky-diff.py',
+     '            if int(m.group(4)) > 0:\n', '            if True:\n', ST),
     ('core-diff numeric suffix of a binding kept', 'core-diff.py',
      '                    names[re.sub(r"([A-Za-z_$\'])[0-9]+\\b", r\'\\1\', tok)] += 1\n', '                    names[tok] += 1\n', ST),
     ('core-diff directory without dumps accepted', 'core-diff.py',
@@ -314,10 +317,22 @@ MUTANTS = [
      '        ta, tb = slope(a, name), slope(b, name)\n', '        tb, ta = slope(b, name), slope(a, name)\n', ST),
     ('ab-time mean in place of the median', 'ab-time.py',
      '    return statistics.median(ratios), min(ratios), max(ratios)\n', '    return statistics.mean(ratios), min(ratios), max(ratios)\n', ST),
+    # core-diff-01 (2026-10-02): a --module matching nothing passed.
+    ('core-diff --module matching no module accepted', 'core-diff.py',
+     '    if sub is not None and not any(sub in k for t in trees for k in t):\n',
+     '    if False:\n', ST),
     # pragma-calls (2026-09-30): each watched failing its self-test before
     # it was written down here.
     ('pragma-calls specialisation prefix no longer normalised', 'pragma-calls.py',
      "    return re.sub(r'^(?:\\$[a-z])+', '', tok)\n", '    return tok\n', ST),
     ('pragma-calls tree without dumps accepted', 'pragma-calls.py',
      '        if not t:\n', '        if not t and False:\n', ST),
+    # pragma-calls-01 and -02 (2026-10-02): a cache returned without its
+    # signature checked, and an operator counted in its pragma's parentheses.
+    ('pragma-calls cache returned without its signature checked', 'pragma-calls.py',
+     '        if isinstance(got, tuple) and len(got) == 2 and got[0] == sig:\n',
+     '        if isinstance(got, tuple) and len(got) == 2:\n', ST),
+    ('pragma-calls operator target kept in its parentheses', 'pragma-calls.py',
+     "            if n.startswith('(') and n.endswith(')'):\n",
+     "            if False:\n", ST),
 ]

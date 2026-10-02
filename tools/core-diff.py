@@ -28,7 +28,9 @@ difference. The size is the "Result size of Tidy Core" of each dump, which
 
 Exit 0 when the comparison was printed, 2 when it could not be: a directory
 with no `.dump-simpl` file, or a dump without its result size, so that a
-build made without the dump flags does not read as one with no differences.
+build made without the dump flags does not read as one with no differences;
+and a SUBSTRING no module's path contains, which would read as a module
+whose bindings did not move.
 """
 
 import collections
@@ -140,6 +142,9 @@ def self_test():
             bad.append('a directory without dumps did not exit 2')
         if main([os.path.join(td, 'A'), os.path.join(td, 'C')]) != 2:
             bad.append('a dump without its result size did not exit 2')
+        if main([os.path.join(td, 'A'), os.path.join(td, 'B'),
+                 '--module', 'NoSuch']) != 2:
+            bad.append('a --module matching no module did not exit 2')
     for b_ in bad:
         print('FAIL', b_)
     print('self-test', 'FAILED' if bad else 'passed')
@@ -167,6 +172,9 @@ def main(argv):
                   '-ddump-simpl -ddump-to-file?', file=sys.stderr)
             return 2
         trees.append(t)
+    if sub is not None and not any(sub in k for t in trees for k in t):
+        print(f"no module's path contains {sub}", file=sys.stderr)
+        return 2
     lines = (names_diff(*trees, sub) if sub is not None
              else summary(*trees))
     print('\n'.join(lines))

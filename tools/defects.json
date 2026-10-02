@@ -1044,6 +1044,108 @@
    "expect_absent": "FAIL sibling",
    "bug_exit": 1,
    "bug_text": "FAIL sibling ../no-such-checkout-x/tools/t.py"
+  },
+  {
+   "id": "pragma-calls-01",
+   "program": "pragma-calls.py",
+   "name": "the token cache DUMPS.tokens.pickle was returned whenever it existed, never checked against the dump files, so a dump tree rebuilt in place was read at its first run's counts",
+   "family": "unverified-state",
+   "fix_rev": "self",
+   "trigger": "a B.tokens.pickle older than B's dumps: B's User module now calls M.f, the pickle's counts say it does not",
+   "ok": "the cache is rebuilt, its recorded dump signature no longer matching: MOVED User 0->1, exit 0",
+   "bug": "the stale counts are used: f DEAD, exit 0",
+   "proved": "ran",
+   "harm": "unknown",
+   "discovery": "review",
+   "notes": "Found by the /code-review max run of 2026-10-02 over drop-recursive-inline, where a finder reproduced it by appending to a dump. The documented loop (remove a group of pragmas, rebuild into the same builddir, re-run) is exactly this case.",
+   "plant_cmd": "mkdir -p repo A/build/src B/build/src && printf 'module M where\\n{-# INLINE f #-}\\nf x = x\\n' > repo/M.hs && git -C repo init -q && git -C repo add M.hs && git -C repo -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm c && printf 'module M where\\nf x = x\\n' > repo/M.hs && printf 'u = \\\\ y -> y\\n' > A/build/src/User.dump-simpl && printf 'u = \\\\ y -> M.f y\\n' > B/build/src/User.dump-simpl && python3 -c \"import collections, pickle; pickle.dump({'src/User': collections.Counter({'u': 1, 'y': 2})}, open('B.tokens.pickle', 'wb'))\"",
+   "invoke": [
+    "{tmp}/A",
+    "{tmp}/B",
+    "{tmp}/repo"
+   ],
+   "expect_exit": 0,
+   "expect_text": "MOVED User 0->1",
+   "expect_absent": "DEAD",
+   "bug_exit": 0,
+   "bug_text": "f\tDEAD"
+  },
+  {
+   "id": "pragma-calls-02",
+   "program": "pragma-calls.py",
+   "name": "an operator target such as (+++) was counted under its parenthesised spelling, which no Core token matches, and Core's operator tokens were not tokenised at all, so every operator pragma read DEAD",
+   "family": "two-spellings",
+   "fix_rev": "self",
+   "trigger": "a diff removing {-# INLINE (+++) #-}, with B's User module calling M.+++ where A's does not",
+   "ok": "+++ MOVED User 0->1, exit 0",
+   "bug": "(+++) DEAD, exit 0",
+   "proved": "ran",
+   "harm": "unknown",
+   "discovery": "review",
+   "notes": "Found by the /code-review max run of 2026-10-02 over drop-recursive-inline; a finder compiled a real module with GHC to see how Core prints an operator: bare at a use, in parentheses at a binder, so the parenthesised pragma spelling matched neither.",
+   "plant_cmd": "mkdir -p repo A/build/src B/build/src && printf 'module M where\\n{-# INLINE (+++) #-}\\nxs +++ ys = xs\\n' > repo/M.hs && git -C repo init -q && git -C repo add M.hs && git -C repo -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm c && printf 'module M where\\nxs +++ ys = xs\\n' > repo/M.hs && printf 'u = \\\\ y -> y\\n' > A/build/src/User.dump-simpl && printf 'u = \\\\ y -> M.+++ y y\\n' > B/build/src/User.dump-simpl",
+   "invoke": [
+    "{tmp}/A",
+    "{tmp}/B",
+    "{tmp}/repo"
+   ],
+   "expect_exit": 0,
+   "expect_text": "+++\tMOVED User 0->1",
+   "expect_absent": "DEAD",
+   "bug_exit": 0,
+   "bug_text": "(+++)\tDEAD"
+  },
+  {
+   "id": "ticky-diff-01",
+   "program": "ticky-diff.py",
+   "name": "the row regex's optional arg-kinds word swallowed the first word of the closure name when a closure has no non-void argument, so every such closure was keyed by its unique and never matched between two builds",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "a row `1  100  0  0   Main.main1{v r2tV} (fun)` in A and the same closure under another unique in B",
+   "ok": "one line for Main.main (fun), alloc 100 -> 150",
+   "bug": "two phantom lines, `r2tV} (fun)` lost and `r9xQ} (fun)` gained",
+   "proved": "ran",
+   "harm": "unknown",
+   "discovery": "review",
+   "notes": "Found by the /code-review max run of 2026-10-02 over drop-recursive-inline, and reproduced by a finder on real GHC 9.12.4 ticky output, where the kinds word has one letter per non-void argument and is absent at a count of 0. Every CAF, thunk and State#-only closure is such a row.",
+   "plant_cmd": "printf '    Entries       Alloc     Alloc'\\''d  Non-void Arguments      STG Name\\n----------\\n          1         100           0   0          Main.main1{v r2tV} (fun)\\n' > A.txt && printf '    Entries       Alloc     Alloc'\\''d  Non-void Arguments      STG Name\\n----------\\n          1         150           0   0          Main.main1{v r9xQ} (fun)\\n' > B.txt",
+   "invoke": [
+    "{tmp}/A.txt",
+    "{tmp}/B.txt"
+   ],
+   "expect_exit": 0,
+   "expect_text": "100 ->         150  entries         1 ->         1  Main.main (fun)",
+   "expect_absent": "r2tV}",
+   "bug_exit": 0,
+   "bug_text": [
+    "r2tV} (fun)",
+    "r9xQ} (fun)"
+   ]
+  },
+  {
+   "id": "core-diff-01",
+   "program": "core-diff.py",
+   "name": "a --module SUBSTRING that no module's path contains printed nothing and exited 0, so a misspelt module read as one whose bindings did not move",
+   "family": "quiet-failure",
+   "fix_rev": "self",
+   "trigger": "--module NoSuchModule over two dump trees holding only src/M/User",
+   "ok": "exit 2, saying no module's path contains the substring",
+   "bug": "empty output, exit 0",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "notes": "Found by the /code-review max run of 2026-10-02 over drop-recursive-inline.",
+   "plant_cmd": "mkdir -p A/build/src/M B/build/src/M && printf '\\nResult size of Tidy Core\\n  = {terms: 10, types: 1}\\n\\nf\\n  = \\\\ x -> x\\n' > A/build/src/M/User.dump-simpl && cp A/build/src/M/User.dump-simpl B/build/src/M/User.dump-simpl",
+   "invoke": [
+    "{tmp}/A",
+    "{tmp}/B",
+    "--module",
+    "NoSuchModule"
+   ],
+   "expect_exit": 2,
+   "expect_text": "no module's path contains NoSuchModule",
+   "bug_exit": 0,
+   "bug_absent": "no module"
   }
  ]
 }
