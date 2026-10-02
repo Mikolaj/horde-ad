@@ -240,15 +240,18 @@ builds arbitrate.
 
 ## Provenance
 
-Everything above was measured 2026-08-03 on the development machine (Ryzen 7
-5800X, 32 MB L3, 62 GB RAM, Linux 6.17), GHC 9.12.4 --- the standalone
-reproducer additionally on GHC 9.14.1 and on HEAD 10.1.20260803, perf-flavour
-build --- criterion 1.6.5.0 / criterion-measurement 0.2.5.0, `convVjpBench`
-built `-O1` with `-A1G -I0`; the fixed build links
-the `speedup-strided-tovector` orthotope checkout at its `bq-expand` fallback,
-`5e4ece1` (that branch has since moved on, and no library commit falls between
-`5e4ece1` and 2026-08-25, so every measurement here and in the files citing
-it was against that code), the released build Hackage orthotope 0.1.8.0.
+Everything above but the `-A32m` readings and the `micro-regime3` figures
+was measured 2026-08-03 on the development machine (Ryzen 7 5800X, 32 MB L3, 62
+GB RAM, Linux 6.17), GHC 9.12.4 --- the standalone reproducer additionally
+on GHC 9.14.1 and on HEAD 10.1.20260803, perf-flavour build --- criterion
+1.6.5.0 / criterion-measurement 0.2.5.0, `convVjpBench` built `-O1`
+with `-A1G -I0`; the fixed build links the `speedup-strided-tovector` orthotope
+checkout at its `bq-expand` fallback, `5e4ece1` (that branch has since moved on,
+and no library commit falls between `5e4ece1` and 2026-08-25, so every such
+measurement here and in the files citing it was against that code), the released
+build Hackage orthotope 0.1.8.0.  The `-A32m` readings carry their dates
+in the opening paragraph, each against the orthotope fallback of its day;
+the `micro-regime3` figures are orthotope's, with their provenance there.
 Instruments: criterion per-iteration OLS slopes (all fits R2 >= 0.99),
 `+RTS -s`, `/usr/bin/time -v`, `/proc/<pid>` RSS/AnonHugePages timelines
 (transparent huge pages were 0 throughout --- eliminated as a factor), and root

@@ -6,15 +6,16 @@
 # inspection-testing removal that docs/ghc-head-build.md describes, with the
 # rest of what building on that compiler took.
 #
-# Against the orthotope SIBLING CHECKOUT on pr-mikolaj-canonical-dispatch at
-# 084f0f4 (verified in the build plan as style=local, src=local).  Its released
-# counterpart is the *-released-ghc-head.tsv beside it; do not diff a
-# collection against the wrong one, the benchmark names being identical.
+# Against the orthotope checkout `../orthotope.pr-mikolaj-canonical-dispatch`
+# at 084f0f4, a commit `../orthotope` does not hold (verified in the
+# build plan as style=local, src=local).  Its released counterpart is the
+# *-released-ghc-head.tsv beside it; do not diff a collection against the wrong
+# one, the benchmark names being identical.
 #
-# A series of its own: the 9.12.4 files beside it are not its diff targets,
-# the change of compiler moving prod allocation 8.9% in the geomean and per
-# benchmark from 0.89x to 1.57x in both directions.  Diff a head collection
-# against it with --baseline, as the others.
+# A series of its own: the 9.12.4 files beside it are not its diff targets, the
+# change of compiler, measured on released orthotope, moving prod allocation
+# 8.9% in the geomean and per benchmark from 0.89x to 1.57x in both directions.
+# Diff a head collection against it with --baseline, as the others.
 #
 # bytes_per_iter is the allocated-vs-iters OLS slope and is exact (every fit
 # here R2 0.999999 or above); it is the instrument.  seconds_per_iter carries

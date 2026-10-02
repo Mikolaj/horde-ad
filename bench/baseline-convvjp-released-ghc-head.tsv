@@ -19,10 +19,10 @@
 # its removal waits for the canonical-dispatch checkout to be released as
 # orthotope, which CI then resolves.  Every other property passes.
 #
-# A series of its own: the 9.12.4 files beside it are not its diff targets,
-# the change of compiler moving prod allocation 8.9% in the geomean and per
-# benchmark from 0.89x to 1.57x in both directions.  Diff a head collection
-# against it with --baseline, as the others.
+# A series of its own: the 9.12.4 files beside it are not its diff targets, the
+# change of compiler, measured on released orthotope, moving prod allocation
+# 8.9% in the geomean and per benchmark from 0.89x to 1.57x in both directions.
+# Diff a head collection against it with --baseline, as the others.
 #
 # bytes_per_iter is the allocated-vs-iters OLS slope and is exact (every fit
 # here R2 0.999999 or above); it is the instrument.  seconds_per_iter carries
