@@ -172,8 +172,8 @@ optimised on the committed tree; Haskell-CI passed on it for all three
 compilers.
 
 `OpsConcrete`'s opt-out was dropped again on 2026-10-02, together with 43
-of the pragmas that the change in `docs/pragmas-and-flags.md` removed from
-it, for CAFlessTest's allocation; that document has the measurements.
+of the pragmas that the change in `docs/pragmas-and-flags.md` removed from it,
+for CAFlessTest's allocation; that document has the measurements.
 
 ## Pitfalls met
 

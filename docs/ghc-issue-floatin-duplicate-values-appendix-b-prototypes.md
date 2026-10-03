@@ -1,12 +1,12 @@
 # Appendix B to the GHC !12121 comment: the prototypes and patches
 
-Appendix to the comment drafted in [`docs/ghc-issue-floatin-duplicate-values-comment.md`](ghc-issue-floatin-duplicate-values-comment.md) for GHC [!12121](https://gitlab.haskell.org/ghc/ghc/-/merge_requests/12121); it is not posted with the comment, which links here. Every compiler change the comment measures, as a unified diff against GHC HEAD `9f48a5b908` (10.1.20260925), each applying to that commit on its own, unless its section says it is against another variant here, on top of which it then applies. The name in parentheses after each heading is the compiler's name in the scripts and raw results of [appendix C](ghc-issue-floatin-duplicate-values-appendix-c-scripts-and-results.md).
+Appendix to the comment drafted in [`docs/ghc-issue-floatin-duplicate-values-comment.md`](ghc-issue-floatin-duplicate-values-comment.md) for GHC [!12121](https://gitlab.haskell.org/ghc/ghc/-/merge_requests/12121); it is not posted with the comment, which links here.  Every compiler change the comment measures, as a unified diff against GHC HEAD `9f48a5b908` (10.1.20260925), each applying to that commit on its own, unless its section says it is against another variant here, on top of which it then applies.  The name in parentheses after each heading is the compiler's name in the scripts and raw results of [appendix C](ghc-issue-floatin-duplicate-values-appendix-c-scripts-and-results.md).
 
 Contents: [the fixes behind "guard"](#the-fixes-behind-guard), [the prototype](#the-prototype-headthunk1-sharethunk1), [its variants](#variants-of-the-prototype), [the size policies](#the-size-policies), [the float-out restrictions](#the-float-out-restrictions), [the CSE and pipeline alternatives](#the-cse-and-pipeline-alternatives), [!12121 rebased onto HEAD](#12121-rebased-onto-head-headmr-mr12121), [the instrument](#the-instrument-dvdbg2).
 
 ## The fixes behind "guard"
 
-The fixes proposed in GHC [#27873](https://gitlab.haskell.org/ghc/ghc/-/work_items/27873) and GHC [#27880](https://gitlab.haskell.org/ghc/ghc/-/work_items/27880) (`GHC.Core.Opt.Specialise`) and GHC [#27874](https://gitlab.haskell.org/ghc/ghc/-/work_items/27874) (`GHC.Core.Utils`), as applied for every compiler named `guard` or built on it (the horde-ad builds and the columns the comment marks as measured on guard). Compilers named `head*` are built without them.
+The fixes proposed in GHC [#27873](https://gitlab.haskell.org/ghc/ghc/-/work_items/27873) and GHC [#27880](https://gitlab.haskell.org/ghc/ghc/-/work_items/27880) (`GHC.Core.Opt.Specialise`) and GHC [#27874](https://gitlab.haskell.org/ghc/ghc/-/work_items/27874) (`GHC.Core.Utils`), as applied for every compiler named `guard` or built on it (the horde-ad builds and the columns the comment marks as measured on guard).  Compilers named `head*` are built without them.
 
 ```diff
 diff --git a/compiler/GHC/Core/Opt/Specialise.hs b/compiler/GHC/Core/Opt/Specialise.hs
@@ -182,7 +182,7 @@ index 918cd1a3..19facdf6 100644
 
 ## The prototype (headthunk1, sharethunk1)
 
-A budget shared by the copies of a binding, for values and thunks, and one simplifier iteration between the late CSE and float-in: the diff at the end of the comment. The measured FloatIn.hs differed from this one only in comments and in the names of three helpers (`floatValueSize`, `valueSize` and `small_value` for `floatCopySize`, `copySize` and `small_enough`); the renamed one was compiled and gives the same result on the program checked (R1).
+A budget shared by the copies of a binding, for values and thunks, and one simplifier iteration between the late CSE and float-in: the diff at the end of the comment.  The measured FloatIn.hs differed from this one only in comments and in the names of three helpers (`floatValueSize`, `valueSize` and `small_value` for `floatCopySize`, `copySize` and `small_enough`); the renamed one was compiled and gives the same result on the program checked (R1).
 
 ```diff
 diff --git a/compiler/GHC/Core/Opt/FloatIn.hs b/compiler/GHC/Core/Opt/FloatIn.hs
@@ -395,7 +395,7 @@ diff --git a/compiler/GHC/Core/Opt/Pipeline.hs b/compiler/GHC/Core/Opt/Pipeline.
 
 ### Values only (headshare1, sharesimp1; dupshare without the pass)
 
-The prototype's FloatIn.hs against the values-only one: the values-only version also requires `exprIsHNF` of each right-hand side. The compilers named `dupshare` have the values-only FloatIn.hs and no simplifier pass.
+The prototype's FloatIn.hs against the values-only one: the values-only version also requires `exprIsHNF` of each right-hand side.  The compilers named `dupshare` have the values-only FloatIn.hs and no simplifier pass.
 
 ```diff
 diff --git a/compiler/GHC/Core/Opt/FloatIn.hs b/compiler/GHC/Core/Opt/FloatIn.hs
@@ -537,7 +537,7 @@ diff --git a/compiler/GHC/Core/Opt/Pipeline.hs b/compiler/GHC/Core/Opt/Pipeline.
 
 ### Float-in after the final simplifier instead (sharelate, guardlate; rejected)
 
-Against HEAD: no extra pass, the late float-in moved after `simplify "final"`. It fails T14152 and weakens a demand signature in T22241.
+Against HEAD: no extra pass, the late float-in moved after `simplify "final"`.  It fails T14152 and weakens a demand signature in T22241.
 
 ```diff
 diff --git a/compiler/GHC/Core/Opt/Pipeline.hs b/compiler/GHC/Core/Opt/Pipeline.hs
@@ -562,7 +562,7 @@ diff --git a/compiler/GHC/Core/Opt/Pipeline.hs b/compiler/GHC/Core/Opt/Pipeline.
 
 ## The size policies
 
-Earlier policies, all on guard and without the simplifier pass. The inline threshold (dupvalue) uses `couldBeSmallEnoughToInline`; the budget per case (dupbudget) checks `(n - 1) * size` against `unfoldingCreationThreshold`; the creation threshold (dupcreate) checks `size` alone. The exclusion of join points and `NOINLINE` bindings (`dup_ok`) was added to all three sources after dupvalue's testsuite run, so every dupvalue measurement was made with a compiler built without it, which is why it failed T18903 and T26709 and cost T15630 4%; the dupvalue source without `dup_ok` is the instrument's source at the end of this appendix with its trace removed.
+Earlier policies, all on guard and without the simplifier pass.  The inline threshold (dupvalue) uses `couldBeSmallEnoughToInline`; the budget per case (dupbudget) checks `(n - 1) * size` against `unfoldingCreationThreshold`; the creation threshold (dupcreate) checks `size` alone.  The exclusion of join points and `NOINLINE` bindings (`dup_ok`) was added to all three sources after dupvalue's testsuite run, so every dupvalue measurement was made with a compiler built without it, which is why it failed T18903 and T26709 and cost T15630 4%; the dupvalue source without `dup_ok` is the instrument's source at the end of this appendix with its trace removed.
 
 ### dupvalue
 
@@ -1434,7 +1434,7 @@ diff --git a/compiler/GHC/Core/Opt/SetLevels.hs b/compiler/GHC/Core/Opt/SetLevel
 
 ## The CSE and pipeline alternatives
 
-Their sources were edited in place and not kept, so only their description survives. fibcse: one more `runWhen do_float_in CoreDoFloatInwards` in `GHC.Core.Opt.Pipeline`, just before the late `runWhen cse CoreCSE`. cselam: `GHC.Core.Opt.CSE` doesn't common up the right-hand sides of local recursive let-bound lambdas. Both on guard.
+Their sources were edited in place and not kept, so only their description survives. fibcse: one more `runWhen do_float_in CoreDoFloatInwards` in `GHC.Core.Opt.Pipeline`, just before the late `runWhen cse CoreCSE`. cselam: `GHC.Core.Opt.CSE` doesn't common up the right-hand sides of local recursive let-bound lambdas.  Both on guard.
 
 ## !12121 rebased onto HEAD (headmr, mr12121)
 
