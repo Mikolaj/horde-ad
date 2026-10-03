@@ -83,22 +83,22 @@ instance LetTensor Concrete where
       let g !yn !ym = f yn (xfromK $ Concrete ym)
       in VS.foldl' g x0 (xtoVector es)
     _ -> foldl' f x0 (tunravelToListShare k stk es) -}
-  -- The higher-order operations of this module, those taking a function
-  -- or an HFun argument, of which this is the first, keep their INLINE,
-  -- and the module exposes its overloaded unfoldings. A caller at a known
-  -- element type then gets its function inlined into the vector loop,
-  -- where without them it calls one generic compiled copy that makes
-  -- an unknown call and boxes the result for every element. Measured
-  -- on 2026-10-02 on GHC HEAD 234bab08 with the fixes of
-  -- https://gitlab.haskell.org/ghc/ghc/-/work_items/27873,
+  -- The higher-order operations of this module, those taking a
+  -- function or an HFun argument, keep their INLINE, and the
+  -- module exposes its overloaded unfoldings. A caller at a known
+  -- element type then gets its function inlined into the vector
+  -- loop, where without them it calls one generic compiled copy
+  -- that makes an unknown call and boxes the result for every
+  -- element. Measured on 2026-10-02 on GHC HEAD 234bab08 with the
+  -- fixes of https://gitlab.haskell.org/ghc/ghc/-/work_items/27873,
   -- https://gitlab.haskell.org/ghc/ghc/-/work_items/27874 and
-  -- https://gitlab.haskell.org/ghc/ghc/-/work_items/27885, together
-  -- with the typeRep dispatchers' pragmas (see tkcast): CAFlessTest
-  -- allocates 372.1 GB instead of 396.8 GB (-6.2%), no more than with
-  -- every pragma that 0a8d839b removed (372.3 GB), and its mutator time
-  -- is 2.4% lower, while the package builds in 2016 s instead of 1298 s
-  -- (+55%). With the higher-order operations' pragmas alone, it allocates
-  -- 382.7 GB, its mutator time does not move, and the build takes 1751 s.
+  -- https://gitlab.haskell.org/ghc/ghc/-/work_items/27885, together with
+  -- the typeRep dispatchers' pragmas (see tkcast): CAFlessTest allocates
+  -- 372.1 GB instead of 396.8 GB (-6.2%), no more than with every pragma
+  -- that 0a8d839b removed (372.3 GB), and its mutator time is 2.4% lower,
+  -- while the package builds in 2016 s instead of 1298 s (+55%). With the
+  -- higher-order operations' pragmas alone, it allocates 382.7 GB, its
+  -- mutator time does not move, and the build takes 1751 s.
   {-# INLINE tscan #-}
   tscan k nstk stk f x0 as =
     case NonEmpty.nonEmpty $ scanl' f x0 $ tunravelToListShare k stk as of
@@ -333,15 +333,14 @@ instance BaseTensor Concrete where
     --
     -- Benchmarks indicate this lowers allocation considerably, but increases
     -- runtime just as considerably, so it's disabled for now.
-  -- The operations of this module that dispatch on the element type
-  -- with typeRep, directly or through contFromTypeable or contFromTKAllNum,
-  -- of which this is the first, keep their INLINE, the local casts' too,
-  -- so that a caller at known types gets one monomorphic kernel instead
-  -- of the dispatch running in one generic compiled copy at every call.
-  -- Without them, but with the higher-order operations' pragmas (tscan has
-  -- the setup), CAFlessTest allocates 382.7 GB instead of 372.1 GB
-  -- and its mutator time is 2.6% higher, while the package builds
-  -- in 1751 s instead of 2016 s.
+  -- The operations of this module that dispatch on the element type with
+  -- typeRep, directly or through contFromTypeable or contFromTKAllNum,
+  -- keep their INLINE, the local casts' too, so that a caller at known
+  -- types gets one monomorphic kernel instead of the dispatch running in
+  -- one generic compiled copy at every call. Without them, but with the
+  -- higher-order operations' pragmas (tscan has the setup), CAFlessTest
+  -- allocates 382.7 GB instead of 372.1 GB and its mutator time is 2.6%
+  -- higher, while the package builds in 1751 s instead of 2016 s.
   {-# INLINE tkcast #-}
   tkcast @r1 @r2 a =
     let cast :: (Differentiable r1', Differentiable r2')

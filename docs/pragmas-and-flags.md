@@ -18,17 +18,20 @@ less, nearly all of it outside the library, which drops from 624 s to 510 s.
 No benchmark allocates 2% more than before, and on the rows measured
 with cachegrind no benchmark executes 3% more instructions. Every other pragma
 examined and every other flag stays, each for a measured reason given below,
-except where the only reason is the threshold rule.
+except where the only reason is the threshold rule. A later change, the last
+section, restores 43 of the `OpsConcrete` pragmas and drops that module's
+`-fno-expose-overloaded-unfoldings`, for 2.4% of CAFlessTest's mutator time
+at 55% more build time.
 
 ## Setup
 
-GHC 9.14.1, the newest of the three CI builds with, and the only one measured;
-ox-arrays and orthotope from Hackage, no sibling checkouts; a 4-core, 15 GB
-cloud VM with no hardware performance counters, restarted several times during
-the work on hosts whose kernel changed. The baseline is the tree at `5535dee`,
-whose code the branch still carried. Every build was optimised with exactly
-the `.cabal` flags and a `cabal.project.local` of `tests: True`
-and `benchmarks: True` alone.
+GHC 9.14.1, the newest of the three CI builds with, and the one measured
+wherever the text names no other; ox-arrays and orthotope from Hackage,
+no sibling checkouts; a 4-core, 15 GB cloud VM with no hardware performance
+counters, restarted several times during the work on hosts whose kernel changed.
+The baseline is the tree at `5535dee`, whose code the branch still carried.
+Every build was optimised with exactly the `.cabal` flags
+and a `cabal.project.local` of `tests: True` and `benchmarks: True` alone.
 
 The instruments are those of `docs/overloaded-unfoldings.md`, in the same order
 of trust, plus one:
@@ -102,6 +105,8 @@ too, though, each user call site received the whole case over the element types,
 and that cost 309 s of package build (1380 s against 1071 s in the build-time
 table below); without their `INLINE` the case expands once, in `OpsConcrete`,
 and `gather48` and `scatter48` stay within 0.1% of the baseline in allocation.
+The later change of the last section puts the ten `INLINE`s back, with the rest
+of their class.
 
 The `ADEngine` pragmas are on the artifact-building and artifact-interpreting
 functions (`gradArtifact`, `gradInterpretArtifact`, `vjpInterpretArtifact`,
@@ -262,13 +267,13 @@ taking the mean of two:
 | only the opt-out dropped | 389.8 GB | 0.986 | 1399 s |
 | the higher-order class, opt-out dropped | 382.7 GB | 1.002 | 1751 s |
 | both classes, opt-out dropped (adopted) | 372.1 GB | 0.976 | 2016 s |
-| every pragma `0a8d839b` removed | 372.3 GB | 0.982 | 2231 s |
+| every pragma `0a8d839b` removed, back | 372.3 GB | 0.982 | 2231 s |
 
 The adopted variant buys 2.4% of CAFlessTest's mutator time for 55% more build
 time. The benchmarks, whose allocation barely moved without the pragmas (above),
 were not measured again with them: what they serve is CAFlessTest, which
-computes at `Concrete` from test modules. Comments at `tscan` and `tkcast`,
-the first of each class in `OpsConcrete`, carry the figures.
+computes at `Concrete` from test modules. Comments at `tscan` and `tkcast` carry
+the figures.
 
 ## Pitfalls met
 
@@ -297,7 +302,7 @@ the first of each class in `OpsConcrete`, carry the figures.
 
 ## Not measured
 
-- GHC 9.12.4 and 9.10.3, and GHC HEAD.
+- GHC 9.12.4 and 9.10.3, and GHC HEAD but where the text names it.
 - Wall time as interleaved A/B pairs on the benchmarks: allocation
   and instructions settled every row, none coming near the 10% margin.
 - `longProdBench`, `longMnistBench`, and the test suites beyond `minimalTest`

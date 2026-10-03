@@ -36,11 +36,11 @@
 -- the binder first and the other the body, tore 17520, 30213 and 35038
 -- lambdas under @unsafeDupablePerformIO@ and none under @unsafePerformIO@
 -- (2026-10-02). With the impure call behind a pure wrapper, as the body of
--- @tgrad@'s lambda reaches its artifact, it tore 1177106 and 164623 times in
--- 1,000,000 under the former, counted per thread, and never under the latter,
--- which is the claim about enclosing thunks above. A duplicated evaluation
--- does not always survive: work allocating some 10^5 list cells or more always
--- lost one copy at the next pause, while short work, a draw among it, finished
+-- @tgrad@'s lambda reaches its artifact, it tore 947385 times in 1,000,000
+-- under the former, counted per thread, and never under the latter, which is
+-- the claim about enclosing thunks above. A duplicated evaluation does not
+-- always survive: work allocating some 10^5 list cells or more always lost
+-- one copy at the next pause, while short work, a draw among it, finished
 -- twice. The programs and their runs are in @docs/fresh-draws.md@.
 --
 -- What this costs is @noDuplicate#@. With one capability it returns at

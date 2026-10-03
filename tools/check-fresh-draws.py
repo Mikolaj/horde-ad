@@ -15,7 +15,8 @@ src/, test/, bench/ and example/:
 
 1. unsafeDupablePerformIO appears only in the top-level definitions ALLOW
    names, each with the reason every evaluation of it computes the same
-   result; the other duplicable primitives (FORBIDDEN) appear nowhere.
+   result; the other duplicable primitives (FORBIDDEN) appear in no code,
+   imports aside.
 2. No definition ALLOW names mentions an unprotected drawer: a counter, or
    a top-level definition that mentions one, transitively, without running
    under unsafePerformIO itself. A protected drawer, funToAst and its kin,
