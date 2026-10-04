@@ -72,9 +72,9 @@ is simply laid out differently.
 **Attribution.**  Hardware counters (root `perf stat` over fixed-iteration runs,
 phases separated by differencing) close the chain exactly.  Per iteration, alone
 -> poisoned: task-clock 10.81 -> 13.21 ms (1.222x); instructions 133.55M ->
-133.48M (0.9994x); dTLB-load-misses 22.1k -> 22.9k (1.04x); clock 4.954 -> 4.953
-GHz; cache-misses 120.0k -> 343.5k (2.86x).  The extra 11.8M cycles divided
-by the extra 223k LLC misses give ~53 cycles per miss --- DRAM latency
+133.48M (0.9994x); dTLB-load-misses 22.1k -> 22.9k (1.04x); clock 4.954 ->
+4.953 GHz; cache-misses 120.0k -> 343.5k (2.86x).  The extra 11.8M cycles
+divided by the extra 223k LLC misses give ~53 cycles per miss --- DRAM latency
 with overlap --- accounting for the full +2.40 ms; IPC falls 2.48 -> 2.04
 on an identical instruction stream.
 
@@ -100,8 +100,8 @@ case of ordinary-allocation-heavy code paying for degraded block-level layout.
 `-H2G` grows a fused-alone process to a comparable 2135 MiB contiguously,
 touches it all (545k faults), and runs at full speed (10.51 ms); while
 predecessors leaving even *larger* pools cause *smaller* effects ---
-`two-gathers-ad-shn-sorted` +9% at 2353 MiB, conv `48x48/S-exec` +7.5% at 2396
-MiB, against `two-gathers-ad-orient`'s +22% at 2180 MiB.  What matters
+`two-gathers-ad-shn-sorted` +9% at 2353 MiB, conv `48x48/S-exec` +7.5%
+at 2396 MiB, against `two-gathers-ad-orient`'s +22% at 2180 MiB.  What matters
 is the granularity of the fragments a predecessor's allocation mix leaves,
 and the ad-orient chain --- whose smaller slice size sits 10% above
 the large-object threshold --- is nearly the worst case.
@@ -122,10 +122,10 @@ sides, common-mode), 0.98 alone --- reproducing the retracted A/B's 1.200 /
 
 `inp-192x192/S-exec-raw`, the documented ramp exemplar, grows the pool itself:
 RSS climbs 1.12 -> 1.99 GiB during its own first ~1.5 s and plateaus, while
-its early samples read 63 -> 51 -> 40 -> 35 -> 33 ms against a converged 22.4
-ms.  A benchmark that pays for pool growth *inside its own early samples* shows
-the ramp --- transient, absorbed by criterion's OLS slope-with-intercept, which
-is why converged `-A1G` and `-A64m` slopes agree.  A benchmark whose pool
+its early samples read 63 -> 51 -> 40 -> 35 -> 33 ms against a converged
+22.4 ms.  A benchmark that pays for pool growth *inside its own early samples*
+shows the ramp --- transient, absorbed by criterion's OLS slope-with-intercept,
+which is why converged `-A1G` and `-A64m` slopes agree.  A benchmark whose pool
 was grown *by a predecessor* starts post-plateau: no faults, no decay, a flat
 penalty the slope faithfully reports as real.  One mechanism, two faces ---
 and the suite's ramp defenses (slope-not-mean, long budgets) are exactly
