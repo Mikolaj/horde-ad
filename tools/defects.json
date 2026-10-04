@@ -1096,6 +1096,56 @@
    "bug_text": "(+++)\tDEAD"
   },
   {
+   "id": "pragma-calls-03",
+   "program": "pragma-calls.py",
+   "name": "a dump tree whose paths hold no /build/ component, as -dumpdir writes one, kept each module's whole path as its key, so each module was counted against nothing in the other build and a pragma whose target's counts agreed read MOVED",
+   "family": "two-spellings",
+   "fix_rev": "self",
+   "trigger": "A/src/User.dump-simpl and B/src/User.dump-simpl, no /build/ in either path, both calling M.f once, the worktree's diff removing INLINE f",
+   "ok": "f DEAD, exit 0",
+   "bug": "f MOVED User 1->0, User 0->1, exit 0",
+   "proved": "ran",
+   "harm": "unknown",
+   "discovery": "generalisation",
+   "notes": "Found 2026-10-05 by asking where else core-diff-02's keying occurs.",
+   "plant_cmd": "mkdir -p repo A/src B/src && printf 'module M where\\n{-# INLINE f #-}\\nf x = x\\n' > repo/M.hs && git -C repo init -q && git -C repo add M.hs && git -C repo -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm c && printf 'module M where\\nf x = x\\n' > repo/M.hs && printf 'u = \\\\ y -> M.f y\\n' > A/src/User.dump-simpl && cp A/src/User.dump-simpl B/src/User.dump-simpl",
+   "invoke": [
+    "{tmp}/A",
+    "{tmp}/B",
+    "{tmp}/repo"
+   ],
+   "expect_exit": 0,
+   "expect_text": "f\tDEAD",
+   "expect_absent": "MOVED",
+   "bug_exit": 0,
+   "bug_text": "MOVED User 1->0, User 0->1"
+  },
+  {
+   "id": "pragma-calls-04",
+   "program": "pragma-calls.py",
+   "name": "a dump was any file whose name contains .dump-simpl, so the .dump-simpl-stats file -ddump-simpl-stats writes beside it was read as Core too, cut to the same key and, sorting after it, replaced the module's counts",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "A and B both with build/src/User.dump-simpl calling M.f twice, B also with User.dump-simpl-stats naming M.f once, the worktree's diff removing INLINE f",
+   "ok": "f DEAD, exit 0",
+   "bug": "f MOVED User 2->1, exit 0",
+   "proved": "ran",
+   "harm": "unknown",
+   "discovery": "review",
+   "notes": "Found 2026-10-05 while sharing pragma-calls' dump keying with core-diff and the new dump readers, whose builds ask for -ddump-simpl-stats beside -ddump-simpl.",
+   "plant_cmd": "mkdir -p repo A/build/src B/build/src && printf 'module M where\\n{-# INLINE f #-}\\nf x = x\\n' > repo/M.hs && git -C repo init -q && git -C repo add M.hs && git -C repo -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm c && printf 'module M where\\nf x = x\\n' > repo/M.hs && printf 'u = \\\\ y -> M.f (M.f y)\\n' > A/build/src/User.dump-simpl && cp A/build/src/User.dump-simpl B/build/src/User.dump-simpl && printf '1 UnfoldingDone\\n  1 M.f\\n' > B/build/src/User.dump-simpl-stats",
+   "invoke": [
+    "{tmp}/A",
+    "{tmp}/B",
+    "{tmp}/repo"
+   ],
+   "expect_exit": 0,
+   "expect_text": "f\tDEAD",
+   "expect_absent": "MOVED",
+   "bug_exit": 0,
+   "bug_text": "MOVED User 2->1"
+  },
+  {
    "id": "ticky-diff-01",
    "program": "ticky-diff.py",
    "name": "the row regex's optional arg-kinds word swallowed the first word of the closure name when a closure has no non-void argument, so every such closure was keyed by its unique and never matched between two builds",
@@ -1146,6 +1196,57 @@
    "expect_text": "no module's path contains NoSuchModule",
    "bug_exit": 0,
    "bug_absent": "no module"
+  },
+  {
+   "id": "core-diff-02",
+   "program": "core-diff.py",
+   "name": "a dump tree whose paths hold no /build/ component, as -dumpdir writes one, kept each module's whole path as its key, so the two trees shared no module and every module read as removed from one build and new in the other",
+   "family": "two-spellings",
+   "fix_rev": "self",
+   "trigger": "A/Data/M.dump-simpl and B/Data/M.dump-simpl, no /build/ in either path, terms 10 and 12",
+   "ok": "one row Data/M, terms 10 -> 12, exit 0",
+   "bug": "two rows, .../A/Data/M terms 10 -> 0 and .../B/Data/M terms 0 -> 12 new, exit 0",
+   "proved": "ran",
+   "harm": "unknown",
+   "discovery": "review",
+   "notes": "Found 2026-10-05 while extending core-diff for a handoff whose builds wrote their dumps with -dumpdir. pragma-calls-03 is the same keying in its neighbour.",
+   "plant_cmd": "mkdir -p A/Data B/Data && printf '\\nResult size of Tidy Core\\n  = {terms: 10, types: 1}\\n\\nf\\n  = \\\\ x -> x\\n' > A/Data/M.dump-simpl && sed 's/terms: 10/terms: 12/' A/Data/M.dump-simpl > B/Data/M.dump-simpl",
+   "invoke": [
+    "{tmp}/A",
+    "{tmp}/B"
+   ],
+   "expect_exit": 0,
+   "expect_text": "Data/M",
+   "expect_absent": [
+    "/A/Data/M",
+    " new"
+   ],
+   "bug_exit": 0,
+   "bug_text": "/A/Data/M"
+  },
+  {
+   "id": "core-diff-03",
+   "program": "core-diff.py",
+   "name": "a dump made without -dsuppress-all, as pragma-calls asks for, prints each top-level binder at column 0 twice, in its type signature and at its definition, and each was counted twice, so one binding read as two and a gained specialisation as 0 -> 2",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "two -dsuppress-idinfo dumps of module M under build/, B adding a binding $sf beside f",
+   "ok": "bindings 1 -> 2, exit 0",
+   "bug": "bindings 2 -> 4, exit 0",
+   "proved": "ran",
+   "harm": "unknown",
+   "discovery": "review",
+   "notes": "Found 2026-10-05: pragma-calls' docstring sends its reader to core-diff for keeping two builds apart, and the dumps it asks for keep type signatures.",
+   "plant_cmd": "mkdir -p A/build B/build && printf '\\nResult size of Tidy Core\\n  = {terms: 4, types: 2}\\n\\n-- RHS size: {terms: 2, types: 1, coercions: 0, joins: 0/0}\\nf :: Int -> Int\\nf = \\\\ (x :: Int) -> x\\n' > A/build/M.dump-simpl && cp A/build/M.dump-simpl B/build/M.dump-simpl && printf '\\n-- RHS size: {terms: 2, types: 1, coercions: 0, joins: 0/0}\\n$sf :: Int -> Int\\n$sf = \\\\ (x :: Int) -> x\\n' >> B/build/M.dump-simpl && sed -i 's/terms: 4, types: 2/terms: 6, types: 3/' B/build/M.dump-simpl",
+   "invoke": [
+    "{tmp}/A",
+    "{tmp}/B"
+   ],
+   "expect_exit": 0,
+   "expect_text": "bindings      1 ->      2",
+   "expect_absent": "bindings      2 ->      4",
+   "bug_exit": 0,
+   "bug_text": "bindings      2 ->      4"
   },
   {
    "id": "check-plan-citations-10",

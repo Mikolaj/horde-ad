@@ -30,9 +30,9 @@ twice is marked, since its counts cover every binding of that name.
 
 The token counts of each dump tree are cached beside it, in
 DUMPS.tokens.pickle, since tokenising 1.5 GB of Core takes a minute. The
-cache records every dump file's size and modification time and the
-tokeniser it was counted with, and is recounted when any of them differs,
-as after a rebuild into the same builddir.
+cache records every dump file's size and modification time, the tokeniser
+and the module keying it was counted with, and is recounted when any
+of them differs, as after a rebuild into the same builddir.
 
 Exit 0 when the verdicts were printed, 2 when they could not be: a dump
 tree without `.dump-simpl` files, a WORKTREE that git cannot diff, or a
@@ -40,12 +40,18 @@ diff that removes no pragma.
 """
 
 import collections
-import gzip
 import os
 import pickle
 import re
 import subprocess
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import dumps  # noqa: E402
+
+# The module keying the cache was written with, part of its signature so a
+# cache keyed the old way is recounted (pragma-calls-03).
+KEYS = 'dumps.module_key'
 
 TOK = re.compile(r"(?:[A-Z][\w']*\.)*"
                  r"(?:\$*[\w'][\w$']*|[!#$%&*+./<=>?@\\^|~:-]+)")
@@ -81,16 +87,15 @@ def normalise(tok):
 
 
 def signature(root):
-    """What a cached count must match: the tokeniser, and every dump file's
-    path, size and modification time."""
+    """What a cached count must match: the tokeniser, the module keying, and
+    every dump file's path, size and modification time. A dump is a file
+    ending in .dump-simpl, gzipped or not, and not the .dump-simpl-stats
+    beside it (pragma-calls-04)."""
     files = []
-    for dp, _, fs in os.walk(root):
-        for f in fs:
-            if '.dump-simpl' in f:
-                p = os.path.join(dp, f)
-                st = os.stat(p)
-                files.append((p, st.st_size, st.st_mtime_ns))
-    return TOK.pattern, sorted(files)
+    for p, _ in dumps.walk(root, '.dump-simpl'):
+        st = os.stat(p)
+        files.append((p, st.st_size, st.st_mtime_ns))
+    return TOK.pattern, KEYS, files
 
 
 def load(root):
@@ -103,14 +108,12 @@ def load(root):
         if isinstance(got, tuple) and len(got) == 2 and got[0] == sig:
             return got[1]
     out = {}
-    for p, _, _ in sig[1]:
-        op = gzip.open if p.endswith('.gz') else open
-        with op(p, 'rt', errors='replace') as fh:
-            raw = collections.Counter(TOK.findall(fh.read()))
+    for p, _, _ in sig[-1]:
+        raw = collections.Counter(TOK.findall(dumps.read_text(p)))
         c = collections.Counter()
         for t, n in raw.items():
             c[normalise(t)] += n
-        out[p.rsplit('/build/', 1)[-1].split('.dump-simpl')[0]] = c
+        out[dumps.module_key(p, root, '.dump-simpl')] = c
     if out:
         with open(cache, 'wb') as fh:
             pickle.dump((sig, out), fh)
@@ -155,14 +158,22 @@ def self_test():
             fh.write(src.replace('{-# INLINE f #-}\n', '')
                         .replace('{-# INLINE [1] g #-}\n', '')
                         .replace('{-# INLINE (+++) #-}\n', ''))
-        dumps = {
+        files = {
             'A/build/src/M.dump-simpl': 'f = \\ x -> x\ng = \\ x -> x\n',
             'A/build/src/User.dump-simpl': 'u = \\ y -> y\nv = M.g 1\n',
             'B/build/src/M.dump-simpl': 'f = \\ x -> x\ng = \\ x -> x\n',
             'B/build/src/User.dump-simpl':
                 'u = \\ y -> M.f y\nw = $sf 2\nv = M.g 1\nx = M.+++ y y\n',
+            # Trees written with -dumpdir, no build/ directory in their paths
+            # (pragma-calls-03), one module with the .dump-simpl-stats file
+            # -ddump-simpl-stats writes beside its dump (pragma-calls-04).
+            'C/src/M.dump-simpl': 'f = \\ x -> x\ng = \\ x -> x\n',
+            'C/src/User.dump-simpl': 'u = \\ y -> y\nv = M.g 1\n',
+            'D/src/M.dump-simpl': 'f = \\ x -> x\ng = \\ x -> x\n',
+            'D/src/User.dump-simpl': 'u = \\ y -> y\nv = M.g 1\n',
+            'D/src/User.dump-simpl-stats': '1 UnfoldingDone\n  2 M.g M.g\n',
         }
-        for rel, text in dumps.items():
+        for rel, text in files.items():
             os.makedirs(os.path.dirname(os.path.join(td, rel)), exist_ok=True)
             with open(os.path.join(td, rel), 'w') as fh:
                 fh.write(text)
@@ -183,6 +194,18 @@ def self_test():
         if load(os.path.join(td, 'B')).get('src/User', {}).get('g') != 2:
             bad.append('a dump rebuilt under its cache was read at the '
                        'cached counts')
+        # A cache from before the keying entered the signature, which a run
+        # over C then keyed by each dump's whole path, must be recounted.
+        croot = os.path.join(td, 'C')
+        with open(croot + '.tokens.pickle', 'wb') as fh:
+            pickle.dump(((TOK.pattern, signature(croot)[-1]),
+                         {os.path.join(croot, 'src/User'):
+                          collections.Counter({'g': 9})}), fh)
+        got = verdicts(load(croot), load(os.path.join(td, 'D')), names or [])
+        want = ['M.hs\tf\tDEAD', 'M.hs\tg\tDEAD', 'M.hs\t+++\tDEAD']
+        if got != want:
+            bad.append('verdicts over -dumpdir trees, one module with a '
+                       'stats file:\n  ' + '\n  '.join(got))
         empty = os.path.join(td, 'empty')
         os.makedirs(empty)
         if main([os.path.join(td, 'A'), empty, repo]) != 2:

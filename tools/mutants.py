@@ -367,7 +367,7 @@ MUTANTS = [
     ('ticky-diff kinds word dropped from a row that has none', 'ticky-diff.py',
      '            if int(m.group(4)) > 0:\n', '            if True:\n', ST),
     ('core-diff numeric suffix of a binding kept', 'core-diff.py',
-     '                    names[re.sub(r"([A-Za-z_$\'])[0-9]+\\b", r\'\\1\', tok)] += 1\n', '                    names[tok] += 1\n', ST),
+     '    return re.sub(r"([A-Za-z_$\'])[0-9]+\\b", r\'\\1\', tok)\n', '    return tok\n', ST),
     ('core-diff directory without dumps accepted', 'core-diff.py',
      '        if not t:\n', '        if not t and False:\n', ST),
     ('cachegrind-per-call last-level misses weighted as L1', 'cachegrind-per-call.py',
@@ -437,4 +437,23 @@ MUTANTS = [
     ('pragma-calls operator target kept in its parentheses', 'pragma-calls.py',
      "            if n.startswith('(') and n.endswith(')'):\n",
      "            if False:\n", ST),
+    # core-diff-02, -03 and pragma-calls-03, -04 (2026-10-05): the dump
+    # keying and selection now shared in dumps.py, judged by the self-tests
+    # of the tools importing it, and the identity verdict's two digests.
+    ('core-diff size comments ignored', 'core-diff.py',
+     '    if any(RHS.match(line) for line in lines):\n', '    if False:\n', ST),
+    ('dumps whole path kept as the key', 'dumps.py',
+     "    rel = os.path.relpath(path, root).replace(os.sep, '/')\n", '    rel = path\n',
+     'cd {dir} && python3 core-diff.py --self-test'),
+    ('dumps literal-blind digest the exact one', 'dumps.py',
+     "    blind = LITERAL.sub('N#', exact)\n", '    blind = exact\n',
+     'cd {dir} && python3 core-diff.py --self-test'),
+    ('dumps timestamps kept in the digests', 'dumps.py',
+     "    exact = TIMESTAMP.sub('', text)\n", '    exact = text\n',
+     'cd {dir} && python3 core-diff.py --self-test'),
+    ('dumps stats file read as a dump', 'dumps.py',
+     "            if f.endswith(suffix) or f.endswith(suffix + '.gz'):\n",
+     '            if suffix in f:\n', 'cd {dir} && python3 pragma-calls.py --self-test'),
+    ('pragma-calls cache keying left out of its signature', 'pragma-calls.py',
+     '    return TOK.pattern, KEYS, files\n', '    return TOK.pattern, files\n', ST),
 ]
