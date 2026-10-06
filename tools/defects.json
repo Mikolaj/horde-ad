@@ -1504,6 +1504,710 @@
    "expect_absent": "NoSuchQuotedType",
    "bug_exit": 1,
    "bug_text": "FAIL d.md: type NoSuchQuotedType"
+  },
+  {
+   "id": "maxskip-zero-is-off",
+   "program": "align-as.py",
+   "name": "LOOP_MAXSKIP=0 built the max-skip form",
+   "kind": "defect",
+   "fix_rev": "437ce00",
+   "family": "domain-unchecked",
+   "trigger": "LOOP_MAXSKIP=0",
+   "ok": "off, like unset and empty",
+   "bug": "bool(environ.get) was true for any value, the max-skip form built",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "{tmp}/as",
+    "LOOP_MAXSKIP": "0",
+    "ALIGN_AS_VERBOSE": "1"
+   },
+   "expect_text": [
+    "unconditionally"
+   ],
+   "expect_absent": [
+    "max-skip budget"
+   ],
+   "bug_text": [
+    "max-skip budget"
+   ],
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n\t.globl\tgo\ngo:\n\tmovq\t%rdi, %rax\n\tret\n.Lloop:\n\taddq\t$1, %rax\n\tcmpq\t$10, %rax\n\tjne\t.Lloop\n\tret\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, which the audit replays from that checkout, fix_in naming it.",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/align-as.py"
+   }
+  },
+  {
+   "id": "head-after-a-zero-operand-instruction",
+   "program": "align-as.py",
+   "name": "a loop head following `ret` was dropped in silence",
+   "kind": "defect",
+   "fix_rev": "437ce00",
+   "family": "scan-for-parse",
+   "trigger": "a loop head following ret or another bare mnemonic",
+   "ok": "aligned and counted",
+   "bug": "INSTR required whitespace after the mnemonic, the head dropped silently",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "{tmp}/as",
+    "ALIGN_AS_VERBOSE": "1"
+   },
+   "expect_text": [
+    "aligned 1 loop head"
+   ],
+   "bug_text": [
+    "aligned 0 loop head"
+   ],
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n\t.globl\tgo\ngo:\n\tmovq\t%rdi, %rax\n\tret\n.Lloop:\n\taddq\t$1, %rax\n\tcmpq\t$10, %rax\n\tjne\t.Lloop\n\tret\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, which the audit replays from that checkout, fix_in naming it.",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/align-as.py"
+   }
+  },
+  {
+   "id": "pad-is-announced",
+   "program": "align-as.py",
+   "name": "the pad is per invocation, so a second line is the only tell",
+   "kind": "defect",
+   "fix_rev": "437ce00",
+   "family": null,
+   "trigger": "PAD_BYTES over a target of two modules",
+   "ok": "one line per module says where the pad went",
+   "bug": "the pad was per invocation and nothing said so",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "{tmp}/as",
+    "PAD_BYTES": "8192"
+   },
+   "expect_text": [
+    "8192 pad byte(s) appended"
+   ],
+   "bug_exit": 0,
+   "bug_absent": [
+    "pad byte(s) appended"
+   ],
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n\t.globl\tgo\ngo:\n\tmovq\t%rdi, %rax\n\tret\n.Lloop:\n\taddq\t$1, %rax\n\tcmpq\t$10, %rax\n\tjne\t.Lloop\n\tret\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, which the audit replays from that checkout, fix_in naming it.",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/align-as.py"
+   }
+  },
+  {
+   "id": "empty-pad-bytes",
+   "program": "align-as.py",
+   "name": "PAD_BYTES= killed the compile with int('') at import",
+   "kind": "defect",
+   "fix_rev": "09782f7",
+   "family": "domain-unchecked",
+   "trigger": "PAD_BYTES= empty",
+   "ok": "read as unset, the compile proceeds",
+   "bug": "int(\"\") at import killed the compile with ValueError",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "{tmp}/as",
+    "PAD_BYTES": "",
+    "LOOP_ALIGN": ""
+   },
+   "expect_exit": 0,
+   "expect_absent": [
+    "ValueError"
+   ],
+   "bug_text": [
+    "ValueError"
+   ],
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n\t.globl\tgo\ngo:\n\tmovq\t%rdi, %rax\n\tret\n.Lloop:\n\taddq\t$1, %rax\n\tcmpq\t$10, %rax\n\tjne\t.Lloop\n\tret\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, which the audit replays from that checkout, fix_in naming it.",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/align-as.py"
+   }
+  },
+  {
+   "id": "non-number-refused-in-one-line",
+   "program": "align-as.py",
+   "name": "PAD_BYTES=abc killed the compile with a traceback out of the shim",
+   "kind": "defect",
+   "fix_rev": "40f7a37",
+   "family": null,
+   "trigger": "PAD_BYTES=abc",
+   "ok": "one line naming the variable and value, exit 1",
+   "bug": "a ValueError traceback out of the shim, outside any handler",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "{tmp}/as",
+    "PAD_BYTES": "abc"
+   },
+   "expect_exit": 1,
+   "expect_text": [
+    "PAD_BYTES='abc' is not a number"
+   ],
+   "expect_absent": [
+    "Traceback"
+   ],
+   "bug_text": [
+    "Traceback",
+    "ValueError"
+   ],
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n\t.globl\tgo\ngo:\n\tmovq\t%rdi, %rax\n\tret\n.Lloop:\n\taddq\t$1, %rax\n\tcmpq\t$10, %rax\n\tjne\t.Lloop\n\tret\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, which the audit replays from that checkout, fix_in naming it.",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/align-as.py"
+   }
+  },
+  {
+   "id": "probe-that-did-not-assemble",
+   "program": "align-as.py",
+   "name": "a failed probe made the max-skip half the unconditional one",
+   "kind": "defect",
+   "fix_rev": "437ce00",
+   "family": "error-as-value",
+   "trigger": "LOOP_MAXSKIP with a probe copy that fails to assemble",
+   "ok": "says the output is not the max-skip form",
+   "bug": "no lengths returned, the max-skip half built as the unconditional one",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "generalisation",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "{tmp}/as",
+    "LOOP_MAXSKIP": "1"
+   },
+   "expect_text": [
+    "objdump -t",
+    "not the max-skip form"
+   ],
+   "bug_exit": 0,
+   "bug_absent": [
+    "not the max-skip form"
+   ],
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n\t.globl\tgo\ngo:\n\tmovq\t%rdi, %rax\n\tret\n.Lloop:\n\taddq\t$1, %rax\n\tcmpq\t$10, %rax\n\tjne\t.Lloop\n\tret\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, which the audit replays from that checkout, fix_in naming it.",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/align-as.py"
+   }
+  },
+  {
+   "id": "deadspot-pads-after-the-jump",
+   "program": "align-as.py",
+   "name": "the pad went in front of the head, on the fall-through path",
+   "kind": "control",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "/usr/bin/gcc",
+    "LOOP_DEADSPOT": "1",
+    "ALIGN_AS_VERBOSE": "1"
+   },
+   "expect_exit": 0,
+   "expect_text": [
+    "after jmp\t.Lgo: .p2align\t6, 0x90, 13",
+    "before .Lloop: testq\t%rax, %rax",
+    "0 short loop(s) straddling (0 planned)"
+   ],
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n\t.globl\tgo\ngo:\n\tmovq\t%rdi, %rax\n\tjmp\t.Lgo\n\tnop\n.Lgo:\n\ttestq\t%rax, %rax\n.Lloop:\n\taddq\t$1, %rax\n\tcmpq\t$10, %rax\n\tjne\t.Lloop\n\tret\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "probe_cmd": "python3 - {tmp}/a.s <<'PY'\nimport sys\nlines = open(sys.argv[1]).read().split('\\n')\nout = []\nfor k, l in enumerate(lines[:-1]):\n    s, nxt = l.strip(), lines[k + 1].strip()\n    if s.startswith('jmp') or s == '.text':\n        out.append('after %s: %s' % (s, nxt))\n    if nxt.startswith('.L') and nxt.endswith(':'):\n        out.append('before %s %s' % (nxt, s))\nprint('\\n'.join(out))\nPY",
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; a control, with no bug direction."
+  },
+  {
+   "id": "deadspot-keeps-the-table-with-its-label",
+   "program": "align-as.py",
+   "name": "a head behind an info table was left where it fell",
+   "kind": "control",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "/usr/bin/gcc",
+    "LOOP_DEADSPOT": "1",
+    "ALIGN_AS_VERBOSE": "1"
+   },
+   "expect_exit": 0,
+   "expect_text": [
+    "after .text: .p2align\t6, 0x90, 31",
+    "before .Lr_info: .long\t0",
+    "before .Lr: .Lr_info:",
+    "1 head(s) in 1 group(s)"
+   ],
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n\t.align 8\n\t.quad\t1\n\t.long\t30\n\t.long\t0\n.Lr_info:\n.Lr:\n\tmovq\t8(%rbp), %r14\n\ttestb\t$7, %bl\n\tjne\t.Lr\n\tret\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "probe_cmd": "python3 - {tmp}/a.s <<'PY'\nimport sys\nlines = open(sys.argv[1]).read().split('\\n')\nout = []\nfor k, l in enumerate(lines[:-1]):\n    s, nxt = l.strip(), lines[k + 1].strip()\n    if s.startswith('jmp') or s == '.text':\n        out.append('after %s: %s' % (s, nxt))\n    if nxt.startswith('.L') and nxt.endswith(':'):\n        out.append('before %s %s' % (nxt, s))\nprint('\\n'.join(out))\nPY",
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; a control, with no bug direction."
+  },
+  {
+   "id": "deadspot-outer-of-a-rotated-pair-yields",
+   "program": "align-as.py",
+   "name": "the outer loop took the line and the inner one straddled",
+   "kind": "control",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "/usr/bin/gcc",
+    "LOOP_DEADSPOT": "1",
+    "ALIGN_AS_VERBOSE": "1"
+   },
+   "expect_exit": 0,
+   "expect_text": [
+    "after jmp\t*(%rbp): .p2align\t6, 0x90, 46",
+    "before .Lin: .p2align\t6, 0x90, 46",
+    "1 short loop(s) straddling (1 planned)"
+   ],
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n.Lstart:\n\tjmp\t*(%rbp)\n.Lin:\n\t.skip\t42, 0x90\n.Lout:\n\tcmpq\t%r8, %rsi\n\tjl\t.Lin\n\t.skip\t40, 0x90\n\tjmp\t.Lout\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "probe_cmd": "python3 - {tmp}/a.s <<'PY'\nimport sys\nlines = open(sys.argv[1]).read().split('\\n')\nout = []\nfor k, l in enumerate(lines[:-1]):\n    s, nxt = l.strip(), lines[k + 1].strip()\n    if s.startswith('jmp') or s == '.text':\n        out.append('after %s: %s' % (s, nxt))\n    if nxt.startswith('.L') and nxt.endswith(':'):\n        out.append('before %s %s' % (nxt, s))\nprint('\\n'.join(out))\nPY",
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; a control, with no bug direction."
+  },
+  {
+   "id": "deadspot-off-is-the-at-head-form",
+   "program": "align-as.py",
+   "name": "the switch off changed what the max-skip form emits",
+   "kind": "control",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "/usr/bin/gcc",
+    "LOOP_MAXSKIP": "1"
+   },
+   "expect_exit": 0,
+   "expect_text": [
+    "after jmp\t.Lgo: nop",
+    "before .Lloop: .p2align\t6, 0x90, 9"
+   ],
+   "expect_absent": [
+    "dead-spot"
+   ],
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n\t.globl\tgo\ngo:\n\tmovq\t%rdi, %rax\n\tjmp\t.Lgo\n\tnop\n.Lgo:\n\ttestq\t%rax, %rax\n.Lloop:\n\taddq\t$1, %rax\n\tcmpq\t$10, %rax\n\tjne\t.Lloop\n\tret\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "probe_cmd": "python3 - {tmp}/a.s <<'PY'\nimport sys\nlines = open(sys.argv[1]).read().split('\\n')\nout = []\nfor k, l in enumerate(lines[:-1]):\n    s, nxt = l.strip(), lines[k + 1].strip()\n    if s.startswith('jmp') or s == '.text':\n        out.append('after %s: %s' % (s, nxt))\n    if nxt.startswith('.L') and nxt.endswith(':'):\n        out.append('before %s %s' % (nxt, s))\nprint('\\n'.join(out))\nPY",
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; a control, with no bug direction."
+  },
+  {
+   "id": "deadspot-leaves-the-exit-astride",
+   "program": "align-as.py",
+   "name": "the body fits, the exit does not, and the plain cost is content",
+   "kind": "control",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "/usr/bin/gcc",
+    "LOOP_DEADSPOT": "1",
+    "ALIGN_AS_VERBOSE": "1"
+   },
+   "expect_exit": 0,
+   "expect_text": [
+    "after jmp\t*(%rbp): .p2align\t6, 0x90, 50"
+   ],
+   "expect_absent": [
+    "exit span(s) astride"
+   ],
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n.Lstart:\n\tmovq\t%rdi, %rax\n\tmovq\t%rsi, %rbx\n\tjmp\t*(%rbp)\n.Lin:\n\t.skip\t42, 0x90\n.Lout:\n\tleaq\t1(%rsi), %r11\n\tcmpq\t%rax, %r11\n\tjl\t.Lin\n\tcmpq\t%rax, %rsi\n\tjge\t.Ldone\n\t.skip\t17, 0x90\n.Ldone:\n\t.skip\t22, 0x90\n\tjmp\t.Lout\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "probe_cmd": "python3 - {tmp}/a.s <<'PY'\nimport sys\nlines = open(sys.argv[1]).read().split('\\n')\nout = []\nfor k, l in enumerate(lines[:-1]):\n    s, nxt = l.strip(), lines[k + 1].strip()\n    if s.startswith('jmp') or s == '.text':\n        out.append('after %s: %s' % (s, nxt))\n    if nxt.startswith('.L') and nxt.endswith(':'):\n        out.append('before %s %s' % (nxt, s))\nprint('\\n'.join(out))\nPY",
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; a control, with no bug direction."
+  },
+  {
+   "id": "exitspan-moves-the-exit-off-the-boundary",
+   "program": "align-as.py",
+   "name": "the exit span raises the budget and the head goes to 0",
+   "kind": "control",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "/usr/bin/gcc",
+    "LOOP_DEADSPOT": "1",
+    "LOOP_EXITSPAN": "1",
+    "ALIGN_AS_VERBOSE": "1"
+   },
+   "expect_exit": 0,
+   "expect_text": [
+    "after jmp\t*(%rbp): .p2align\t6, 0x90, 55",
+    "0 exit span(s) astride",
+    "2 head(s) the exit cost places at a residue the plain cost would not: .Lin, .Lout"
+   ],
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n.Lstart:\n\tmovq\t%rdi, %rax\n\tmovq\t%rsi, %rbx\n\tjmp\t*(%rbp)\n.Lin:\n\t.skip\t42, 0x90\n.Lout:\n\tleaq\t1(%rsi), %r11\n\tcmpq\t%rax, %r11\n\tjl\t.Lin\n\tcmpq\t%rax, %rsi\n\tjge\t.Ldone\n\t.skip\t17, 0x90\n.Ldone:\n\t.skip\t22, 0x90\n\tjmp\t.Lout\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "probe_cmd": "python3 - {tmp}/a.s <<'PY'\nimport sys\nlines = open(sys.argv[1]).read().split('\\n')\nout = []\nfor k, l in enumerate(lines[:-1]):\n    s, nxt = l.strip(), lines[k + 1].strip()\n    if s.startswith('jmp') or s == '.text':\n        out.append('after %s: %s' % (s, nxt))\n    if nxt.startswith('.L') and nxt.endswith(':'):\n        out.append('before %s %s' % (nxt, s))\nprint('\\n'.join(out))\nPY",
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; a control, with no bug direction."
+  },
+  {
+   "id": "exitspan-pads-the-cut-the-entries-keep",
+   "program": "align-as.py",
+   "name": "a cut leaving whole entries on both sides, priced by lines",
+   "kind": "control",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "/usr/bin/gcc",
+    "LOOP_DEADSPOT": "1",
+    "LOOP_EXITSPAN": "1",
+    "ALIGN_AS_VERBOSE": "1"
+   },
+   "expect_exit": 0,
+   "expect_text": [
+    "after jmp\t*(%rbp): .p2align\t6, 0x90, 54",
+    "0 exit span(s) astride"
+   ],
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n.Lstart:\n\t.skip\t17, 0x90\n\tjmp\t*(%rbp)\n.Lin:\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tcmpq\t%rax, %rsi\n\tjl\t.Lin\n\tmovq\t%rax, %rdx\n\tmovq\t%rax, %rdx\n\tmovq\t%rax, %rdx\n\tmovq\t%rax, %rdx\n\tmovq\t%rax, %rdx\n\tmovq\t%rax, %rdx\n\tmovq\t%rax, %rdx\n\tmovq\t%rax, %rdx\n\tjmp\t.Ldone\n\t.skip\t9, 0x90\n.Ldone:\n\tret\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "probe_cmd": "python3 - {tmp}/a.s <<'PY'\nimport sys\nlines = open(sys.argv[1]).read().split('\\n')\nout = []\nfor k, l in enumerate(lines[:-1]):\n    s, nxt = l.strip(), lines[k + 1].strip()\n    if s.startswith('jmp') or s == '.text':\n        out.append('after %s: %s' % (s, nxt))\n    if nxt.startswith('.L') and nxt.endswith(':'):\n        out.append('before %s %s' % (nxt, s))\nprint('\\n'.join(out))\nPY",
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; a control, with no bug direction."
+  },
+  {
+   "id": "entries-keep-the-cut-the-exitspan-pads",
+   "program": "align-as.py",
+   "name": "the same cut priced by entries, and the head stays",
+   "kind": "control",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "/usr/bin/gcc",
+    "LOOP_DEADSPOT": "1",
+    "LOOP_ENTRIES": "1",
+    "ALIGN_AS_VERBOSE": "1"
+   },
+   "expect_exit": 0,
+   "expect_text": [
+    "after jmp\t*(%rbp): .p2align\t6, 0x90, 28",
+    "1 exit span(s) astride",
+    "1 head(s) the entries cost places at a residue the exit cost would not: .Lin"
+   ],
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n.Lstart:\n\t.skip\t17, 0x90\n\tjmp\t*(%rbp)\n.Lin:\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tcmpq\t%rax, %rsi\n\tjl\t.Lin\n\tmovq\t%rax, %rdx\n\tmovq\t%rax, %rdx\n\tmovq\t%rax, %rdx\n\tmovq\t%rax, %rdx\n\tmovq\t%rax, %rdx\n\tmovq\t%rax, %rdx\n\tmovq\t%rax, %rdx\n\tmovq\t%rax, %rdx\n\tjmp\t.Ldone\n\t.skip\t9, 0x90\n.Ldone:\n\tret\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "probe_cmd": "python3 - {tmp}/a.s <<'PY'\nimport sys\nlines = open(sys.argv[1]).read().split('\\n')\nout = []\nfor k, l in enumerate(lines[:-1]):\n    s, nxt = l.strip(), lines[k + 1].strip()\n    if s.startswith('jmp') or s == '.text':\n        out.append('after %s: %s' % (s, nxt))\n    if nxt.startswith('.L') and nxt.endswith(':'):\n        out.append('before %s %s' % (nxt, s))\nprint('\\n'.join(out))\nPY",
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; a control, with no bug direction."
+  },
+  {
+   "id": "blockrules-keep-what-the-exit-span-pads",
+   "program": "align-as.py",
+   "name": "the same cut priced by the block rules, and the head stays",
+   "kind": "control",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "/usr/bin/gcc",
+    "LOOP_DEADSPOT": "1",
+    "LOOP_BLOCKRULES": "1",
+    "ALIGN_AS_VERBOSE": "1"
+   },
+   "expect_exit": 0,
+   "expect_text": [
+    "after .text: .p2align\t6, 0x90, 48",
+    "before .Lin: jmp\t*(%rbp)",
+    "1 head(s) the blocks cost places at a residue the exit cost would not: .Lin"
+   ],
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n.Lstart:\n\t.skip\t17, 0x90\n\tjmp\t*(%rbp)\n.Lin:\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tcmpq\t%rax, %rsi\n\tjl\t.Lin\n\tmovq\t%rax, %rdx\n\tmovq\t%rax, %rdx\n\tmovq\t%rax, %rdx\n\tmovq\t%rax, %rdx\n\tmovq\t%rax, %rdx\n\tmovq\t%rax, %rdx\n\tmovq\t%rax, %rdx\n\tmovq\t%rax, %rdx\n\tjmp\t.Ldone\n\t.skip\t9, 0x90\n.Ldone:\n\tret\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "probe_cmd": "python3 - {tmp}/a.s <<'PY'\nimport sys\nlines = open(sys.argv[1]).read().split('\\n')\nout = []\nfor k, l in enumerate(lines[:-1]):\n    s, nxt = l.strip(), lines[k + 1].strip()\n    if s.startswith('jmp') or s == '.text':\n        out.append('after %s: %s' % (s, nxt))\n    if nxt.startswith('.L') and nxt.endswith(':'):\n        out.append('before %s %s' % (nxt, s))\nprint('\\n'.join(out))\nPY",
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; a control, with no bug direction."
+  },
+  {
+   "id": "exitspan-reads-no-exit-after-a-jmp-back-edge",
+   "program": "align-as.py",
+   "name": "a dead block after an unconditional back edge was the exit span",
+   "kind": "control",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "/usr/bin/gcc",
+    "LOOP_DEADSPOT": "1",
+    "LOOP_EXITSPAN": "1",
+    "ALIGN_AS_VERBOSE": "1"
+   },
+   "expect_exit": 0,
+   "expect_text": [
+    "after jmp\t*(%rbp): .p2align\t6, 0x90, 25"
+   ],
+   "expect_absent": [
+    ".p2align\t6, 0x90, 34"
+   ],
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n.Lstart:\n\tmovq\t$1, %rax\n\tjmp\t*(%rbp)\n.Lin:\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tmovq\t%rax, %rcx\n\tjmp\t.Lin\n.Ldead:\n\tmovq\t%rax, %rdx\n\tmovq\t%rax, %rsi\n\tjmp\t*(%rbp)\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "probe_cmd": "python3 - {tmp}/a.s <<'PY'\nimport sys\nlines = open(sys.argv[1]).read().split('\\n')\nout = []\nfor k, l in enumerate(lines[:-1]):\n    s, nxt = l.strip(), lines[k + 1].strip()\n    if s.startswith('jmp') or s == '.text':\n        out.append('after %s: %s' % (s, nxt))\n    if nxt.startswith('.L') and nxt.endswith(':'):\n        out.append('before %s %s' % (nxt, s))\nprint('\\n'.join(out))\nPY",
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; a control, with no bug direction."
+  },
+  {
+   "id": "cost-flags-want-the-dead-spot-form",
+   "program": "align-as.py",
+   "name": "a cost of the planner asked for without the planner",
+   "kind": "control",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "{tmp}/as",
+    "LOOP_EXITSPAN": "1"
+   },
+   "expect_exit": 1,
+   "expect_text": [
+    "want LOOP_DEADSPOT=1 beside them"
+   ],
+   "expect_absent": [
+    "Traceback"
+   ],
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n\t.globl\tgo\ngo:\n\tmovq\t%rdi, %rax\n\tret\n.Lloop:\n\taddq\t$1, %rax\n\tcmpq\t$10, %rax\n\tjne\t.Lloop\n\tret\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; a control, with no bug direction."
+  },
+  {
+   "id": "settled-charges-the-back-edge",
+   "program": "align-as.py",
+   "name": "the back edge on a 16-byte boundary, in a line's first eight bytes or its last four, charged where the block rules charge nothing",
+   "kind": "control",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "/usr/bin/gcc",
+    "LOOP_DEADSPOT": "1",
+    "LOOP_SETTLED": "1",
+    "ALIGN_AS_VERBOSE": "1",
+    "LOOP_TRACE": ".Lin"
+   },
+   "expect_exit": 0,
+   "expect_text": [
+    "block-rule costly residues [18, 19, 20, 21, 56, 57, 58, 59, 60, 61, 62, 63]",
+    "settled costly residues [2, 3, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 34, 35, 50, 51, 56, 57, 58, 59, 60, 61, 62, 63]",
+    "settled in 1 round(s), 0 group(s) planned again"
+   ],
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n.Lstart:\n\tjmp\t*(%rbp)\n.Lin:\n\t.skip\t42, 0x90\n.Lout:\n\tcmpq\t%r8, %rsi\n\tjl\t.Lin\n\t.skip\t40, 0x90\n\tjmp\t.Lout\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; a control, with no bug direction."
+  },
+  {
+   "id": "blockrules-take-the-spot-the-budget-prefers",
+   "program": "align-as.py",
+   "name": "the far spot, crossed by two jumps, wins on budget alone",
+   "kind": "control",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "/usr/bin/gcc",
+    "LOOP_DEADSPOT": "1",
+    "LOOP_BLOCKRULES": "1",
+    "ALIGN_AS_VERBOSE": "1",
+    "LOOP_TRACE": ".Lin"
+   },
+   "expect_exit": 0,
+   "expect_text": [
+    "spots at lines [40, 43], chosen spot line 40"
+   ],
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n.Lprev:\n\tmovq %rax, %rcx\n\tcmpq %rax, %rsi\n\tjl .Lprev\n.Lfar:\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tjmp *(%rbp)\n\tmovq %rax, %rcx\n\tjl .Lfar\n\tjmp *(%rbp)\n\tmovq %rax, %rdx\n\tjl .Lfar\n.Lin:\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tcmpq %rax, %rsi\n\tjl .Lin\n\tret\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; a control, with no bug direction."
+  },
+  {
+   "id": "settled-takes-the-spot-fewer-jumps-cross",
+   "program": "align-as.py",
+   "name": "the same group under the settled plan: the nearer spot, one jump across it against two",
+   "kind": "control",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "/usr/bin/gcc",
+    "LOOP_DEADSPOT": "1",
+    "LOOP_SETTLED": "1",
+    "ALIGN_AS_VERBOSE": "1",
+    "LOOP_TRACE": ".Lin"
+   },
+   "expect_exit": 0,
+   "expect_text": [
+    "spots at lines [40, 43], chosen spot line 43",
+    "settled in 1 round(s), 0 group(s) planned again"
+   ],
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n.Lprev:\n\tmovq %rax, %rcx\n\tcmpq %rax, %rsi\n\tjl .Lprev\n.Lfar:\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tjmp *(%rbp)\n\tmovq %rax, %rcx\n\tjl .Lfar\n\tjmp *(%rbp)\n\tmovq %rax, %rdx\n\tjl .Lfar\n.Lin:\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tcmpq %rax, %rsi\n\tjl .Lin\n\tret\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; a control, with no bug direction."
+  },
+  {
+   "id": "settled-plans-again-what-the-pad-moved",
+   "program": "align-as.py",
+   "name": "a pad that grows the jump across it is read off the assembler and the group planned again with the shift",
+   "kind": "control",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "/usr/bin/gcc",
+    "LOOP_DEADSPOT": "1",
+    "LOOP_SETTLED": "1",
+    "ALIGN_AS_VERBOSE": "1",
+    "LOOP_PIN": ".Lin:15"
+   },
+   "expect_exit": 0,
+   "expect_text": [
+    "settled in 2 round(s), 1 group(s) planned again"
+   ],
+   "expect_absent": [
+    "still off the plan",
+    "Traceback"
+   ],
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n.Lprev:\n\tmovq %rax, %rcx\n\tcmpq %rax, %rsi\n\tjl .Lprev\n.Lfar:\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tjmp *(%rbp)\n\tmovq %rax, %rcx\n\tjl .Lfar\n\tjmp *(%rbp)\n\tmovq %rax, %rdx\n\tjl .Lfar\n.Lin:\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tmovq %rax, %rcx\n\tcmpq %rax, %rsi\n\tjl .Lin\n\tret\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; a control, with no bug direction."
+  },
+  {
+   "id": "planned-straddles-are-heads-in-every-cost",
+   "program": "align-as.py",
+   "name": "the planned count was the chosen cost truncated, cycles under the block rules",
+   "kind": "defect",
+   "fix_rev": "6798792",
+   "family": "two-spellings",
+   "trigger": "ALIGN_AS_VERBOSE=1 with LOOP_BLOCKRULES=1 over a rotated pair",
+   "ok": "(1 planned) beside the 1 verified, a head count under every cost",
+   "bug": "(0 planned), the chosen cost truncated: cycles under the block rules, exit lines under the exit span",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "harm_count": 1,
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "/usr/bin/gcc",
+    "LOOP_DEADSPOT": "1",
+    "LOOP_BLOCKRULES": "1",
+    "ALIGN_AS_VERBOSE": "1"
+   },
+   "expect_exit": 0,
+   "expect_text": [
+    "1 short loop(s) straddling (1 planned)"
+   ],
+   "bug_text": [
+    "1 short loop(s) straddling (0 planned)"
+   ],
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n.Lstart:\n\tjmp\t*(%rbp)\n.Lin:\n\t.skip\t42, 0x90\n.Lout:\n\tcmpq\t%r8, %rsi\n\tjl\t.Lin\n\t.skip\t40, 0x90\n\tjmp\t.Lout\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, which the audit replays from that checkout, fix_in naming it.",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/align-as.py"
+   }
+  },
+  {
+   "id": "settled-rounds-see-only-the-short-loops",
+   "program": "align-as.py",
+   "name": "a group whose outer or long heads landed off the plan read as on it whenever its short loops cost what the plan bought",
+   "kind": "defect",
+   "fix_rev": "1a359bd",
+   "family": "vacuous-check",
+   "trigger": "LOOP_SETTLED=1, a group whose tier-0 cost lands on its plan while an outer head or a long loop lands off it",
+   "ok": "the group is off the plan and is planned again",
+   "bug": "the group read as on the plan and was never planned again",
+   "proved": "ran",
+   "harm": "unknown",
+   "discovery": "review",
+   "unit": "(costs_more((0, 5, 3), (0, 2, 1)), costs_more((0, 5, 3), (1, 0, 0)), costs_more((0, 2, 1 + 5e-10), (0, 2, 1)))",
+   "expect_text": [
+    "(True, False, False)"
+   ],
+   "bug_text": [
+    "(False, False, False)"
+   ],
+   "notes": "Moved 2026-10-06 with the shim from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, which the audit replays from that checkout, fix_in naming it.",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/align-as.py"
+   }
   }
  ]
 }
