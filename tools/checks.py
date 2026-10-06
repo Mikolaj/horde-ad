@@ -73,4 +73,11 @@ STEPS = [
     ('selftest mutants',       ['python3', '{bin}/selftest-mutants.py', '{root}']),
 ]
 
-UNCOVERED = {}
+UNCOVERED = {
+    'machine-busy.sh': 'the busy reading of orthotope micro-regime3\'s '
+                       'drivers, run-evening.sh\'s alarm among them, two '
+                       'reads of /proc/stat; no case of its own yet',
+    'probe-pageflags.py': 'a probe of a live process\'s page frames '
+                          'under sudo, an input to micro-regime3\'s '
+                          'README run by hand',
+}

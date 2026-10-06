@@ -25,6 +25,88 @@ TIMEOUT = 600
 ST = ['python3', '{file}', '--self-test']
 SELFTEST = ['python3', '{file}', '--selftest']
 
+# loop-offsets.py has no self-test, so its judges replant a case's fixture
+# from defects.json and ask the mutated program the case's own question,
+# requiring what the fixed program prints; the first plants the site below,
+# saved for its mutant and no case.
+OFFSETS = r'''
+import json, os, shutil, subprocess, sys, tempfile
+prog, how, what, want, *absent = sys.argv[1:]
+t = tempfile.mkdtemp()
+try:
+    if how == '--record':
+        recs = json.load(open(os.path.join(os.path.dirname(prog),
+                                           'defects.json')))['RECORDS']
+        r = [x for x in recs if x['id'] == what]
+        if len(r) != 1 or subprocess.run(['bash', '-c', r[0]['plant_cmd']],
+                                         cwd=t).returncode:
+            sys.exit(2)
+        argv = [a.replace('{tmp}', t) for a in r[0]['invoke']]
+    else:
+        name, text = what.split('\n', 1)
+        open(os.path.join(t, name), 'w').write(text)
+        argv = ['--survey', os.path.join(t, name)]
+    p = subprocess.run([sys.executable, prog] + argv, cwd=t,
+                       capture_output=True, text=True)
+    sys.exit(0 if want in p.stdout and not any(a in p.stdout for a in absent)
+             else 1)
+finally:
+    shutil.rmtree(t, ignore_errors=True)
+'''
+
+
+def offsets(case, want, *absent):
+    return lambda path: ['python3', '-c', OFFSETS, path, '--record', case,
+                         want, *absent]
+
+
+def offsets_listing(name, text, want):
+    return lambda path: ['python3', '-c', OFFSETS, path, '--listing',
+                         name + '\n' + text, want]
+
+
+# The ninth saved site, `run33-gheadexit` from 0x4a52b6 to 0x4a52ff: a `jmp
+# stg_gc_noregs`, the `nopl` pad after it and the table word `78 f4`, a `js
+# -12` back to the jmp itself, which the flow test alone refuses.
+PHANTOM8_LISTING = """\
+
+run33-gheadexit:     file format elf64-x86-64
+
+
+Disassembly of section .text:
+
+00000000004a52b6 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x9732e>:
+  4a52b6:\t48 c7 45 e8 40 52 4a \tmovq   $0x4a5240,-0x18(%rbp)
+  4a52bd:\t00 
+  4a52be:\t4c 89 75 f0          \tmov    %r14,-0x10(%rbp)
+  4a52c2:\t48 89 5d f8          \tmov    %rbx,-0x8(%rbp)
+  4a52c6:\t48 89 75 00          \tmov    %rsi,0x0(%rbp)
+  4a52ca:\t48 83 c5 e8          \tadd    $0xffffffffffffffe8,%rbp
+  4a52ce:\te9 8d 5b 33 01       \tjmp    17dae60 <stg_gc_noregs>
+  4a52d3:\t0f 1f 44 00 00       \tnopl   0x0(%rax,%rax,1)
+  4a52d8:\t78 f4                \tjs     4a52ce <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x97346>
+  4a52da:\tff                   \t(bad)
+  4a52db:\tff                   \t(bad)
+  4a52dc:\tff                   \t(bad)
+  4a52dd:\tff                   \t(bad)
+  4a52de:\tff                   \t(bad)
+  4a52df:\tff 06                \tincl   (%rsi)
+  4a52e1:\t07                   \t(bad)
+  4a52ea:\t00 00                \tadd    %al,(%rax)
+  4a52ec:\t06                   \t(bad)
+  4a52ed:\t00 00                \tadd    %al,(%rax)
+  4a52ef:\t00 02                \tadd    %al,(%rdx)
+  4a52f1:\t00 00                \tadd    %al,(%rax)
+  4a52f3:\t00 00                \tadd    %al,(%rax)
+  4a52f5:\t00 00                \tadd    %al,(%rax)
+  4a52f7:\t00 0e                \tadd    %cl,(%rsi)
+  4a52f9:\t00 00                \tadd    %al,(%rax)
+  4a52fb:\t00 00                \tadd    %al,(%rax)
+  4a52fd:\t00 00                \tadd    %al,(%rax)
+  4a52ff:\t00 48 8d             \tadd    %cl,-0x73(%rax)
+"""
+
+
 MUTANTS = [
     # bang-lazy-check: "inverting the strictness-letter test in verdict()" (2026-08-09)
     ('bang-lazy-check strictness-letter test in verdict() inverted', 'bang-lazy-check.py',
@@ -560,4 +642,116 @@ MUTANTS = [
      '    if total is None:\n', '    if False:\n', ST),
     ('src-attrib mid-line note opens a scope', 'src-attrib.py',
      '                if SCOPE.search(before):\n', '                if True:\n', ST),
+    # The survey's reachability guard removed: the ninth saved site's table
+    # word counts as a self-loop again. Over a site saved for this mutant and
+    # no case, the first site's body being one the zero tell refuses too.
+    ('loop-offsets survey counts a data word as a loop again', 'loop-offsets.py',
+     '        if not reaches(insns, k, n):\n'
+     '            continue\n',
+     '',
+     offsets_listing('run33-gheadexit-0x4a52b6.dis', PHANTOM8_LISTING, '0 self-loops of at most')),
+    # Four table tells dropped at once: they coincide on the second site, so
+    # none alone is caught there, and the mutants below prove three of them
+    # alone.
+    ('loop-offsets survey counts a swallowed jump as a loop again', 'loop-offsets.py',
+     "        if any(i[3] == '(bad)' for i in insns[k:n + 1]):\n"
+     '            continue\n'
+     '        # Nor does it carry a run of zero bytes, or an instruction of two:\n'
+     '        # such a body IS a table, the third site in `reaches`.\n'
+     '        if zero_run(insns, k, n):\n'
+     '            continue\n'
+     '        # Nor a stray REX prefix, `rex.*` in the mnemonic column: the sweep\n'
+     '        # entered an instruction mid-way, a fifth shape, the sixth site in\n'
+     '        # defects.py (2026-09-18), which carries the totals it moves.\n'
+     "        if any(i[3].startswith('rex.') for i in insns[k:n + 1]):\n"
+     '            continue\n'
+     "        # Nor an x87 instruction, a mnemonic beginning `f`: GHC's x86-64\n"
+     '        # code generator does floating point in SSE2, so the sweep decoded\n'
+     "        # one out of step -- Run 41's phantom astride, a `jmp` rel32's own\n"
+     '        # bytes `de e9 70 fc` read as `fsubrp` and `jo -4` back to it, the\n'
+     '        # thirteenth site in defects.py (2026-09-26).\n'
+     "        if any(i[3].startswith('f') for i in insns[k:n + 1]):\n"
+     '            continue\n',
+     '',
+     offsets('survey-counts-a-swallowed-jump-as-a-loop', 'still straddling   : 0')),
+    # One tell each, dropped or narrowed, over the site that tell alone
+    # refuses.
+    ('loop-offsets survey counts a table body as a loop again', 'loop-offsets.py',
+     '        if zero_run(insns, k, n):\n'
+     '            continue\n',
+     '',
+     offsets('survey-counts-a-table-body-as-a-loop', 'still straddling   : 0')),
+    ('loop-offsets survey counts a nop pad and its table word as a loop again', 'loop-offsets.py',
+     "        if PAD.match(insns[k][3] + ' ' + insns[k][4]):\n"
+     '            continue\n',
+     '',
+     offsets('survey-counts-a-nop-pad-table-word-as-a-loop', '0 self-loops of at most')),
+    ('loop-offsets survey counts a return-address word as a loop again', 'loop-offsets.py',
+     "        if any(i[3].startswith('rex.') for i in insns[k:n + 1]):\n"
+     '            continue\n',
+     '',
+     offsets('survey-counts-a-return-address-word-as-a-loop', '0 self-loops of at most')),
+    ('loop-offsets survey counts an x87 decode of a jump as a loop again', 'loop-offsets.py',
+     "        if any(i[3].startswith('f') for i in insns[k:n + 1]):\n"
+     '            continue\n',
+     '',
+     offsets('survey-counts-an-x87-decode-of-a-jump-as-a-loop', '0 self-loops of at most')),
+    ('loop-offsets survey counts a high-byte register decode as a loop again', 'loop-offsets.py',
+     '        if any(HIGHBYTE.search(i[4]) for i in insns[k:n + 1]):\n'
+     '            continue\n',
+     '',
+     offsets('survey-counts-a-high-byte-register-decode-as-a-loop', '0 self-loops of at most')),
+    ('loop-offsets survey counts a table word pair as a loop again', 'loop-offsets.py',
+     "    return any(i[2] == '0000' for i in insns[k:n + 1])\n",
+     '    return False\n',
+     offsets('survey-counts-a-table-word-pair-as-a-loop', '0 self-loops of at most')),
+    ('loop-offsets survey counts a two-byte pad and its table word as a loop again', 'loop-offsets.py',
+     "        if PAD.match(insns[k][3] + ' ' + insns[k][4]):\n"
+     '            continue\n',
+     "        if insns[k][3].startswith('nop'):\n"
+     '            continue\n',
+     offsets('survey-counts-a-two-byte-pad-and-its-table-word-as-a-loop', '0 self-loops of at most')),
+    # parse's continuation line dropped, the flow test answering yes to
+    # everything, and its blanket form of 2026-09-04 back.
+    ('loop-offsets the survey drops a body with an eight-byte instruction again', 'loop-offsets.py',
+     '            m = CONT.match(line)\n'
+     '            if m and insns:\n',
+     '            m = None\n'
+     '            if m and insns:\n',
+     offsets('survey-drops-a-body-with-an-eight-byte-instruction', '1 self-loops of at most')),
+    ('loop-offsets the survey counts a branch into an exit block as a loop again', 'loop-offsets.py',
+     '    return live[n - k]\n',
+     '    return True\n',
+     offsets('survey-counts-a-branch-into-an-exit-block-as-a-loop', '0 self-loops of at most')),
+    ('loop-offsets the survey refuses a loop closed by a jmp again', 'loop-offsets.py',
+     '    return live[n - k]\n',
+     '    return live[n - k] and not any(UNCOND.match(i[3]) for i in insns[k:n + 1])\n',
+     offsets('survey-keeps-a-loop-closed-by-a-jmp', '1 self-loops of at most')),
+    # The exit-span count's two halves, each broken on its own.
+    ('loop-offsets the survey reads every exit span as in line', 'loop-offsets.py',
+     "                   and f['mod'] + spans[f['start']] > LINE),\n",
+     '                   and False),\n',
+     offsets('survey-counts-no-exit-span', 'exit spans astride : 1')),
+    ('loop-offsets the survey reads an exit span past a jmp back edge', 'loop-offsets.py',
+     '        if UNCOND.match(insns[n][3]):\n'
+     '            continue\n',
+     '',
+     offsets('survey-counts-no-exit-span', 'exit spans astride : 1',
+             'exit span 57 B')),
+    # --delta's three readings, each broken on its own.
+    ('loop-offsets --delta reports every offset preserved whatever moved', 'loop-offsets.py',
+     '        if oo == nn:\n'
+     '            preserved += 1\n',
+     '        if True:\n'
+     '            preserved += 1\n',
+     offsets('delta-reads-moved-offsets-and-displacements', 'offsets MOVED')),
+    ('loop-offsets --delta selects on the OLD side alone again', 'loop-offsets.py',
+     '    keys = [k for k in og\n'
+     '            if len(og[k]) >= min_copies or len(ng.get(k, ())) >= min_copies]\n',
+     '    keys = [k for k in og if len(og[k]) >= min_copies]\n',
+     offsets('delta-sees-a-group-that-grows-past-the-threshold', '1 -> 2 copies')),
+    ('loop-offsets --delta reads the libraries into the tracked groups again', 'loop-offsets.py',
+     "            if want in (f['sym'] or ''):\n",
+     '            if True:\n',
+     offsets('delta-leaves-the-library-groups-to-library', '1 group(s) read')),
 ]

@@ -628,14 +628,15 @@
    "name": "the shellcheck step printed nothing and exited 0 with no tracked .sh file, so check-all's ok line read like a lint that had run",
    "family": "vacuous-check",
    "fix_rev": "adc3447e7",
-   "trigger": "the step's bash string with `git ls-files '*.sh'` empty, the case today",
+   "trigger": "the step's bash string with `git ls-files '*.sh'` empty, in a repository the case makes",
    "ok": "the step says no tracked shell script; nothing linted, and exits 0",
    "bug": "no output at all",
    "proved": "ran",
    "harm": "fired",
    "discovery": "review",
-   "notes": "This repo tracks no shell script either, so every check-all run until this fix printed the empty tail. Ported from LambdaHack on 2026-09-04, where a code review found it; this copy carried the defect until the port commit, so the audit replays the bug direction here.",
-   "unit": "__import__('subprocess').run([a.replace('{' + 'root}', '{root}') for a in dict(STEPS)['shellcheck']], capture_output=True, text=True).stdout",
+   "notes": "This repo tracked no shell script then, so every check-all run until this fix printed the empty tail. Ported from LambdaHack on 2026-09-04, where a code review found it; this copy carried the defect until the port commit, so the audit replays the bug direction here.",
+   "plant_cmd": "git init -q repo && mkdir repo/tools",
+   "unit": "__import__('subprocess').run([a.replace('{' + 'root}', '{tmp}/repo/tools') for a in dict(STEPS)['shellcheck']], capture_output=True, text=True).stdout",
    "expect_text": "nothing linted",
    "bug_text": "''"
   },
@@ -2230,6 +2231,980 @@
     "repo": "orthotope",
     "branch": "speedup-strided-tovector",
     "path": "micro-regime3/align-as.py"
+   }
+  },
+  {
+   "id": "fills-entry-region-goes-to-the-previous-proc",
+   "program": "probe-nospill-fills.py",
+   "name": "a loop in an LLVM function's entry region credited to the previous proc",
+   "kind": "defect",
+   "fix_rev": "ef3085d",
+   "family": "scan-for-parse",
+   "trigger": "an -fllvm function whose loop sits before its first `_blk_` label",
+   "ok": "the loop is listed under the worker whose function holds it",
+   "bug": "it was listed under the previous function's last block, so under the neighbouring arm, and under nothing for its own",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "harm_count": 1,
+   "invoke": [
+    "{tmp}/fixture.dump-cmm",
+    "{tmp}/fixture.s",
+    "fbA",
+    "fbB"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "QB/.LBB2_1:"
+   ],
+   "expect_absent": [
+    "QA1/.LBB2_1:"
+   ],
+   "bug_text": [
+    "QA1/.LBB2_1:"
+   ],
+   "bug_absent": [
+    "QB/.LBB2_1:"
+   ],
+   "plant_cmd": "cat > fixture.dump-cmm <<'EOF_FIXTURE_DUMP_CMM'\n$wfbA_QaA_entry() { //  [R1]\n     QA0: // global\n         call $wgo_QA_info(R1) args: 8, res: 8, upd: 8;\n}\n$wgo_QA_entry() { //  [R1]\n     QA1: // global\n         call (P64[Sp])() args: 8, res: 0, upd: 8;\n}\n$wfbB_QbB_entry() { //  [R1]\n     QB0: // global\n         call $wgo_QB_info(R1) args: 8, res: 8, upd: 8;\n}\n$wgo_QB_entry() { //  [R1]\n     QB1: // global\n         call (P64[Sp])() args: 8, res: 0, upd: 8;\n}\nEOF_FIXTURE_DUMP_CMM\nchmod 664 fixture.dump-cmm\ncat > fixture.s <<'EOF_FIXTURE_S'\nQA_info$def:\n\tmovq\t%rdi, %rax\n_blk_QA1$def:\n\tret\n\t.size\tQA_info$def, .Lfunc_end1-QA_info$def\nQB_info$def:\n\tmovq\t%rdi, %rax\n.LBB2_1:\n\tmovsd\t(%rdi), %xmm0\n\tmovsd\t%xmm0, (%rsi)\n\taddq\t$8, %rsi\n\tdecq\t%rcx\n\tjne\t.LBB2_1\n_blk_QB1$def:\n\tret\n\t.size\tQB_info$def, .Lfunc_end2-QB_info$def\nEOF_FIXTURE_S\nchmod 664 fixture.s",
+   "notes": "Moved 2026-10-06 with probe-nospill-fills.py from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, fix_in naming that history, from which the audit replays it.",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/probe-nospill-fills.py"
+   }
+  },
+  {
+   "id": "objdump-status",
+   "program": "loop-offsets.py",
+   "name": "a binary that was never opened read as one with no loops",
+   "kind": "defect",
+   "fix_rev": "0a1bc60",
+   "family": "error-as-value",
+   "trigger": "--survey of a binary objdump cannot open",
+   "ok": "refuses naming objdump and its message",
+   "bug": "stdout read alone, 0 self-loops at exit 0",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "invoke": [
+    "--survey",
+    "no-such-binary"
+   ],
+   "expect_exit": 1,
+   "expect_text": [
+    "objdump"
+   ],
+   "expect_absent": [
+    "0 self-loops"
+   ],
+   "bug_exit": 0,
+   "bug_text": [
+    "0 self-loops"
+   ],
+   "notes": "Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py; its fix_rev is an orthotope commit, fix_in naming that history, from which the audit replays it.",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/loop-offsets.py"
+   }
+  },
+  {
+   "id": "offsets-refuses-two-reports",
+   "program": "loop-offsets.py",
+   "name": "--survey beside --library, and --survey dropped without a word",
+   "kind": "control",
+   "invoke": [
+    "--survey",
+    "--library",
+    "x",
+    "y"
+   ],
+   "expect_exit": 2,
+   "expect_text": [
+    "two reports, not one"
+   ],
+   "notes": "Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py; a control, with no bug direction."
+  },
+  {
+   "id": "offsets-refuses-an-unread-flag",
+   "program": "loop-offsets.py",
+   "name": "a --len under --survey, accepted and honoured by nobody",
+   "kind": "control",
+   "invoke": [
+    "--survey",
+    "--len",
+    "24",
+    "x"
+   ],
+   "expect_exit": 2,
+   "expect_text": [
+    "read only by the grouped report"
+   ],
+   "notes": "Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py; a control, with no bug direction."
+  },
+  {
+   "id": "offsets-refuses-a-match-only-flag",
+   "program": "loop-offsets.py",
+   "name": "--loose or --source without --match, read by nobody",
+   "kind": "control",
+   "invoke": [
+    "--loose",
+    "x"
+   ],
+   "expect_exit": 2,
+   "expect_text": [
+    "read by --match alone"
+   ],
+   "notes": "Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py; a control, with no bug direction."
+  },
+  {
+   "id": "offsets-library-takes-an-odd-count",
+   "program": "loop-offsets.py",
+   "name": "--library paired the last binary with nothing",
+   "kind": "control",
+   "invoke": [
+    "--library",
+    "x",
+    "y",
+    "z"
+   ],
+   "expect_exit": 2,
+   "expect_text": [
+    "two at a time",
+    "even number"
+   ],
+   "notes": "Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py; a control, with no bug direction."
+  },
+  {
+   "id": "addr2line-status",
+   "program": "loop-offsets.py",
+   "name": "an unreadable -e file read as a build without DWARF",
+   "kind": "defect",
+   "fix_rev": "9832f0b",
+   "family": "error-as-value",
+   "trigger": "arms() with an unreadable -e file",
+   "ok": "says addr2line failed and falls back to the mangled symbol",
+   "bug": "read as a build without DWARF, an empty dict",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "generalisation",
+   "unit": "arms('no-such-binary', [4096])",
+   "expect_text": [
+    "addr2line",
+    "mangled symbol"
+   ],
+   "bug_text": [
+    "{}"
+   ],
+   "bug_absent": [
+    "mangled symbol"
+   ],
+   "notes": "Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py; its fix_rev is an orthotope commit, fix_in naming that history, from which the audit replays it.",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/loop-offsets.py"
+   }
+  },
+  {
+   "id": "suppressed-groups-are-counted",
+   "program": "loop-offsets.py",
+   "name": "a group under --min-copies vanished, the docstring's own example",
+   "kind": "defect",
+   "fix_rev": "febc2bd",
+   "family": "quiet-failure",
+   "trigger": "--len with a group below --min-copies",
+   "ok": "says how many groups were suppressed",
+   "bug": "the group vanished in silence, the docstring example among them",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "invoke": [
+    "--len",
+    "24",
+    "/usr/bin/objdump"
+   ],
+   "expect_text": [
+    "suppressed"
+   ],
+   "bug_text": [
+    "self-loops of 24 B"
+   ],
+   "bug_absent": [
+    "suppressed"
+   ],
+   "notes": "Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py; its fix_rev is an orthotope commit, fix_in naming that history, from which the audit replays it.",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/loop-offsets.py"
+   }
+  },
+  {
+   "id": "len-zero-lifts-the-size-filter-not-the-cap",
+   "program": "loop-offsets.py",
+   "name": "CONTROL: the header names the cap, not the lifted size filter",
+   "kind": "control",
+   "unit": "span_label(None)",
+   "expect_text": [
+    "'at most 64 B'"
+   ],
+   "expect_absent": [
+    "any length"
+   ],
+   "notes": "Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py; a control, with no bug direction."
+  },
+  {
+   "id": "survey-truncates-its-straddler-listing-without-saying-so",
+   "program": "loop-offsets.py",
+   "name": "ten sites under a count of eleven read as the whole of them, on both listings",
+   "kind": "defect",
+   "fix_rev": "55216ae",
+   "family": null,
+   "trigger": null,
+   "ok": null,
+   "bug": null,
+   "proved": "ran",
+   "harm": null,
+   "discovery": null,
+   "invoke": [
+    "--survey",
+    "{tmp}/zzsurvey-eleven.dis"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "still straddling   : 11, 10 longest listed",
+    "exit spans astride : 11, 10 longest listed"
+   ],
+   "bug_exit": 0,
+   "bug_text": [
+    "still straddling   : 11"
+   ],
+   "bug_absent": [
+    "longest listed"
+   ],
+   "plant_cmd": "cat > zzsurvey-eleven.dis <<'EOF_ZZSURVEY_ELEVEN_DIS'\n\nzzsurvey:     file format elf64-x86-64\n\n\nDisassembly of section .text:\n\n0000000000410000 <micro_Main_zdwfbSite0_info>:\n  41003e:\t31 c0                \txor    %eax,%eax\n  410040:\t75 fc                \tjne    41003e <micro_Main_zdwfbSite0_info+0x3e>\n  410042:\t48 83 c0 01          \tadd    $0x1,%rax\n  410046:\teb 10                \tjmp    41005a <micro_Main_zdwfbSite0_info+0x5a>\n\n0000000000410100 <micro_Main_zdwfbSite1_info>:\n  41013e:\t31 c0                \txor    %eax,%eax\n  410140:\t75 fc                \tjne    41013e <micro_Main_zdwfbSite1_info+0x3e>\n  410142:\t48 83 c0 01          \tadd    $0x1,%rax\n  410146:\teb 10                \tjmp    41015a <micro_Main_zdwfbSite1_info+0x5a>\n\n0000000000410200 <micro_Main_zdwfbSite2_info>:\n  41023e:\t31 c0                \txor    %eax,%eax\n  410240:\t75 fc                \tjne    41023e <micro_Main_zdwfbSite2_info+0x3e>\n  410242:\t48 83 c0 01          \tadd    $0x1,%rax\n  410246:\teb 10                \tjmp    41025a <micro_Main_zdwfbSite2_info+0x5a>\n\n0000000000410300 <micro_Main_zdwfbSite3_info>:\n  41033e:\t31 c0                \txor    %eax,%eax\n  410340:\t75 fc                \tjne    41033e <micro_Main_zdwfbSite3_info+0x3e>\n  410342:\t48 83 c0 01          \tadd    $0x1,%rax\n  410346:\teb 10                \tjmp    41035a <micro_Main_zdwfbSite3_info+0x5a>\n\n0000000000410400 <micro_Main_zdwfbSite4_info>:\n  41043e:\t31 c0                \txor    %eax,%eax\n  410440:\t75 fc                \tjne    41043e <micro_Main_zdwfbSite4_info+0x3e>\n  410442:\t48 83 c0 01          \tadd    $0x1,%rax\n  410446:\teb 10                \tjmp    41045a <micro_Main_zdwfbSite4_info+0x5a>\n\n0000000000410500 <micro_Main_zdwfbSite5_info>:\n  41053e:\t31 c0                \txor    %eax,%eax\n  410540:\t75 fc                \tjne    41053e <micro_Main_zdwfbSite5_info+0x3e>\n  410542:\t48 83 c0 01          \tadd    $0x1,%rax\n  410546:\teb 10                \tjmp    41055a <micro_Main_zdwfbSite5_info+0x5a>\n\n0000000000410600 <micro_Main_zdwfbSite6_info>:\n  41063e:\t31 c0                \txor    %eax,%eax\n  410640:\t75 fc                \tjne    41063e <micro_Main_zdwfbSite6_info+0x3e>\n  410642:\t48 83 c0 01          \tadd    $0x1,%rax\n  410646:\teb 10                \tjmp    41065a <micro_Main_zdwfbSite6_info+0x5a>\n\n0000000000410700 <micro_Main_zdwfbSite7_info>:\n  41073e:\t31 c0                \txor    %eax,%eax\n  410740:\t75 fc                \tjne    41073e <micro_Main_zdwfbSite7_info+0x3e>\n  410742:\t48 83 c0 01          \tadd    $0x1,%rax\n  410746:\teb 10                \tjmp    41075a <micro_Main_zdwfbSite7_info+0x5a>\n\n0000000000410800 <micro_Main_zdwfbSite8_info>:\n  41083e:\t31 c0                \txor    %eax,%eax\n  410840:\t75 fc                \tjne    41083e <micro_Main_zdwfbSite8_info+0x3e>\n  410842:\t48 83 c0 01          \tadd    $0x1,%rax\n  410846:\teb 10                \tjmp    41085a <micro_Main_zdwfbSite8_info+0x5a>\n\n0000000000410900 <micro_Main_zdwfbSite9_info>:\n  41093e:\t31 c0                \txor    %eax,%eax\n  410940:\t75 fc                \tjne    41093e <micro_Main_zdwfbSite9_info+0x3e>\n  410942:\t48 83 c0 01          \tadd    $0x1,%rax\n  410946:\teb 10                \tjmp    41095a <micro_Main_zdwfbSite9_info+0x5a>\n\n0000000000410a00 <micro_Main_zdwfbSite10_info>:\n  410a3e:\t31 c0                \txor    %eax,%eax\n  410a40:\t75 fc                \tjne    410a3e <micro_Main_zdwfbSite10_info+0x3e>\n  410a42:\t48 83 c0 01          \tadd    $0x1,%rax\n  410a46:\teb 10                \tjmp    410a5a <micro_Main_zdwfbSite10_info+0x5a>\n\nEOF_ZZSURVEY_ELEVEN_DIS\nchmod 664 zzsurvey-eleven.dis",
+   "notes": "Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, fix_in naming that history, from which the audit replays it.",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/loop-offsets.py"
+   }
+  },
+  {
+   "id": "survey-reads-a-saved-listing",
+   "program": "loop-offsets.py",
+   "name": "a site of a dead binary could not be held: objdump was the only way in, and a listing of the site was refused as no ELF",
+   "kind": "defect",
+   "fix_rev": "8b4f51d",
+   "family": null,
+   "trigger": "a site of a binary that has since been deleted",
+   "ok": "a saved objdump listing is read as the binary it came from",
+   "bug": "objdump alone, so no case could hold a site of a run binary, which dies at the deletion offer as three JSON fixtures did once",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "invoke": [
+    "--survey",
+    "{tmp}/run25-g912-0x4275c0.dis"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "self-loops of at most 64 B"
+   ],
+   "bug_exit": 1,
+   "bug_text": [
+    "file format not recognized"
+   ],
+   "plant_cmd": "cat > run25-g912-0x4275c0.dis <<'EOF_RUN25_G912_0X4275C0_DIS'\n\nrun25-g912:     file format elf64-x86-64\n\n\nDisassembly of section .text:\n\n00000000004275c0 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x1bc40>:\n  4275c0:\t10 48 8b             \tadc    %cl,-0x75(%rax)\n  4275c3:\t5b                   \tpop    %rbx\n  4275c4:\t18 48 89             \tsbb    %cl,-0x77(%rax)\n  4275c7:\t45 e8 48 83 c5 e0    \trex.RB call ffffffffe107f915 <_end+0xffffffffdf705cad>\n  4275cd:\tf6 c3 07             \ttest   $0x7,%bl\n  4275d0:\t75 16                \tjne    4275e8 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x1bc68>\n  4275d2:\t48 8b 03             \tmov    (%rbx),%rax\n  4275d5:\tff e0                \tjmp    *%rax\n  4275d7:\t90                   \tnop\n  4275d8:\t01 00                \tadd    %eax,(%rax)\n  4275da:\t00 00                \tadd    %al,(%rax)\n  4275dc:\t00 00                \tadd    %al,(%rax)\n  4275de:\t00 00                \tadd    %al,(%rax)\n  4275e0:\t1e                   \t(bad)\n  4275e1:\t00 00                \tadd    %al,(%rax)\n  4275e3:\t00 58 4e             \tadd    %bl,0x4e(%rax)\n  4275e6:\t3e 01 48 8d          \tds add %ecx,-0x73(%rax)\n  4275ea:\t3d 51 4e 3e 01       \tcmp    $0x13e4e51,%eax\n  4275ef:\t48 89 de             \tmov    %rbx,%rsi\n  4275f2:\t4c 8b 75 08          \tmov    0x8(%rbp),%r14\n  4275f6:\t48 83 c5 10          \tadd    $0x10,%rbp\n  4275fa:\te9 61 ff ff ff       \tjmp    427560 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x1bbe0>\n  4275ff:\t41 ff 65 f0          \tjmp    *-0x10(%r13)\n  427603:\t0f 1f 44 00 00       \tnopl   0x0(%rax,%rax,1)\n  427608:\t04 00                \tadd    $0x0,%al\n  42760a:\t00 00                \tadd    %al,(%rax)\n  42760c:\t01 00                \tadd    %eax,(%rax)\n  42760e:\t00 00                \tadd    %al,(%rax)\n  427610:\t02 00                \tadd    (%rax),%al\n  427612:\t00 00                \tadd    %al,(%rax)\n  427614:\t02 00                \tadd    (%rax),%al\n  427616:\t00 00                \tadd    %al,(%rax)\n  427618:\t08 00                \tor     %al,(%rax)\n  42761a:\t00 00                \tadd    %al,(%rax)\n  42761c:\t78 d8                \tjs     4275f6 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x1bc76>\n  42761e:\t3d 01 48 8d 45       \tcmp    $0x458d4801,%eax\n  427623:\td0 4c 39 f8          \trorb   $1,-0x8(%rcx,%rdi,1)\n  427627:\t0f 82 d2 00 00 00    \tjb     4276ff <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x1bd7f>\n  42762d:\t48 c7 45 d8 90 76 42 \tmovq   $0x427690,-0x28(%rbp)\n  427634:\t00 \n  427635:\t48 8b 43 07          \tmov    0x7(%rbx),%rax\n  427639:\t48 8b 4b 17          \tmov    0x17(%rbx),%rcx\n  42763d:\t48                   \trex.W\n  42763e:\t8b                   \t.byte 0x8b\n  42763f:\t53                   \tpush   %rbx\nEOF_RUN25_G912_0X4275C0_DIS\nchmod 664 run25-g912-0x4275c0.dis",
+   "notes": "Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, fix_in naming that history, from which the audit replays it.",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/loop-offsets.py"
+   }
+  },
+  {
+   "id": "survey-counts-a-data-word-as-a-loop",
+   "program": "loop-offsets.py",
+   "name": "an info-table word decoding as a backward branch, over bytes that happened to sum, was counted as a straddling self-loop",
+   "kind": "defect",
+   "fix_rev": "8b4f51d",
+   "family": "scan-for-parse",
+   "trigger": "an info-table word decoding as a backward branch whose span the bytes before it fill",
+   "ok": "a closing branch no straight-line flow from the head reaches is not a loop",
+   "bug": "run25-g912's survey read five straddlers where its twin and every other binary read four",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "harm_count": 1,
+   "notes": "watched by hand on run25-g912 against its -g3 twin, 2026-09-04, before the fixture was cut from it. Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, fix_in naming that history, and its own no_audit stands.",
+   "no_audit": "fixture-from-a-document-the-era-lacks",
+   "invoke": [
+    "--survey",
+    "{tmp}/run25-g912-0x4275c0.dis"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "still straddling   : 0"
+   ],
+   "expect_absent": [
+    "0x4275f6"
+   ],
+   "plant_cmd": "cat > run25-g912-0x4275c0.dis <<'EOF_RUN25_G912_0X4275C0_DIS'\n\nrun25-g912:     file format elf64-x86-64\n\n\nDisassembly of section .text:\n\n00000000004275c0 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x1bc40>:\n  4275c0:\t10 48 8b             \tadc    %cl,-0x75(%rax)\n  4275c3:\t5b                   \tpop    %rbx\n  4275c4:\t18 48 89             \tsbb    %cl,-0x77(%rax)\n  4275c7:\t45 e8 48 83 c5 e0    \trex.RB call ffffffffe107f915 <_end+0xffffffffdf705cad>\n  4275cd:\tf6 c3 07             \ttest   $0x7,%bl\n  4275d0:\t75 16                \tjne    4275e8 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x1bc68>\n  4275d2:\t48 8b 03             \tmov    (%rbx),%rax\n  4275d5:\tff e0                \tjmp    *%rax\n  4275d7:\t90                   \tnop\n  4275d8:\t01 00                \tadd    %eax,(%rax)\n  4275da:\t00 00                \tadd    %al,(%rax)\n  4275dc:\t00 00                \tadd    %al,(%rax)\n  4275de:\t00 00                \tadd    %al,(%rax)\n  4275e0:\t1e                   \t(bad)\n  4275e1:\t00 00                \tadd    %al,(%rax)\n  4275e3:\t00 58 4e             \tadd    %bl,0x4e(%rax)\n  4275e6:\t3e 01 48 8d          \tds add %ecx,-0x73(%rax)\n  4275ea:\t3d 51 4e 3e 01       \tcmp    $0x13e4e51,%eax\n  4275ef:\t48 89 de             \tmov    %rbx,%rsi\n  4275f2:\t4c 8b 75 08          \tmov    0x8(%rbp),%r14\n  4275f6:\t48 83 c5 10          \tadd    $0x10,%rbp\n  4275fa:\te9 61 ff ff ff       \tjmp    427560 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x1bbe0>\n  4275ff:\t41 ff 65 f0          \tjmp    *-0x10(%r13)\n  427603:\t0f 1f 44 00 00       \tnopl   0x0(%rax,%rax,1)\n  427608:\t04 00                \tadd    $0x0,%al\n  42760a:\t00 00                \tadd    %al,(%rax)\n  42760c:\t01 00                \tadd    %eax,(%rax)\n  42760e:\t00 00                \tadd    %al,(%rax)\n  427610:\t02 00                \tadd    (%rax),%al\n  427612:\t00 00                \tadd    %al,(%rax)\n  427614:\t02 00                \tadd    (%rax),%al\n  427616:\t00 00                \tadd    %al,(%rax)\n  427618:\t08 00                \tor     %al,(%rax)\n  42761a:\t00 00                \tadd    %al,(%rax)\n  42761c:\t78 d8                \tjs     4275f6 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x1bc76>\n  42761e:\t3d 01 48 8d 45       \tcmp    $0x458d4801,%eax\n  427623:\td0 4c 39 f8          \trorb   $1,-0x8(%rcx,%rdi,1)\n  427627:\t0f 82 d2 00 00 00    \tjb     4276ff <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x1bd7f>\n  42762d:\t48 c7 45 d8 90 76 42 \tmovq   $0x427690,-0x28(%rbp)\n  427634:\t00 \n  427635:\t48 8b 43 07          \tmov    0x7(%rbx),%rax\n  427639:\t48 8b 4b 17          \tmov    0x17(%rbx),%rcx\n  42763d:\t48                   \trex.W\n  42763e:\t8b                   \t.byte 0x8b\n  42763f:\t53                   \tpush   %rbx\nEOF_RUN25_G912_0X4275C0_DIS\nchmod 664 run25-g912-0x4275c0.dis",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/loop-offsets.py"
+   }
+  },
+  {
+   "id": "survey-counts-a-table-body-as-a-loop",
+   "program": "loop-offsets.py",
+   "name": "an info table whose own words are the body -- zero bytes and a type word, closed by the word after them read as `js` -- counted as a straddling self-loop, both existing guards admitting it",
+   "kind": "defect",
+   "fix_rev": "6040630",
+   "family": null,
+   "trigger": null,
+   "ok": null,
+   "bug": null,
+   "proved": "ran",
+   "harm": null,
+   "discovery": null,
+   "invoke": [
+    "--survey",
+    "{tmp}/run28-g912-0x41c9dc.dis"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "still straddling   : 0"
+   ],
+   "expect_absent": [
+    "0x41c9fc"
+   ],
+   "bug_exit": 0,
+   "bug_text": [
+    "still straddling   : 1",
+    "0x41c9fc"
+   ],
+   "plant_cmd": "cat > run28-g912-0x41c9dc.dis <<'EOF_RUN28_G912_0X41C9DC_DIS'\n\nrun28-g912:     file format elf64-x86-64\n\n\nDisassembly of section .text:\n\n000000000041c9dc <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x10e1c>:\n  41c9dc:\tf0 98                \tlock cwtl\n  41c9de:\t0c 7b                \tor     $0x7b,%al\n  41c9e0:\t01 48 89             \tadd    %ecx,-0x77(%rax)\n  41c9e3:\t5d                   \tpop    %rbp\n  41c9e4:\tf8                   \tclc\n  41c9e5:\t4c 8b 73 10          \tmov    0x10(%rbx),%r14\n  41c9e9:\t48 83 c5 f0          \tadd    $0xfffffffffffffff0,%rbp\n  41c9ed:\te9 9e fe ff ff       \tjmp    41c890 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x10cd0>\n  41c9f2:\t41 ff 65 f0          \tjmp    *-0x10(%r13)\n  41c9f6:\t66 90                \txchg   %ax,%ax\n  41c9f8:\t02 00                \tadd    (%rax),%al\n  41c9fa:\t00 00                \tadd    %al,(%rax)\n  41c9fc:\t00 00                \tadd    %al,(%rax)\n  41c9fe:\t00 00                \tadd    %al,(%rax)\n  41ca00:\t12 00                \tadc    (%rax),%al\n  41ca02:\t00 00                \tadd    %al,(%rax)\n  41ca04:\t78 f6                \tjs     41c9fc <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x10e3c>\n  41ca06:\t41 01 48 8d          \tadd    %ecx,-0x73(%r8)\n  41ca0a:\t45                   \trex.RB\n  41ca0b:\tf0 4c 39 f8          \tlock cmp %r15,%rax\n  41ca0f:\t72 23                \tjb     41ca34 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x10e74>\nEOF_RUN28_G912_0X41C9DC_DIS\nchmod 664 run28-g912-0x41c9dc.dis",
+   "notes": "Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, fix_in naming that history, from which the audit replays it.",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/loop-offsets.py"
+   }
+  },
+  {
+   "id": "survey-counts-a-swallowed-jump-as-a-loop",
+   "program": "loop-offsets.py",
+   "name": "a continuation the sweep decoded out of step, its own jump displacement reading as a backward branch, was counted as a straddling self-loop that straight-line flow reaches",
+   "kind": "defect",
+   "fix_rev": "71fac05",
+   "family": "scan-for-parse",
+   "trigger": "an info-table word throwing the sweep out of step through a continuation whose own jump displacement then decodes as a backward branch",
+   "ok": "a body with an undecodable instruction in it is not a loop, no code GHC emits decoding as (bad)",
+   "bug": "run26-g912's survey read six straddlers where its twin read five, the sixth a return-frame table and a continuation of $wfbCanonVecdims",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "harm_count": 1,
+   "notes": "read on run26-g912 against its -g3 twin, 2026-09-06, after the write-up had counted it as a sixth straddler; the twin refused it by byte identity. Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, fix_in naming that history, from which the audit replays it.",
+   "invoke": [
+    "--survey",
+    "{tmp}/run26-g912-0x42c640.dis"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "still straddling   : 0"
+   ],
+   "expect_absent": [
+    "0x42c660"
+   ],
+   "bug_exit": 0,
+   "bug_text": [
+    "still straddling   : 1",
+    "0x42c660"
+   ],
+   "plant_cmd": "cat > run26-g912-0x42c640.dis <<'EOF_RUN26_G912_0X42C640_DIS'\n\nrun26-g912:     file format elf64-x86-64\n\n\nDisassembly of section .text:\n\n000000000042c640 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x20d00>:\n  42c640:\t49 8d 5c 24 e9       \tlea    -0x17(%r12),%rbx\n  42c645:\t48 83 c5 20          \tadd    $0x20,%rbp\n  42c649:\tff 65 00             \tjmp    *0x0(%rbp)\n  42c64c:\t49 c7 85 88 03 00 00 \tmovq   $0x20,0x388(%r13)\n  42c653:\t20 00 00 00 \n  42c657:\te9 54 54 35 01       \tjmp    1781ab0 <stg_gc_unbx_r1>\n  42c65c:\t0f 1f 40 00          \tnopl   0x0(%rax)\n  42c660:\t09 3e                \tor     %edi,(%rsi)\n  42c662:\t00 00                \tadd    %al,(%rax)\n  42c664:\t00 00                \tadd    %al,(%rax)\n  42c666:\t00 00                \tadd    %al,(%rax)\n  42c668:\t1e                   \t(bad)\n  42c669:\t00 00                \tadd    %al,(%rax)\n  42c66b:\t00 00                \tadd    %al,(%rax)\n  42c66d:\t73 3e                \tjae    42c6ad <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x20d6d>\n  42c66f:\t01 48 c7             \tadd    %ecx,-0x39(%rax)\n  42c672:\t45 f8                \trex.RB clc\n  42c674:\t80 b9 42 00 48 8d 35 \tcmpb   $0x35,-0x72b7ffbe(%rcx)\n  42c67b:\t43 19 3e             \trex.XB sbb %edi,(%r14)\n  42c67e:\t01 49 89             \tadd    %ecx,-0x77(%rcx)\n  42c681:\tde 48 89             \tfimuls -0x77(%rax)\n  42c684:\t5d                   \tpop    %rbp\n  42c685:\t00 48 83             \tadd    %cl,-0x7d(%rax)\n  42c688:\tc5 f8 e9             \t(bad)\n  42c68b:\t71 d3                \tjno    42c660 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x20d20>\n  42c68d:\t32 01                \txor    (%rcx),%al\n  42c68f:\t90                   \tnop\n  42c690:\t0f 00 00             \tsldt   (%rax)\n  42c693:\t00 02                \tadd    %al,(%rdx)\n\t...\n  42c69d:\t00 00                \tadd    %al,(%rax)\n  42c69f:\t00 0e                \tadd    %cl,(%rsi)\n  42c6a1:\t00 00                \tadd    %al,(%rax)\n  42c6a3:\t00 48 73             \tadd    %cl,0x73(%rax)\n  42c6a6:\t3e 01 48 8d          \tds add %ecx,-0x73(%rax)\n  42c6aa:\t45 d0 4c 39 f8       \trex.RB rorb $1,-0x8(%r9,%rdi,1)\n  42c6af:\t0f 82 b7 00 00 00    \tjb     42c76c <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x20e2c>\n  42c6b5:\t48 c7 45 f0 e8 c6 42 \tmovq   $0x42c6e8,-0x10(%rbp)\n  42c6bc:\t00 \n  42c6bd:\t48 89 f3             \tmov    %rsi,%rbx\nEOF_RUN26_G912_0X42C640_DIS\nchmod 664 run26-g912-0x42c640.dis",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/loop-offsets.py"
+   }
+  },
+  {
+   "id": "survey-counts-no-exit-span",
+   "program": "loop-offsets.py",
+   "name": "the survey counted bodies astride a line and not exit spans, so the one placement LOOP_EXITSPAN moves had no reading off the binary, only off a rebuild under ALIGN_AS_VERBOSE",
+   "kind": "defect",
+   "fix_rev": "0b170a9",
+   "family": null,
+   "trigger": "a half built under LOOP_EXITSPAN=1, whose exit spans the shim says all fit, and a half built without it, whose 65 and 72 astride nothing had counted",
+   "ok": "the survey counts the exit spans astride beside the straddlers, as align-as.py defines the span",
+   "bug": "the survey counted bodies alone, so a switch that moves exits and not bodies left no reading in the binary",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "in-use",
+   "notes": "the shim counts its own exit spans only under ALIGN_AS_VERBOSE, which no recipe sets, so Run 33 paid two throwaway rebuilds to read a line the binary carries. Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, fix_in naming that history, from which the audit replays it.",
+   "invoke": [
+    "--survey",
+    "{tmp}/run32-ghead-0x430b40.dis"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "exit spans astride : 1",
+    "0x430b89"
+   ],
+   "expect_absent": [
+    "exit span 57 B"
+   ],
+   "bug_exit": 0,
+   "bug_absent": [
+    "exit spans astride"
+   ],
+   "plant_cmd": "cat > run32-ghead-0x430b40.dis <<'EOF_RUN32_GHEAD_0X430B40_DIS'\n\nrun32-ghead:     file format elf64-x86-64\n\n\nDisassembly of section .text:\n\n0000000000430b40 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x22bb8>:\n  430b40:\tf0 48 01 d0          \tlock add %rdx,%rax\n  430b44:\t48 89 f3             \tmov    %rsi,%rbx\n  430b47:\teb 12                \tjmp    430b5b <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x22bd3>\n  430b49:\tf2 0f 11 04 d9       \tmovsd  %xmm0,(%rcx,%rbx,8)\n  430b4e:\t48 8d 7b 01          \tlea    0x1(%rbx),%rdi\n  430b52:\tf2 0f 11 04 f9       \tmovsd  %xmm0,(%rcx,%rdi,8)\n  430b57:\t48 83 c3 02          \tadd    $0x2,%rbx\n  430b5b:\t48 8d 7b 01          \tlea    0x1(%rbx),%rdi\n  430b5f:\t48 39 c7             \tcmp    %rax,%rdi\n  430b62:\t7c e5                \tjl     430b49 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x22bc1>\n  430b64:\t48 39 c3             \tcmp    %rax,%rbx\n  430b67:\t7d 05                \tjge    430b6e <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x22be6>\n  430b69:\tf2 0f 11 04 d9       \tmovsd  %xmm0,(%rcx,%rbx,8)\n  430b6e:\t49 83 fa 01          \tcmp    $0x1,%r10\n  430b72:\t7e 0f                \tjle    430b83 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x22bfb>\n  430b74:\t4c 0f af d2          \timul   %rdx,%r10\n  430b78:\t48 89 f0             \tmov    %rsi,%rax\n  430b7b:\t4c 01 d0             \tadd    %r10,%rax\n  430b7e:\te9 cf 01 00 00       \tjmp    430d52 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x22dca>\n  430b83:\t48 89 c3             \tmov    %rax,%rbx\n  430b86:\tff 65 00             \tjmp    *0x0(%rbp)\n  430b89:\t4c 8b 5c 24 40       \tmov    0x40(%rsp),%r11\n  430b8e:\tf2 41 0f 10 04 db    \tmovsd  (%r11,%rbx,8),%xmm0\n  430b94:\tf2 0f 11 04 f1       \tmovsd  %xmm0,(%rcx,%rsi,8)\n  430b99:\t4c 01 cb             \tadd    %r9,%rbx\n  430b9c:\tf2 41 0f 10 04 db    \tmovsd  (%r11,%rbx,8),%xmm0\n  430ba2:\t4c 8d 76 01          \tlea    0x1(%rsi),%r14\n  430ba6:\tf2 42 0f 11 04 f1    \tmovsd  %xmm0,(%rcx,%r14,8)\n  430bac:\t4c 01 cb             \tadd    %r9,%rbx\n  430baf:\t48 83 c6 02          \tadd    $0x2,%rsi\n  430bb3:\t4c 8d 5e 01          \tlea    0x1(%rsi),%r11\n  430bb7:\t49 39 c3             \tcmp    %rax,%r11\n  430bba:\t7c cd                \tjl     430b89 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x22c01>\n  430bbc:\t48 39 c6             \tcmp    %rax,%rsi\n  430bbf:\t7d 10                \tjge    430bd1 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x22c49>\n  430bc1:\t4c 8b 5c 24 40       \tmov    0x40(%rsp),%r11\n  430bc6:\tf2 41 0f 10 04 db    \tmovsd  (%r11,%rbx,8),%xmm0\n  430bcc:\tf2 0f 11 04 f1       \tmovsd  %xmm0,(%rcx,%rsi,8)\n  430bd1:\t4c 01 c7             \tadd    %r8,%rdi\n  430bd4:\t49 ff ca             \tdec    %r10\n  430bd7:\t48 89 c6             \tmov    %rax,%rsi\n  430bda:\t4d 85 d2             \ttest   %r10,%r10\n  430bdd:\t7e 0b                \tjle    430bea <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x22c62>\n  430bdf:\t48 89 f0             \tmov    %rsi,%rax\n  430be2:\t48 01 d0             \tadd    %rdx,%rax\n  430be5:\t48 89 fb             \tmov    %rdi,%rbx\n  430be8:\teb c9                \tjmp    430bb3 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x22c2b>\n  430bea:\t48 89 f3             \tmov    %rsi,%rbx\n  430bed:\tff 65 00             \tjmp    *0x0(%rbp)\n  430bf0:\t66 66 2e 0f 1f 84 00 \tdata16 cs nopw 0x0(%rax,%rax,1)\n  430bf7:\t00 00 00 00 \n  430bfb:\t0f 1f 44 00 00       \tnopl   0x0(%rax,%rax,1)\n  430c00:\tf2 0f 11 04 f1       \tmovsd  %xmm0,(%rcx,%rsi,8)\n  430c05:\t4c 8d 4e 01          \tlea    0x1(%rsi),%r9\n  430c09:\tf2 42 0f 11 04 c9    \tmovsd  %xmm0,(%rcx,%r9,8)\n  430c0f:\t48 83 c6 02          \tadd    $0x2,%rsi\n  430c13:\t4c 8d 4e 01          \tlea    0x1(%rsi),%r9\n  430c17:\t49 39 d9             \tcmp    %rbx,%r9\n  430c1a:\t7c e4                \tjl     430c00 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x22c78>\n  430c1c:\t48 39 de             \tcmp    %rbx,%rsi\n  430c1f:\t7d 05                \tjge    430c26 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x22c9e>\n  430c21:\tf2 0f 11 04 f1       \tmovsd  %xmm0,(%rcx,%rsi,8)\n  430c26:\t4c 01 c7             \tadd    %r8,%rdi\n  430c29:\t49 ff ca             \tdec    %r10\n  430c2c:\t48 89 de             \tmov    %rbx,%rsi\n  430c2f:\t4d 85 d2             \ttest   %r10,%r10\n  430c32:\t7e 12                \tjle    430c46 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x22cbe>\n  430c34:\t48 8b 44 24 40       \tmov    0x40(%rsp),%rax\n  430c39:\tf2 0f 10 04 f8       \tmovsd  (%rax,%rdi,8),%xmm0\n  430c3e:\t48 89 f3             \tmov    %rsi,%rbx\n  430c41:\t48 01 d3             \tadd    %rdx,%rbx\n  430c44:\teb cd                \tjmp    430c13 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x22c8b>\n  430c46:\t48 89 f3             \tmov    %rsi,%rbx\n  430c49:\tff 65 00             \tjmp    *0x0(%rbp)\n  430c4c:\t48 89 c7             \tmov    %rax,%rdi\n  430c4f:\t48 01 d7             \tadd    %rdx,%rdi\n  430c52:\t48 c1 e7 03          \tshl    $0x3,%rdi\n  430c56:\t49 89 c8             \tmov    %rcx,%r8\n  430c59:\t49 01 f8             \tadd    %rdi,%r8\n  430c5c:\t48 89 c7             \tmov    %rax,%rdi\n  430c5f:\t48                   \trex.W\nEOF_RUN32_GHEAD_0X430B40_DIS\nchmod 664 run32-ghead-0x430b40.dis",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/loop-offsets.py"
+   }
+  },
+  {
+   "id": "survey-counts-a-nop-pad-table-word-as-a-loop",
+   "program": "loop-offsets.py",
+   "name": "a nopl pad and the table word after it, read as a six-byte self-loop, counted as an exit span astride where the shim counted none",
+   "kind": "defect",
+   "fix_rev": "0b170a9",
+   "family": "scan-for-parse",
+   "trigger": "a nopl pad after an unconditional jump, followed by an info-table word decoding as a short backward jcc to the pad",
+   "ok": "a body whose head is a nop is a pad and not a loop",
+   "bug": "the pad passed the flow test, the (bad) tell and the zero-run tell, and its six bytes cannot straddle, so only the exit-span count ever saw it",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "harm_count": 1,
+   "notes": "read on run33-gheadexit against the shim's verified line, 2026-09-16: two exit spans astride against none, both this shape, and run32-ghead carries one. Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, fix_in naming that history, from which the audit replays it.",
+   "invoke": [
+    "--survey",
+    "{tmp}/run33-gheadexit-0x496880.dis"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "0 self-loops of at most 64 B"
+   ],
+   "expect_absent": [
+    "0x4968a4"
+   ],
+   "bug_exit": 0,
+   "bug_text": [
+    "1 self-loops of at most 64 B"
+   ],
+   "plant_cmd": "cat > run33-gheadexit-0x496880.dis <<'EOF_RUN33_GHEADEXIT_0X496880_DIS'\n\nrun33-gheadexit:     file format elf64-x86-64\n\n\nDisassembly of section .text:\n\n0000000000496880 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x888f8>:\n  496880:\t48 8b 45 10          \tmov    0x10(%rbp),%rax\n  496884:\t49 89 04 24          \tmov    %rax,(%r12)\n  496888:\t49 8d 5c 24 e9       \tlea    -0x17(%r12),%rbx\n  49688d:\t48 83 c5 20          \tadd    $0x20,%rbp\n  496891:\tff 65 00             \tjmp    *0x0(%rbp)\n  496894:\t49 c7 85 88 03 00 00 \tmovq   $0x20,0x388(%r13)\n  49689b:\t20 00 00 00 \n  49689f:\te9 dc 49 34 01       \tjmp    17db280 <stg_gc_unpt_r1>\n  4968a4:\t0f 1f 40 00          \tnopl   0x0(%rax)\n  4968a8:\t78 fa                \tjs     4968a4 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x8891c>\n  4968aa:\tff                   \t(bad)\n  4968ab:\tff                   \t(bad)\n  4968ac:\tff                   \t(bad)\n  4968ad:\tff                   \t(bad)\n  4968ae:\tff                   \t(bad)\n  4968af:\tff 05 03 00 00 00    \tincl   0x3(%rip)        # 4968b8 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x88930>\n  4968b5:\t00 00                \tadd    %al,(%rax)\n  4968b7:\t00 00                \tadd    %al,(%rax)\n  4968b9:\t00 00                \tadd    %al,(%rax)\n  4968bb:\t00 05 00 00 00 02    \tadd    %al,0x2000000(%rip)        # 24968c1 <_end+0xac4b49>\n  4968c1:\t00 00                \tadd    %al,(%rax)\n  4968c3:\t00 00                \tadd    %al,(%rax)\n  4968c5:\t00 00                \tadd    %al,(%rax)\n  4968c7:\t00 0e                \tadd    %cl,(%rsi)\n  4968c9:\t00 00                \tadd    %al,(%rax)\n  4968cb:\t00 00                \tadd    %al,(%rax)\n  4968cd:\t00 00                \tadd    %al,(%rax)\n  4968cf:\t00 48 8d             \tadd    %cl,-0x73(%rax)\n  4968d2:\t45 80 4c 39 f8 72    \trex.RB orb $0x72,-0x8(%r9,%rdi,1)\n  4968d8:\t7d 49                \tjge    496923 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x8899b>\n  4968da:\t83 c4 10             \tadd    $0x10,%esp\n  4968dd:\t4d                   \trex.WRB\n  4968de:\t3b                   \t.byte 0x3b\n  4968df:\ta5                   \tmovsl  %ds:(%rsi),%es:(%rdi)\nEOF_RUN33_GHEADEXIT_0X496880_DIS\nchmod 664 run33-gheadexit-0x496880.dis",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/loop-offsets.py"
+   }
+  },
+  {
+   "id": "survey-counts-a-return-address-word-as-a-loop",
+   "program": "loop-offsets.py",
+   "name": "an info table's last byte and the continuation push after it, read as a seven-byte self-loop at offset 63, counted straddling and astride where the shim counted neither",
+   "kind": "defect",
+   "fix_rev": "e4f0624",
+   "family": "scan-for-parse",
+   "trigger": "an info table's last zero byte read as the start of the continuation push after it, whose immediate's low bytes decode as a short backward jcc to that byte",
+   "ok": "a body carrying a stray REX prefix, rex.* in the mnemonic column, is the sweep out of step over code and not a loop",
+   "bug": "the body passed the flow test, the (bad) tell, the zero-run tell and the nop tell, and its seven bytes at offset 63 both straddle and put its exit span astride",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "harm_count": 1,
+   "notes": "read on run35-exit against the shim's verified line, 2026-09-18: nine straddling and one exit span astride against eight and none; run35-gheadexit carries a straddler of the shape and run30-libcase an exit span astride. Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, fix_in naming that history, from which the audit replays it.",
+   "invoke": [
+    "--survey",
+    "{tmp}/run35-exit-0x41f8f0.dis"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "0 self-loops of at most 64 B"
+   ],
+   "expect_absent": [
+    "0x41f93f"
+   ],
+   "bug_exit": 0,
+   "bug_text": [
+    "1 self-loops of at most 64 B"
+   ],
+   "plant_cmd": "cat > run35-exit-0x41f8f0.dis <<'EOF_RUN35_EXIT_0X41F8F0_DIS'\n\nrun35-exit:     file format elf64-x86-64\n\n\nDisassembly of section .text:\n\n000000000041f8f0 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x13d00>:\n\t...\n  41f8f8:\t0e                   \t(bad)\n  41f8f9:\t00 00                \tadd    %al,(%rax)\n  41f8fb:\t00 00                \tadd    %al,(%rax)\n  41f8fd:\t00 00                \tadd    %al,(%rax)\n  41f8ff:\t00 48 8d             \tadd    %cl,-0x73(%rax)\n  41f902:\t45 e0 4c             \trex.RB loopne 41f951 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x13d61>\n  41f905:\t39 f8                \tcmp    %edi,%eax\n  41f907:\t0f 82 ec 00 00 00    \tjb     41f9f9 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x13e09>\n  41f90d:\t48 c7 45 f0 40 f9 41 \tmovq   $0x41f940,-0x10(%rbp)\n  41f914:\t00 \n  41f915:\t4c 89 f3             \tmov    %r14,%rbx\n  41f918:\t48 89 75 f8          \tmov    %rsi,-0x8(%rbp)\n  41f91c:\t48 83 c5 f0          \tadd    $0xfffffffffffffff0,%rbp\n  41f920:\tf6 c3 07             \ttest   $0x7,%bl\n  41f923:\t75 1b                \tjne    41f940 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x13d50>\n  41f925:\t48 8b 03             \tmov    (%rbx),%rax\n  41f928:\tff e0                \tjmp    *%rax\n  41f92a:\t66 0f 1f 44 00 00    \tnopw   0x0(%rax,%rax,1)\n  41f930:\t01 00                \tadd    %eax,(%rax)\n  41f932:\t00 00                \tadd    %al,(%rax)\n  41f934:\t00 00                \tadd    %al,(%rax)\n  41f936:\t00 00                \tadd    %al,(%rax)\n  41f938:\t1e                   \t(bad)\n  41f939:\t00 00                \tadd    %al,(%rax)\n  41f93b:\t00 00                \tadd    %al,(%rax)\n  41f93d:\t00 00                \tadd    %al,(%rax)\n  41f93f:\t00 48 c7             \tadd    %cl,-0x39(%rax)\n  41f942:\t45 f8                \trex.RB clc\n  41f944:\t78 f9                \tjs     41f93f <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x13d4f>\n  41f946:\t41 00 48 8b          \tadd    %cl,-0x75(%r8)\n  41f94a:\t43 0f 48 8b 5b 07 48 \trex.XB cmovs -0x76b7f8a5(%r11),%ecx\n  41f951:\t89 \n  41f952:\t45 00 48 83          \tadd    %r9b,-0x7d(%r8)\n  41f956:\tc5 f8 f6             \t(bad)\n  41f959:\tc3                   \tret\n  41f95a:\t07                   \t(bad)\n  41f95b:\t75 1b                \tjne    41f978 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x13d88>\n  41f95d:\t48 8b 03             \tmov    (%rbx),%rax\n  41f960:\tff e0                \tjmp    *%rax\nEOF_RUN35_EXIT_0X41F8F0_DIS\nchmod 664 run35-exit-0x41f8f0.dis",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/loop-offsets.py"
+   }
+  },
+  {
+   "id": "survey-counts-a-table-word-pair-as-a-loop",
+   "program": "loop-offsets.py",
+   "name": "two zero bytes of an info table and the low bytes of the word after them, read as a four-byte self-loop and counted astride where the shim counted none",
+   "kind": "defect",
+   "fix_rev": "b1a488d",
+   "family": "scan-for-parse",
+   "trigger": "two zero bytes of an info table followed by a word whose low bytes decode as a short backward jcc to them",
+   "ok": "a body carrying an instruction of two zero bytes, add %al,(%rax), is a table and not a loop, no compiler emitting one",
+   "bug": "the zero-run tell asked four zero bytes and the body had two, so it passed every tell, and four bytes at offset 50 put its exit span astride",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "harm_count": 1,
+   "notes": "read on run36-gheadnospec against the shim's verified line, 2026-09-18: one exit span astride against none, on a body of four bytes. Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, fix_in naming that history, from which the audit replays it.",
+   "invoke": [
+    "--survey",
+    "{tmp}/run36-gheadnospec-0x4a4819.dis"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "0 self-loops of at most 64 B"
+   ],
+   "expect_absent": [
+    "0x4a4832"
+   ],
+   "bug_exit": 0,
+   "bug_text": [
+    "1 self-loops of at most 64 B"
+   ],
+   "plant_cmd": "cat > run36-gheadnospec-0x4a4819.dis <<'EOF_RUN36_GHEADNOSPEC_0X4A4819_DIS'\n\nrun36-gheadnospec:     file format elf64-x86-64\n\n\nDisassembly of section .text:\n\n00000000004a4819 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x96811>:\n  4a4819:\t48 c7 45 00 e8 47 4a \tmovq   $0x4a47e8,0x0(%rbp)\n  4a4820:\t00 \n  4a4821:\te9 42 d4 2a 01       \tjmp    1751c68 <stg_gc_unbx_r1>\n  4a4826:\t66 90                \txchg   %ax,%ax\n  4a4828:\t01 00                \tadd    %eax,(%rax)\n  4a482a:\t00 00                \tadd    %al,(%rax)\n  4a482c:\t00 00                \tadd    %al,(%rax)\n  4a482e:\t00 00                \tadd    %al,(%rax)\n  4a4830:\t10 00                \tadc    %al,(%rax)\n  4a4832:\t00 00                \tadd    %al,(%rax)\n  4a4834:\t78 fc                \tjs     4a4832 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x9682a>\n  4a4836:\t34 01                \txor    $0x1,%al\n  4a4838:\t48 8d 45 f0          \tlea    -0x10(%rbp),%rax\n  4a483c:\t4c 39 f8             \tcmp    %r15,%rax\n  4a483f:\t72 3d                \tjb     4a487e <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x96876>\n  4a4841:\t48 c7 45 f0 d0 74 75 \tmovq   $0x17574d0,-0x10(%rbp)\nEOF_RUN36_GHEADNOSPEC_0X4A4819_DIS\nchmod 664 run36-gheadnospec-0x4a4819.dis",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/loop-offsets.py"
+   }
+  },
+  {
+   "id": "survey-counts-a-two-byte-pad-and-its-table-word-as-a-loop",
+   "program": "loop-offsets.py",
+   "name": "a two-byte pad after an unconditional jump, xchg %ax,%ax, and the table word after it, read as a four-byte self-loop and counted astride where the shim counted none",
+   "kind": "defect",
+   "fix_rev": "b1a488d",
+   "family": "scan-for-parse",
+   "trigger": "a two-byte pad after an unconditional jump, followed by an info-table word decoding as a short backward jcc to the pad",
+   "ok": "a body whose head objdump spells nop, nopl, nopw or xchg %ax,%ax, behind any prefix, is a pad and not a loop",
+   "bug": "the pad tell read the mnemonic's spelling, nop, and objdump spells the two-byte pad xchg %ax,%ax, so the fifth site's shape passed it at two bytes",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "harm_count": 1,
+   "notes": "read on run36-gheadtwopass against the shim's verified line, 2026-09-18: one exit span astride against none, the pad sitting after a jmp *0x0(%rbp) that nothing falls through. Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, fix_in naming that history, from which the audit replays it.",
+   "invoke": [
+    "--survey",
+    "{tmp}/run36-gheadtwopass-0x43f237.dis"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "0 self-loops of at most 64 B"
+   ],
+   "expect_absent": [
+    "0x43f256"
+   ],
+   "bug_exit": 0,
+   "bug_text": [
+    "1 self-loops of at most 64 B"
+   ],
+   "plant_cmd": "cat > run36-gheadtwopass-0x43f237.dis <<'EOF_RUN36_GHEADTWOPASS_0X43F237_DIS'\n\nrun36-gheadtwopass:     file format elf64-x86-64\n\n\nDisassembly of section .text:\n\n000000000043f237 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x30f57>:\n  43f237:\t48 8b 7d 30          \tmov    0x30(%rbp),%rdi\n  43f23b:\t48 89 de             \tmov    %rbx,%rsi\n  43f23e:\t4c 8b 75 08          \tmov    0x8(%rbp),%r14\n  43f242:\t48 8b 5d 28          \tmov    0x28(%rbp),%rbx\n  43f246:\t48 83 c5 10          \tadd    $0x10,%rbp\n  43f24a:\te9 01 fd ff ff       \tjmp    43ef50 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x30c70>\n  43f24f:\t48 83 c5 40          \tadd    $0x40,%rbp\n  43f253:\tff 65 00             \tjmp    *0x0(%rbp)\n  43f256:\t66 90                \txchg   %ax,%ax\n  43f258:\t70 fc                \tjo     43f256 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x30f76>\n  43f25a:\tff                   \t(bad)\n  43f25b:\tff                   \t(bad)\n  43f25c:\tff                   \t(bad)\n  43f25d:\tff                   \t(bad)\n  43f25e:\tff                   \t(bad)\n  43f25f:\tff 05 03 00 00 00    \tincl   0x3(%rip)        # 43f268 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x30f88>\n  43f265:\t00 00                \tadd    %al,(%rax)\n  43f267:\t00 00                \tadd    %al,(%rax)\n  43f269:\t00 00                \tadd    %al,(%rax)\n  43f26b:\t00 05 00 00 00 02    \tadd    %al,0x2000000(%rip)        # 243f271 <_end+0xaf7cf9>\n  43f271:\t00 00                \tadd    %al,(%rax)\n  43f273:\t00 00                \tadd    %al,(%rax)\n  43f275:\t00 00                \tadd    %al,(%rax)\n  43f277:\t00 0e                \tadd    %cl,(%rsi)\n  43f279:\t00 00                \tadd    %al,(%rax)\n  43f27b:\t00 00                \tadd    %al,(%rax)\n  43f27d:\t00 00                \tadd    %al,(%rax)\n  43f27f:\t00 48 8d             \tadd    %cl,-0x73(%rax)\n  43f282:\t45 b0 4c             \trex.RB mov $0x4c,%r8b\n  43f285:\t39 f8                \tcmp    %edi,%eax\n  43f287:\t72 0c                \tjb     43f295 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x30fb5>\n  43f289:\t48 89 f0             \tmov    %rsi,%rax\n  43f28c:\t48 8d 1d ad 16 3a 01 \tlea    0x13a16ad(%rip),%rbx        # 17e0940 <microzm0zi1zminplacezmmicro_Main_main67_closure+0x23e0>\nEOF_RUN36_GHEADTWOPASS_0X43F237_DIS\nchmod 664 run36-gheadtwopass-0x43f237.dis",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/loop-offsets.py"
+   }
+  },
+  {
+   "id": "survey-counts-an-x87-decode-of-a-jump-as-a-loop",
+   "program": "loop-offsets.py",
+   "name": "a continuation's mov and jmp read one byte out of step after an info table, fsubrp and jo -4, read as a four-byte self-loop and counted astride on a LOOP_EXITSPAN=1 build, which owes none",
+   "kind": "defect",
+   "fix_rev": "b173873",
+   "family": null,
+   "trigger": null,
+   "ok": null,
+   "bug": null,
+   "proved": "ran",
+   "harm": null,
+   "discovery": null,
+   "invoke": [
+    "--survey",
+    "{tmp}/run41-gheadnospec-0x497d90.dis"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "0 self-loops of at most 64 B"
+   ],
+   "expect_absent": [
+    "0x497de2"
+   ],
+   "bug_exit": 0,
+   "bug_text": [
+    "1 self-loops of at most 64 B"
+   ],
+   "plant_cmd": "cat > run41-gheadnospec-0x497d90.dis <<'EOF_RUN41_GHEADNOSPEC_0X497D90_DIS'\n\nrun41-gheadnospec:     file format elf64-x86-64\n\n\nDisassembly of section .text:\n\n0000000000497d90 <microzm0zi1zminplacezmmicro_Main_zdfEqAxiszuzdczeze_info+0x81960>:\n  497d90:\tf0 4c 89 45 f8       \tlock mov %r8,-0x8(%rbp)\n  497d95:\t48 83 c5 e0          \tadd    $0xffffffffffffffe0,%rbp\n  497d99:\t41 ff 65 f8          \tjmp    *-0x8(%r13)\n  497d9d:\t0f 1f 00             \tnopl   (%rax)\n  497da0:\t87 05 00 00 00 00    \txchg   %eax,0x0(%rip)        # 497da6 <microzm0zi1zminplacezmmicro_Main_zdfEqAxiszuzdczeze_info+0x81976>\n  497da6:\t00 00                \tadd    %al,(%rax)\n  497da8:\t1e                   \t(bad)\n  497da9:\t00 00                \tadd    %al,(%rax)\n  497dab:\t00 58 63             \tadd    %bl,0x63(%rax)\n  497dae:\t32 01                \txor    (%rcx),%al\n  497db0:\t48 c7 45 00 d8 7d 49 \tmovq   $0x497dd8,0x0(%rbp)\n  497db7:\t00 \n  497db8:\t48 89 de             \tmov    %rbx,%rsi\n  497dbb:\t4c 8d 35 e8 0f 31 01 \tlea    0x1310fe8(%rip),%r14        # 17a8daa <microzm0zi1zminplacezmmicro_Main_zdfOrdAxis_closure+0x12a>\n  497dc2:\te9 e1 7f 13 01       \tjmp    15cfda8 <ghczminternal_GHCziInternalziDataziOldList_actualSort_info>\n  497dc7:\t90                   \tnop\n  497dc8:\t87 05 00 00 00 00    \txchg   %eax,0x0(%rip)        # 497dce <microzm0zi1zminplacezmmicro_Main_zdfEqAxiszuzdczeze_info+0x8199e>\n  497dce:\t00 00                \tadd    %al,(%rax)\n  497dd0:\t1e                   \t(bad)\n  497dd1:\t00 00                \tadd    %al,(%rax)\n  497dd3:\t00 10                \tadd    %dl,(%rax)\n  497dd5:\t63 32                \tmovsxd (%rdx),%esi\n  497dd7:\t01 48 c7             \tadd    %ecx,-0x39(%rax)\n  497dda:\t45 00 f8             \tadd    %r15b,%r8b\n  497ddd:\t7d 49                \tjge    497e28 <microzm0zi1zminplacezmmicro_Main_zdfEqAxiszuzdczeze_info+0x819f8>\n  497ddf:\t00 49 89             \tadd    %cl,-0x77(%rcx)\n  497de2:\tde e9                \tfsubrp %st,%st(1)\n  497de4:\t70 fc                \tjo     497de2 <microzm0zi1zminplacezmmicro_Main_zdfEqAxiszuzdczeze_info+0x819b2>\n  497de6:\tff                   \t(bad)\n  497de7:\tff 87 05 00 00 00    \tincl   0x5(%rdi)\n  497ded:\t00 00                \tadd    %al,(%rax)\n  497def:\t00 1e                \tadd    %bl,(%rsi)\n  497df1:\t00 00                \tadd    %al,(%rax)\n  497df3:\t00 f0                \tadd    %dh,%al\n  497df5:\t62 32 01 48 c7       \t(bad)\n  497dfa:\t45 f8                \trex.RB clc\n  497dfc:\t30 7e 49             \txor    %bh,0x49(%rsi)\n  497dff:\t00 4c 89 f7          \tadd    %cl,-0x9(%rcx,%rcx,4)\n  497e03:\t48 8d 35 a7 6b 47 01 \tlea    0x1476ba7(%rip),%rsi        # 190e9b1 <stg_INTLIKE_closure+0x111>\n  497e0a:\t4c 8d 35 a1 75 46 01 \tlea    0x14675a1(%rip),%r14        # 18ff3b2 <ghczminternal_GHCziInternalziNum_zdfNumIntzuzdczt_closure+0x2>\n  497e11:\t48 89 5d 00          \tmov    %rbx,0x0(%rbp)\n  497e15:\t48 83 c5 f8          \tadd    $0xfffffffffffffff8,%rbp\n  497e19:\te9 52 c3 1d 01       \tjmp    1674170 <ghczminternal_GHCziInternalziList_scanr_info>\nEOF_RUN41_GHEADNOSPEC_0X497D90_DIS\nchmod 664 run41-gheadnospec-0x497d90.dis",
+   "notes": "Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, fix_in naming that history, from which the audit replays it.",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/loop-offsets.py"
+   }
+  },
+  {
+   "id": "survey-counts-a-high-byte-register-decode-as-a-loop",
+   "program": "loop-offsets.py",
+   "name": "a continuation's movs and jmp read one byte out of step after an info table, sub %ch,%cl and jae -4, read as a four-byte self-loop and counted astride on a LOOP_EXITSPAN=1 build, which owes none -- every body tell passing it",
+   "kind": "defect",
+   "fix_rev": "fec948d",
+   "family": null,
+   "trigger": null,
+   "ok": null,
+   "bug": null,
+   "proved": "ran",
+   "harm": null,
+   "discovery": null,
+   "invoke": [
+    "--survey",
+    "{tmp}/run44-gheadtwopass-0x4b99a0.dis"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "0 self-loops of at most 64 B"
+   ],
+   "expect_absent": [
+    "0x4b99b7"
+   ],
+   "bug_exit": 0,
+   "bug_text": [
+    "1 self-loops of at most 64 B"
+   ],
+   "plant_cmd": "cat > run44-gheadtwopass-0x4b99a0.dis <<'EOF_RUN44_GHEADTWOPASS_0X4B99A0_DIS'\n\nrun44-gheadtwopass:     file format elf64-x86-64\n\n\nDisassembly of section .text:\n\n00000000004b99a0 <microzm0zi1zminplacezmmicro_Main_main54_info+0xe48>:\n  4b99a0:\t1e                   \t(bad)\n  4b99a1:\t00 00                \tadd    %al,(%rax)\n  4b99a3:\t00 c8                \tadd    %cl,%al\n  4b99a5:\t8c 30                \tmov    %?,(%rax)\n  4b99a7:\t01 48 c7             \tadd    %ecx,-0x39(%rax)\n  4b99aa:\t45 00 d0             \tadd    %r10b,%r8b\n  4b99ad:\t99                   \tcltd\n  4b99ae:\t4b 00 4c 8b 75       \trex.WXB add %cl,0x75(%r11,%r9,4)\n  4b99b3:\t10 48 8b             \tadc    %cl,-0x75(%rax)\n  4b99b6:\t5d                   \tpop    %rbp\n  4b99b7:\t28 e9                \tsub    %ch,%cl\n  4b99b9:\t73 fc                \tjae    4b99b7 <microzm0zi1zminplacezmmicro_Main_main54_info+0xe5f>\n  4b99bb:\tff                   \t(bad)\n  4b99bc:\tff 0f                \tdecl   (%rdi)\n  4b99be:\t1f                   \t(bad)\n  4b99bf:\t00 87 1e 00 00 00    \tadd    %al,0x1e(%rdi)\n  4b99c5:\t00 00                \tadd    %al,(%rax)\n  4b99c7:\t00 1e                \tadd    %bl,(%rsi)\n  4b99c9:\t00 00                \tadd    %al,(%rax)\n  4b99cb:\t00 00                \tadd    %al,(%rax)\n  4b99cd:\t00 00                \tadd    %al,(%rax)\n  4b99cf:\t00 49 83             \tadd    %cl,-0x7d(%rcx)\n  4b99d2:\tc4                   \t(bad)\n  4b99d3:\t50                   \tpush   %rax\n  4b99d4:\t4d 3b a5 58 03 00 00 \tcmp    0x358(%r13),%r12\n  4b99db:\t77 5a                \tja     4b9a37 <microzm0zi1zminplacezmmicro_Main_main54_info+0xedf>\n  4b99dd:\t49 c7 44 24 b8 a0 95 \tmovq   $0x4b95a0,-0x48(%r12)\n  4b99e4:\t4b 00 \n  4b99e6:\t48 8b 45 08          \tmov    0x8(%rbp),%rax\n  4b99ea:\t49 89 44 24 c8       \tmov    %rax,-0x38(%r12)\n  4b99ef:\t48 8b 45 18          \tmov    0x18(%rbp),%rax\n  4b99f3:\t49 89 44 24 d0       \tmov    %rax,-0x30(%r12)\nEOF_RUN44_GHEADTWOPASS_0X4B99A0_DIS\nchmod 664 run44-gheadtwopass-0x4b99a0.dis",
+   "notes": "Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev, `self` there, is the orthotope commit that added it with its fix, fix_in naming that history, from which the audit replays it.",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/loop-offsets.py"
+   }
+  },
+  {
+   "id": "survey-drops-a-body-with-an-eight-byte-instruction",
+   "program": "loop-offsets.py",
+   "name": "an instruction objdump prints over two lines read from the first alone, so a loop holding one failed the byte sum and was dropped unsaid",
+   "kind": "defect",
+   "fix_rev": "2cbaeb6",
+   "family": "scan-for-parse",
+   "trigger": "a self-loop of at most a line holding an instruction of eight bytes or more, which objdump prints over two lines",
+   "ok": "the second line's bytes belong to the instruction, so the body's byte sum meets its span and the loop is counted",
+   "bug": "the second line was read as an instruction of its own when it held two bytes or more and not at all when it held one, so the body fell short of its span and scan dropped it as a jump into an instruction",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "review",
+   "harm_count": 12,
+   "notes": "found by a census of the twelve run binaries on disk taken for the Run 36 phantoms, 2026-09-18: 27 to 113 Main loops a binary dropped, every one holding an instruction of eight bytes or more, the return-frame push among them. Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, fix_in naming that history, from which the audit replays it.",
+   "invoke": [
+    "--survey",
+    "{tmp}/run36-gheadnospec-0x42ea22.dis"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "1 self-loops of at most 64 B"
+   ],
+   "bug_exit": 0,
+   "bug_text": [
+    "0 self-loops of at most 64 B"
+   ],
+   "plant_cmd": "cat > run36-gheadnospec-0x42ea22.dis <<'EOF_RUN36_GHEADNOSPEC_0X42EA22_DIS'\n\nrun36-gheadnospec:     file format elf64-x86-64\n\n\nDisassembly of section .text:\n\n000000000042ea22 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x20a1a>:\n  42ea22:\t48 8d 05 2f 6c 3a 01 \tlea    0x13a6c2f(%rip),%rax        # 17d5658 <microzm0zi1zminplacezmmicro_Main_main61_closure+0x710>\n  42ea29:\t48 8b 5d 18          \tmov    0x18(%rbp),%rbx\n  42ea2d:\teb 15                \tjmp    42ea44 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x20a3c>\n  42ea2f:\t90                   \tnop\n  42ea30:\t88 1c 00             \tmov    %bl,(%rax,%rax,1)\n  42ea33:\t00 00                \tadd    %al,(%rax)\n  42ea35:\t00 00                \tadd    %al,(%rax)\n  42ea37:\t00 1e                \tadd    %bl,(%rsi)\n  42ea39:\t00 00                \tadd    %al,(%rax)\n  42ea3b:\t00 70 f8             \tadd    %dh,-0x8(%rax)\n  42ea3e:\t3a 01                \tcmp    (%rcx),%al\n  42ea40:\t48 8b 45 08          \tmov    0x8(%rbp),%rax\n  42ea44:\t48 89 d9             \tmov    %rbx,%rcx\n  42ea47:\t83 e1 07             \tand    $0x7,%ecx\n  42ea4a:\t48 83 f9 01          \tcmp    $0x1,%rcx\n  42ea4e:\t74 21                \tje     42ea71 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x20a69>\n  42ea50:\t48 c7 45 00 40 ea 42 \tmovq   $0x42ea40,0x0(%rbp)\n  42ea57:\t00 \n  42ea58:\t48 89 d8             \tmov    %rbx,%rax\n  42ea5b:\t48 8b 5b 0e          \tmov    0xe(%rbx),%rbx\n  42ea5f:\t48 8b 40 06          \tmov    0x6(%rax),%rax\n  42ea63:\t48 89 45 08          \tmov    %rax,0x8(%rbp)\n  42ea67:\tf6 c3 07             \ttest   $0x7,%bl\n  42ea6a:\t75 d4                \tjne    42ea40 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x20a38>\n  42ea6c:\t48 8b 03             \tmov    (%rbx),%rax\n  42ea6f:\tff e0                \tjmp    *%rax\n  42ea71:\t48 c7 45 08 a0 ea 42 \tmovq   $0x42eaa0,0x8(%rbp)\n  42ea78:\t00 \n  42ea79:\t48 89 c3             \tmov    %rax,%rbx\n  42ea7c:\t48 83 c5 08          \tadd    $0x8,%rbp\nEOF_RUN36_GHEADNOSPEC_0X42EA22_DIS\nchmod 664 run36-gheadnospec-0x42ea22.dis",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/loop-offsets.py"
+   }
+  },
+  {
+   "id": "survey-counts-a-branch-into-an-exit-block-as-a-loop",
+   "program": "loop-offsets.py",
+   "name": "a backward branch into a block that leaves the body unconditionally, the check after it entered by a forward branch, read as a straddling loop where the shim counted none",
+   "kind": "defect",
+   "fix_rev": "886bbf5",
+   "family": "scan-for-parse",
+   "trigger": "a backward branch into a block that leaves the body by an unconditional transfer, the code after that block entered by a forward branch from outside",
+   "ok": "a body whose head does not reach its closing branch through the body's own edges, fall-through and the branches inside it, is no loop",
+   "bug": "the flow test resumed at any instruction some branch anywhere targets, so the forward branch into the check carried the flow to the back edge",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "harm_count": 1,
+   "notes": "read on run36-gheadtwopass against the shim's verified line, 2026-09-19, after 2cbaeb6 let the survey see it: nine straddling against eight; the heap-check failure block is the same shape and every binary carries them. Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, fix_in naming that history, from which the audit replays it.",
+   "invoke": [
+    "--survey",
+    "{tmp}/run36-gheadtwopass-0x482cf4.dis"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "0 self-loops of at most 64 B"
+   ],
+   "expect_absent": [
+    "0x482d4d"
+   ],
+   "bug_exit": 0,
+   "bug_text": [
+    "1 self-loops of at most 64 B",
+    "still straddling   : 1"
+   ],
+   "plant_cmd": "cat > run36-gheadtwopass-0x482cf4.dis <<'EOF_RUN36_GHEADTWOPASS_0X482CF4_DIS'\n\nrun36-gheadtwopass:     file format elf64-x86-64\n\n\nDisassembly of section .text:\n\n0000000000482cf4 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x74a14>:\n  482cf4:\t74 67                \tje     482d5d <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x74a7d>\n  482cf6:\t48 8b 5b 07          \tmov    0x7(%rbx),%rbx\n  482cfa:\t48 85 c0             \ttest   %rax,%rax\n  482cfd:\t0f 8e 9a 00 00 00    \tjle    482d9d <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x74abd>\n  482d03:\t48 85 c0             \ttest   %rax,%rax\n  482d06:\t0f 8c 98 00 00 00    \tjl     482da4 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x74ac4>\n  482d0c:\t48 ba ff ff ff ff ff \tmovabs $0xfffffffffffffff,%rdx\n  482d13:\tff ff 0f \n  482d16:\t48 39 d0             \tcmp    %rdx,%rax\n  482d19:\t0f 8f a1 00 00 00    \tjg     482dc0 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x74ae0>\n  482d1f:\t48 c1 e0 03          \tshl    $0x3,%rax\n  482d23:\t48 85 c0             \ttest   %rax,%rax\n  482d26:\t7c 25                \tjl     482d4d <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x74a6d>\n  482d28:\t48 c7 45 f8 40 30 48 \tmovq   $0x483040,-0x8(%rbp)\n  482d2f:\t00 \n  482d30:\t41 be 08 00 00 00    \tmov    $0x8,%r14d\n  482d36:\t48 89 da             \tmov    %rbx,%rdx\n  482d39:\t48 89 c3             \tmov    %rax,%rbx\n  482d3c:\t48 89 4d 00          \tmov    %rcx,0x0(%rbp)\n  482d40:\t48 89 55 20          \tmov    %rdx,0x20(%rbp)\n  482d44:\t48 83 c5 f8          \tadd    $0xfffffffffffffff8,%rbp\n  482d48:\te9 c3 13 2d 01       \tjmp    1754110 <stg_newAlignedPinnedByteArrayzh>\n  482d4d:\t48 8d 1d 5c 4c 4a 01 \tlea    0x14a4c5c(%rip),%rbx        # 19279b0 <ghczminternal_GHCziInternalziForeignPtr_mallocPlainForeignPtrAlignedBytes2_closure>\n  482d54:\t48 83 c5 38          \tadd    $0x38,%rbp\n  482d58:\te9 93 f3 2c 01       \tjmp    17520f0 <stg_ap_0_fast>\n  482d5d:\t48 85 c0             \ttest   %rax,%rax\n  482d60:\t7e 4e                \tjle    482db0 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x74ad0>\n  482d62:\t48 85 c0             \ttest   %rax,%rax\n  482d65:\t7c 4d                \tjl     482db4 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x74ad4>\n  482d67:\t48 bb ff ff ff ff ff \tmovabs $0xfffffffffffffff,%rbx\n  482d6e:\tff ff 0f \n  482d71:\t48 39 d8             \tcmp    %rbx,%rax\n  482d74:\t0f 8f 86 00 00 00    \tjg     482e00 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x74b20>\n  482d7a:\t48 c1 e0 03          \tshl    $0x3,%rax\n  482d7e:\t48 85 c0             \ttest   %rax,%rax\n  482d81:\t7c ca                \tjl     482d4d <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x74a6d>\n  482d83:\t48 c7 45 08 40 31 48 \tmovq   $0x483140,0x8(%rbp)\n  482d8a:\t00 \n  482d8b:\t41 be 08 00 00 00    \tmov    $0x8,%r14d\nEOF_RUN36_GHEADTWOPASS_0X482CF4_DIS\nchmod 664 run36-gheadtwopass-0x482cf4.dis",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/loop-offsets.py"
+   }
+  },
+  {
+   "id": "survey-keeps-a-loop-closed-by-a-jmp",
+   "program": "loop-offsets.py",
+   "name": "CONTROL: a loop entered by a jmp into its compare and closed by a jmp back to its head is a loop, which the blanket flow test of 2026-09-04 denied",
+   "kind": "control",
+   "invoke": [
+    "--survey",
+    "{tmp}/run36-gheadnospec-0x432411.dis"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "1 self-loops of at most 64 B"
+   ],
+   "plant_cmd": "cat > run36-gheadnospec-0x432411.dis <<'EOF_RUN36_GHEADNOSPEC_0X432411_DIS'\n\nrun36-gheadnospec:     file format elf64-x86-64\n\n\nDisassembly of section .text:\n\n0000000000432411 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x24409>:\n  432411:\t48 89 f0             \tmov    %rsi,%rax\n  432414:\t48 89 f3             \tmov    %rsi,%rbx\n  432417:\t48 01 d3             \tadd    %rdx,%rbx\n  43241a:\teb 11                \tjmp    43242d <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x24425>\n  43241c:\tf2 41 0f 10 04 f8    \tmovsd  (%r8,%rdi,8),%xmm0\n  432422:\tf2 0f 11 04 f1       \tmovsd  %xmm0,(%rcx,%rsi,8)\n  432427:\t4c 01 cf             \tadd    %r9,%rdi\n  43242a:\t48 ff c6             \tinc    %rsi\n  43242d:\t48 39 de             \tcmp    %rbx,%rsi\n  432430:\t7d 27                \tjge    432459 <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x24451>\n  432432:\teb e8                \tjmp    43241c <microzm0zi1zminplacezmmicro_Main_zdfNFDataTzuzdcrnf_info+0x24414>\n  432434:\t41 ff 65 f8          \tjmp    *-0x8(%r13)\nEOF_RUN36_GHEADNOSPEC_0X432411_DIS\nchmod 664 run36-gheadnospec-0x432411.dis",
+   "notes": "Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; a control, with no bug direction."
+  },
+  {
+   "id": "delta-of-a-build-against-itself-moves-nothing",
+   "program": "loop-offsets.py",
+   "name": "CONTROL: --delta of one binary against itself keeps every offset and moves no address",
+   "kind": "control",
+   "invoke": [
+    "--delta",
+    "/bin/sh",
+    "/bin/sh",
+    "--len",
+    "0",
+    "--code",
+    ""
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "nothing moved",
+    "every mod-64 offset preserved",
+    "survive to the byte"
+   ],
+   "expect_absent": [
+    "offsets MOVED",
+    "NOT a whole line"
+   ],
+   "notes": "Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py; a control, with no bug direction."
+  },
+  {
+   "id": "delta-names-a-group-one-side-lacks",
+   "program": "loop-offsets.py",
+   "name": "CONTROL: a group in one binary and not the other is named as such rather than dropped, which is what a compiler change does",
+   "kind": "control",
+   "invoke": [
+    "--delta",
+    "/bin/sh",
+    "/bin/cat",
+    "--len",
+    "0",
+    "--code",
+    ""
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "IN /bin/sh ONLY",
+    "matched nothing on the other side"
+   ],
+   "expect_absent": [
+    " 0 matched nothing",
+    "group(s) moved at all"
+   ],
+   "notes": "Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py; a control, with no bug direction."
+  },
+  {
+   "id": "delta-sees-a-group-that-grows-past-the-threshold",
+   "program": "loop-offsets.py",
+   "name": "a group under --min-copies in OLD and over it in NEW was in neither selection, so the one group whose copy count is the finding was dropped in silence",
+   "kind": "defect",
+   "fix_rev": "b39ff49",
+   "family": "quiet-failure",
+   "trigger": "a group under --min-copies in OLD and over it in NEW",
+   "ok": "either side meeting the threshold selects the group",
+   "bug": "the OLD side alone was tested and `k not in og` excluded the rest",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "review",
+   "harm_count": 1,
+   "notes": "watched on run24-g912 against run25-g912 at --len 0, 2026-09-04, at both thresholds. Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, fix_in naming that history, and its own no_audit stands.",
+   "no_audit": "fixture-from-a-document-the-era-lacks",
+   "invoke": [
+    "--delta",
+    "{tmp}/zzdl-old",
+    "{tmp}/zzdl-new"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "1 -> 2 copies",
+    "copy COUNT moved"
+   ],
+   "plant_cmd": "cat > zzdl-new <<'EOF_ZZDL_NEW'\n\nzzdl-new:     file format elf64-x86-64\n\n\nDisassembly of section .text:\n\n0000000000401000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info>:\n  401000:\tf2 0f 10 04 fa       \tmovsd  (%rdx,%rdi,8),%xmm0\n  401005:\t49 89 f1             \tmov    %rsi,%r9\n  401008:\t4d 01 c1             \tadd    %r8,%r9\n  40100b:\tf2 42 0f 11 04 c9    \tmovsd  %xmm0,(%rcx,%r9,8)\n  401011:\t48 01 c7             \tadd    %rax,%rdi\n  401014:\t49 ff c0             \tinc    %r8\n  401017:\t49 39 d8             \tcmp    %rbx,%r8\n  40101a:\t7c e4                \tjl     401000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x0>\n\n0000000000402000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info>:\n  402000:\tf2 0f 10 04 fa       \tmovsd  (%rdx,%rdi,8),%xmm0\n  402005:\t49 89 f1             \tmov    %rsi,%r9\n  402008:\t4d 01 c1             \tadd    %r8,%r9\n  40200b:\tf2 42 0f 11 04 c9    \tmovsd  %xmm0,(%rcx,%r9,8)\n  402011:\t48 01 c7             \tadd    %rax,%rdi\n  402014:\t49 ff c0             \tinc    %r8\n  402017:\t49 39 d8             \tcmp    %rbx,%r8\n  40201a:\t7c e4                \tjl     402000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x0>\n\nEOF_ZZDL_NEW\nchmod 664 zzdl-new\ncat > zzdl-old <<'EOF_ZZDL_OLD'\n\nzzdl-old:     file format elf64-x86-64\n\n\nDisassembly of section .text:\n\n0000000000401000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info>:\n  401000:\tf2 0f 10 04 fa       \tmovsd  (%rdx,%rdi,8),%xmm0\n  401005:\t49 89 f1             \tmov    %rsi,%r9\n  401008:\t4d 01 c1             \tadd    %r8,%r9\n  40100b:\tf2 42 0f 11 04 c9    \tmovsd  %xmm0,(%rcx,%r9,8)\n  401011:\t48 01 c7             \tadd    %rax,%rdi\n  401014:\t49 ff c0             \tinc    %r8\n  401017:\t49 39 d8             \tcmp    %rbx,%r8\n  40101a:\t7c e4                \tjl     401000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x0>\n\nEOF_ZZDL_OLD\nchmod 664 zzdl-old",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/loop-offsets.py"
+   }
+  },
+  {
+   "id": "delta-reads-moved-offsets-and-displacements",
+   "program": "loop-offsets.py",
+   "name": "CONTROL: heads moving off their offsets, an address surviving and the displacements are read as such -- the direction the identity control cannot see, so a reader reporting preservation unconditionally passed it",
+   "kind": "control",
+   "invoke": [
+    "--delta",
+    "{tmp}/zzdl-old",
+    "{tmp}/zzdl-new"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "offsets MOVED: [0, 0] -> [0, 8]",
+    "NO address survives to the byte",
+    "2 displacement(s): 0x40, 0x108 (NOT a whole line)",
+    "every mod-64 offset preserved: [0, 0]",
+    "1 address(es) survive to the byte: 0x403000",
+    "1 displacement(s): 0x40",
+    "of the 2 compared: 1 kept every offset, 2 moved at all"
+   ],
+   "plant_cmd": "cat > zzdl-new <<'EOF_ZZDL_NEW'\n\nzzdl-new:     file format elf64-x86-64\n\n\nDisassembly of section .text:\n\n0000000000401040 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info>:\n  401040:\tf2 0f 10 04 fa       \tmovsd  (%rdx,%rdi,8),%xmm0\n  401045:\t49 89 f1             \tmov    %rsi,%r9\n  401048:\t4d 01 c1             \tadd    %r8,%r9\n  40104b:\tf2 42 0f 11 04 c9    \tmovsd  %xmm0,(%rcx,%r9,8)\n  401051:\t48 01 c7             \tadd    %rax,%rdi\n  401054:\t49 ff c0             \tinc    %r8\n  401057:\t49 39 d8             \tcmp    %rbx,%r8\n  40105a:\t7c e4                \tjl     401040 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x0>\n\n0000000000402108 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info>:\n  402108:\tf2 0f 10 04 fa       \tmovsd  (%rdx,%rdi,8),%xmm0\n  40210d:\t49 89 f1             \tmov    %rsi,%r9\n  402110:\t4d 01 c1             \tadd    %r8,%r9\n  402113:\tf2 42 0f 11 04 c9    \tmovsd  %xmm0,(%rcx,%r9,8)\n  402119:\t48 01 c7             \tadd    %rax,%rdi\n  40211c:\t49 ff c0             \tinc    %r8\n  40211f:\t49 39 d8             \tcmp    %rbx,%r8\n  402122:\t7c e4                \tjl     402108 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x0>\n\n0000000000403000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info>:\n  403000:\tf2 0f 10 04 fa       \tmovsd  (%rdx,%rdi,8),%xmm0\n  403005:\t49 89 f9             \tmov    %rdi,%r9\n  403008:\t4d 01 c1             \tadd    %r8,%r9\n  40300b:\tf2 42 0f 11 04 c9    \tmovsd  %xmm0,(%rcx,%r9,8)\n  403011:\t48 01 c7             \tadd    %rax,%rdi\n  403014:\t49 ff c0             \tinc    %r8\n  403017:\t49 39 d8             \tcmp    %rbx,%r8\n  40301a:\t7c e4                \tjl     403000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x0>\n\n0000000000404040 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info>:\n  404040:\tf2 0f 10 04 fa       \tmovsd  (%rdx,%rdi,8),%xmm0\n  404045:\t49 89 f9             \tmov    %rdi,%r9\n  404048:\t4d 01 c1             \tadd    %r8,%r9\n  40404b:\tf2 42 0f 11 04 c9    \tmovsd  %xmm0,(%rcx,%r9,8)\n  404051:\t48 01 c7             \tadd    %rax,%rdi\n  404054:\t49 ff c0             \tinc    %r8\n  404057:\t49 39 d8             \tcmp    %rbx,%r8\n  40405a:\t7c e4                \tjl     404040 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x0>\n\nEOF_ZZDL_NEW\nchmod 664 zzdl-new\ncat > zzdl-old <<'EOF_ZZDL_OLD'\n\nzzdl-old:     file format elf64-x86-64\n\n\nDisassembly of section .text:\n\n0000000000401000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info>:\n  401000:\tf2 0f 10 04 fa       \tmovsd  (%rdx,%rdi,8),%xmm0\n  401005:\t49 89 f1             \tmov    %rsi,%r9\n  401008:\t4d 01 c1             \tadd    %r8,%r9\n  40100b:\tf2 42 0f 11 04 c9    \tmovsd  %xmm0,(%rcx,%r9,8)\n  401011:\t48 01 c7             \tadd    %rax,%rdi\n  401014:\t49 ff c0             \tinc    %r8\n  401017:\t49 39 d8             \tcmp    %rbx,%r8\n  40101a:\t7c e4                \tjl     401000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x0>\n\n0000000000402000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info>:\n  402000:\tf2 0f 10 04 fa       \tmovsd  (%rdx,%rdi,8),%xmm0\n  402005:\t49 89 f1             \tmov    %rsi,%r9\n  402008:\t4d 01 c1             \tadd    %r8,%r9\n  40200b:\tf2 42 0f 11 04 c9    \tmovsd  %xmm0,(%rcx,%r9,8)\n  402011:\t48 01 c7             \tadd    %rax,%rdi\n  402014:\t49 ff c0             \tinc    %r8\n  402017:\t49 39 d8             \tcmp    %rbx,%r8\n  40201a:\t7c e4                \tjl     402000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x0>\n\n0000000000403000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info>:\n  403000:\tf2 0f 10 04 fa       \tmovsd  (%rdx,%rdi,8),%xmm0\n  403005:\t49 89 f9             \tmov    %rdi,%r9\n  403008:\t4d 01 c1             \tadd    %r8,%r9\n  40300b:\tf2 42 0f 11 04 c9    \tmovsd  %xmm0,(%rcx,%r9,8)\n  403011:\t48 01 c7             \tadd    %rax,%rdi\n  403014:\t49 ff c0             \tinc    %r8\n  403017:\t49 39 d8             \tcmp    %rbx,%r8\n  40301a:\t7c e4                \tjl     403000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x0>\n\n0000000000404000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info>:\n  404000:\tf2 0f 10 04 fa       \tmovsd  (%rdx,%rdi,8),%xmm0\n  404005:\t49 89 f9             \tmov    %rdi,%r9\n  404008:\t4d 01 c1             \tadd    %r8,%r9\n  40400b:\tf2 42 0f 11 04 c9    \tmovsd  %xmm0,(%rcx,%r9,8)\n  404011:\t48 01 c7             \tadd    %rax,%rdi\n  404014:\t49 ff c0             \tinc    %r8\n  404017:\t49 39 d8             \tcmp    %rbx,%r8\n  40401a:\t7c e4                \tjl     404000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x0>\n\nEOF_ZZDL_OLD\nchmod 664 zzdl-old",
+   "notes": "Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; a control, with no bug direction."
+  },
+  {
+   "id": "delta-leaves-the-library-groups-to-library",
+   "program": "loop-offsets.py",
+   "name": "a linked library's loops stood among the tracked groups and in the summary a note copies, where --match and --survey read Main alone",
+   "kind": "defect",
+   "fix_rev": "8b4f51d",
+   "family": "two-spellings",
+   "trigger": "a linked library's loop group on both sides",
+   "ok": "the population is Main-compiled code, as --match and --survey take it",
+   "bug": "every group was read, so the statistics Quantile pair sat in the summary on both halves",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "review",
+   "harm_count": 2,
+   "notes": "watched on both halves of Run 25, 2026-09-04, the Quantile pair standing as a third group in --delta's report. Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, fix_in naming that history, and its own no_audit stands.",
+   "no_audit": "fixture-from-a-document-the-era-lacks",
+   "invoke": [
+    "--delta",
+    "{tmp}/zzdl-old",
+    "{tmp}/zzdl-new"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "1 group(s) read",
+    "4 library loop(s) left to --library"
+   ],
+   "plant_cmd": "cat > zzdl-new <<'EOF_ZZDL_NEW'\n\nzzdl-new:     file format elf64-x86-64\n\n\nDisassembly of section .text:\n\n0000000000401000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info>:\n  401000:\tf2 0f 10 04 fa       \tmovsd  (%rdx,%rdi,8),%xmm0\n  401005:\t49 89 f1             \tmov    %rsi,%r9\n  401008:\t4d 01 c1             \tadd    %r8,%r9\n  40100b:\tf2 42 0f 11 04 c9    \tmovsd  %xmm0,(%rcx,%r9,8)\n  401011:\t48 01 c7             \tadd    %rax,%rdi\n  401014:\t49 ff c0             \tinc    %r8\n  401017:\t49 39 d8             \tcmp    %rbx,%r8\n  40101a:\t7c e4                \tjl     401000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x0>\n\n0000000000402000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info>:\n  402000:\tf2 0f 10 04 fa       \tmovsd  (%rdx,%rdi,8),%xmm0\n  402005:\t49 89 f1             \tmov    %rsi,%r9\n  402008:\t4d 01 c1             \tadd    %r8,%r9\n  40200b:\tf2 42 0f 11 04 c9    \tmovsd  %xmm0,(%rcx,%r9,8)\n  402011:\t48 01 c7             \tadd    %rax,%rdi\n  402014:\t49 ff c0             \tinc    %r8\n  402017:\t49 39 d8             \tcmp    %rbx,%r8\n  40201a:\t7c e4                \tjl     402000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x0>\n\n0000000000501027 <statisticszm0zi16zi5zi0zm536b490adb2e81edec0faef6e3a878a0b1ba1a1e08e9471ff97c2975863bedae_StatisticsziQuantile_zdfOrdContParamzuzdcmax_info>:\n  501027:\tf2 0f 10 04 fa       \tmovsd  (%rdx,%rdi,8),%xmm0\n  50102c:\t49 89 f9             \tmov    %rdi,%r9\n  50102f:\t4d 01 c1             \tadd    %r8,%r9\n  501032:\tf2 42 0f 11 04 c9    \tmovsd  %xmm0,(%rcx,%r9,8)\n  501038:\t48 01 c7             \tadd    %rax,%rdi\n  50103b:\t49 ff c0             \tinc    %r8\n  50103e:\t49 39 d8             \tcmp    %rbx,%r8\n  501041:\t7c e4                \tjl     501027 <statisticszm0zi16zi5zi0zm536b490adb2e81edec0faef6e3a878a0b1ba1a1e08e9471ff97c2975863bedae_StatisticsziQuantile_zdfOrdContParamzuzdcmax_info+0x0>\n\n000000000050102f <statisticszm0zi16zi5zi0zm536b490adb2e81edec0faef6e3a878a0b1ba1a1e08e9471ff97c2975863bedae_StatisticsziQuantile_zdfOrdContParamzuzdcmax_info>:\n  50102f:\tf2 0f 10 04 fa       \tmovsd  (%rdx,%rdi,8),%xmm0\n  501034:\t49 89 f9             \tmov    %rdi,%r9\n  501037:\t4d 01 c1             \tadd    %r8,%r9\n  50103a:\tf2 42 0f 11 04 c9    \tmovsd  %xmm0,(%rcx,%r9,8)\n  501040:\t48 01 c7             \tadd    %rax,%rdi\n  501043:\t49 ff c0             \tinc    %r8\n  501046:\t49 39 d8             \tcmp    %rbx,%r8\n  501049:\t7c e4                \tjl     50102f <statisticszm0zi16zi5zi0zm536b490adb2e81edec0faef6e3a878a0b1ba1a1e08e9471ff97c2975863bedae_StatisticsziQuantile_zdfOrdContParamzuzdcmax_info+0x0>\n\nEOF_ZZDL_NEW\nchmod 664 zzdl-new\ncat > zzdl-old <<'EOF_ZZDL_OLD'\n\nzzdl-old:     file format elf64-x86-64\n\n\nDisassembly of section .text:\n\n0000000000401000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info>:\n  401000:\tf2 0f 10 04 fa       \tmovsd  (%rdx,%rdi,8),%xmm0\n  401005:\t49 89 f1             \tmov    %rsi,%r9\n  401008:\t4d 01 c1             \tadd    %r8,%r9\n  40100b:\tf2 42 0f 11 04 c9    \tmovsd  %xmm0,(%rcx,%r9,8)\n  401011:\t48 01 c7             \tadd    %rax,%rdi\n  401014:\t49 ff c0             \tinc    %r8\n  401017:\t49 39 d8             \tcmp    %rbx,%r8\n  40101a:\t7c e4                \tjl     401000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x0>\n\n0000000000402000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info>:\n  402000:\tf2 0f 10 04 fa       \tmovsd  (%rdx,%rdi,8),%xmm0\n  402005:\t49 89 f1             \tmov    %rsi,%r9\n  402008:\t4d 01 c1             \tadd    %r8,%r9\n  40200b:\tf2 42 0f 11 04 c9    \tmovsd  %xmm0,(%rcx,%r9,8)\n  402011:\t48 01 c7             \tadd    %rax,%rdi\n  402014:\t49 ff c0             \tinc    %r8\n  402017:\t49 39 d8             \tcmp    %rbx,%r8\n  40201a:\t7c e4                \tjl     402000 <microzm0zi1zminplacezmmicro_Main_zdfNFDataT_info+0x0>\n\n0000000000501027 <statisticszm0zi16zi5zi0zm536b490adb2e81edec0faef6e3a878a0b1ba1a1e08e9471ff97c2975863bedae_StatisticsziQuantile_zdfOrdContParamzuzdcmax_info>:\n  501027:\tf2 0f 10 04 fa       \tmovsd  (%rdx,%rdi,8),%xmm0\n  50102c:\t49 89 f9             \tmov    %rdi,%r9\n  50102f:\t4d 01 c1             \tadd    %r8,%r9\n  501032:\tf2 42 0f 11 04 c9    \tmovsd  %xmm0,(%rcx,%r9,8)\n  501038:\t48 01 c7             \tadd    %rax,%rdi\n  50103b:\t49 ff c0             \tinc    %r8\n  50103e:\t49 39 d8             \tcmp    %rbx,%r8\n  501041:\t7c e4                \tjl     501027 <statisticszm0zi16zi5zi0zm536b490adb2e81edec0faef6e3a878a0b1ba1a1e08e9471ff97c2975863bedae_StatisticsziQuantile_zdfOrdContParamzuzdcmax_info+0x0>\n\n000000000050102f <statisticszm0zi16zi5zi0zm536b490adb2e81edec0faef6e3a878a0b1ba1a1e08e9471ff97c2975863bedae_StatisticsziQuantile_zdfOrdContParamzuzdcmax_info>:\n  50102f:\tf2 0f 10 04 fa       \tmovsd  (%rdx,%rdi,8),%xmm0\n  501034:\t49 89 f9             \tmov    %rdi,%r9\n  501037:\t4d 01 c1             \tadd    %r8,%r9\n  50103a:\tf2 42 0f 11 04 c9    \tmovsd  %xmm0,(%rcx,%r9,8)\n  501040:\t48 01 c7             \tadd    %rax,%rdi\n  501043:\t49 ff c0             \tinc    %r8\n  501046:\t49 39 d8             \tcmp    %rbx,%r8\n  501049:\t7c e4                \tjl     50102f <statisticszm0zi16zi5zi0zm536b490adb2e81edec0faef6e3a878a0b1ba1a1e08e9471ff97c2975863bedae_StatisticsziQuantile_zdfOrdContParamzuzdcmax_info+0x0>\n\nEOF_ZZDL_OLD\nchmod 664 zzdl-old",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/loop-offsets.py"
+   }
+  },
+  {
+   "id": "match-docstring-claims-any-length",
+   "program": "loop-offsets.py",
+   "name": "--match said it looked among the twin's loops of any length",
+   "kind": "defect",
+   "fix_rev": "d2ffa65",
+   "family": "false-comment",
+   "trigger": "reading --match's docstring against its body",
+   "ok": "the docstring says the twin's loops are the survey's population, capped at a line, which loses nothing",
+   "bug": "claimed loops of any length were searched",
+   "proved": "asserted",
+   "harm": "latent",
+   "discovery": "review",
+   "notes": "Moved 2026-10-06 with loop-offsets.py from orthotope's micro-regime3/defects.py; its fix_rev is an orthotope commit, fix_in naming that history, from which the audit replays it.",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/loop-offsets.py"
+   }
+  },
+  {
+   "id": "fetch-model-exits-2-on-a-table-it-cannot-read",
+   "program": "probe-fetch-model.py",
+   "name": "a table with no layout exited 1, the code for a failed build",
+   "kind": "defect",
+   "fix_rev": "82c6a1c",
+   "family": "error-as-value",
+   "trigger": "rescore of a table with no layout or no rows",
+   "ok": "exit 2, did not run",
+   "bug": "exit 1, a build failed",
+   "proved": "ran",
+   "harm": "unknown",
+   "discovery": "review",
+   "invoke": [
+    "rescore",
+    "{tmp}/empty.txt"
+   ],
+   "expect_exit": 2,
+   "expect_text": [
+    "carries no layout or no rows"
+   ],
+   "bug_exit": 1,
+   "bug_text": [
+    "carries no layout or no rows"
+   ],
+   "plant_cmd": ": > empty.txt\nchmod 664 empty.txt",
+   "notes": "Moved 2026-10-06 with probe-fetch-model.py from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, fix_in naming that history, from which the audit replays it.",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/probe-fetch-model.py"
+   }
+  },
+  {
+   "id": "entries-sweep-exits-2-without-its-tools",
+   "program": "probe-entries-sweep.py",
+   "name": "a box without gcc exited 1, the code for a failed build",
+   "kind": "defect",
+   "fix_rev": "82c6a1c",
+   "family": "error-as-value",
+   "trigger": "gcc, perf or objdump missing, or perf not counting",
+   "ok": "exit 2, did not run",
+   "bug": "exit 1, a build failed",
+   "proved": "ran",
+   "harm": "unknown",
+   "discovery": "review",
+   "invoke": [
+    "fill"
+   ],
+   "env": {
+    "PATH": "{tmp}/stub"
+   },
+   "expect_exit": 2,
+   "expect_text": [
+    "gcc is not on PATH; nothing ran"
+   ],
+   "bug_exit": 1,
+   "bug_text": [
+    "gcc is not on PATH; nothing ran"
+   ],
+   "plant_cmd": "mkdir -p stub\ncat > stub/python3 <<'EOF_STUB_PYTHON3'\n#!/bin/sh\nexec /usr/bin/python3 \"$@\"\nEOF_STUB_PYTHON3\nchmod 755 stub/python3",
+   "notes": "Moved 2026-10-06 with probe-entries-sweep.py from orthotope's micro-regime3/defects.py, where its fixture was a Python plant; its fix_rev is an orthotope commit, fix_in naming that history, from which the audit replays it.",
+   "fix_in": {
+    "repo": "orthotope",
+    "branch": "speedup-strided-tovector",
+    "path": "micro-regime3/probe-entries-sweep.py"
    }
   }
  ]
