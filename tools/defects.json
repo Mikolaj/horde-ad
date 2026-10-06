@@ -2234,6 +2234,20 @@
    }
   },
   {
+   "id": "docstring-offers-force-recomp-for-a-fresh-builddir",
+   "program": "align-as.py",
+   "name": "the docstring offered -fforce-recomp as an alternative to a fresh builddir, which a change of the shim, its environment or its -pgma path never reaches",
+   "family": "false-comment",
+   "fix_rev": "self",
+   "trigger": "an existing builddir rebuilt with -fforce-recomp after a LOOP_* knob or the shim changed",
+   "ok": "the docstring asks for a fresh builddir, -fforce-recomp reaching no GHC where cabal answers Up to date",
+   "bug": "it said -fforce-recomp or a fresh --builddir, and a knob change built the first way kept the old object code",
+   "proved": "asserted",
+   "harm": "latent",
+   "discovery": "review",
+   "notes": "Found 2026-10-06 by a blind review of the move that brought the shim here, against its own docstring's line on a shim change and orthotope README's run chapter."
+  },
+  {
    "id": "fills-entry-region-goes-to-the-previous-proc",
    "program": "probe-nospill-fills.py",
    "name": "a loop in an LLVM function's entry region credited to the previous proc",

@@ -17,9 +17,12 @@ backwards to.
 
     cabal build micro --ghc-options="-pgma /path/to/align-as.py -fforce-recomp"
 
-`-fforce-recomp` or a fresh `--builddir` is not optional. GHC does not count
-`-pgma` or `-fproc-alignment` as a flag change, so an incremental build keeps
-the old object code and reports nothing (README.md, same section).
+A fresh `--builddir` is not optional: cabal answers "Up to date" for a change
+of `-pgma`, of the LOOP_* environment or of this file, so an existing build
+keeps the old object code and reports nothing, `-fforce-recomp` reaching no GHC
+(README.md's run chapter). Where cabal does re-invoke GHC, GHC does not count
+`-pgma` or `-fproc-alignment` as a flag change, which is what `-fforce-recomp`
+is for (its floor section).
 
   LOOP_ALIGN   log2 of the boundary, default 6 (64 bytes)
   LOOP_MAXSKIP pad only a loop that would cross a boundary it need not,
