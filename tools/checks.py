@@ -50,6 +50,7 @@ STEPS = [
     ('ctime-diff self-test', ['python3', '{root}/ctime-diff.py', '--self-test']),
     ('heading-outline self-test', ['python3', '{root}/heading-outline.py', '--self-test']),
     ('one-shot self-test', ['python3', '{root}/one-shot.py', '--self-test']),
+    ('perf-per-call self-test', ['python3', '{root}/perf-per-call.py', '--self-test']),
     ('pragma-calls self-test', ['python3', '{root}/pragma-calls.py', '--self-test']),
     ('rewrite-check self-test', ['python3', '{root}/rewrite-check.py', '--self-test']),
     ('rules-diff self-test', ['python3', '{root}/rules-diff.py', '--self-test']),

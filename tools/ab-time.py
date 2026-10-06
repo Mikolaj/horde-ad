@@ -1,31 +1,42 @@
 #!/usr/bin/env python3
-"""Interleaved A/B wall-time pairs of criterion benchmarks across two builds.
+"""Interleaved wall time and allocation of criterion benchmarks across builds.
 
-Usage: python3 tools/ab-time.py [--log TSV] BIN_A BIN_B PAIRS NAME [NAME ...]
+Usage: python3 tools/ab-time.py [--log TSV] [--cpu CPU]
+                                BIN BIN [BIN ...] ROUNDS NAME [NAME ...]
        python3 tools/ab-time.py --self-test
 
-BIN_A and BIN_B are the same benchmark executable from two builds. For each
-NAME in turn, runs A then B, PAIRS times, one benchmark per process
-(`-m glob NAME`, criterion's default time limit, `--json` with `+RTS -T`),
-reads criterion's OLS slope of seconds per iteration from each run, and
-prints the median of the PAIRS ratios B/A with their range. `--log` also
-writes every pair, one line each. Run it from the directory the benchmark
-expects as its working directory: the MNIST suites read `samplesData/`.
+Each BIN is the same benchmark executable from another build, labelled A,
+B, C, ... in the order given. For each NAME in turn, runs every BIN once
+a round, ROUNDS rounds, the order rotated by one from round to round, so
+that each build goes first as often as the next where ROUNDS is a multiple
+of their number --- two builds alternate. One benchmark per process
+(`-m glob NAME`, criterion's default time limit, `--regress allocated:iters`,
+`--json` with `+RTS -T`), each pinned to CPU by `taskset -c` with `--cpu`.
+Reads criterion's OLS slopes of seconds and of bytes allocated per iteration
+from each run, and prints, for each BIN after the first, the median of its
+ROUNDS time ratios to A's, each ratio within one round, with their range,
+and the median bytes allocated per iteration of the two. `--log` also writes
+every run, one line each. Run it from the directory the benchmark expects
+as its working directory: the MNIST suites read `samplesData/`.
 
-This is bench/CLAUDE.md's A/B procedure as a script: pairs interleaved, so
-drift over the run cancels within each pair; one benchmark per process, so
+This is bench/CLAUDE.md's A/B procedure as a script: runs interleaved, so
+drift over the run cancels within each round, and the order rotated, so
+no build always runs first; one benchmark per process, so
 no predecessor's RTS pool state reaches the measured one
 (docs/position-effect.md); the median, because single pairs on a loaded or
 virtual machine scatter widely --- 0.42 to 1.36 around a true 1.00 on the
-VM docs/overloaded-unfoldings.md was measured on. It gives time only;
-compare allocation first, which is exact, and back any ratio that decides
-something with cycles or instructions (tools/cachegrind-per-call.py).
+VM docs/overloaded-unfoldings.md was measured on. Compare allocation first,
+which is exact, and back any time ratio that decides something with
+instructions or cycles (tools/perf-per-call.py, or
+tools/cachegrind-per-call.py where perf cannot run).
 
-Exit 0 when every pair ran, 2 when one did not: a run failing, or its JSON
-without one report carrying a time regression.
+Exit 0 when every run happened, 2 when one did not: a run failing, taskset
+missing with `--cpu`, or its JSON without one report carrying a time and
+an allocation regression.
 """
 
 import os
+import shutil
 import statistics
 import subprocess
 import sys
@@ -37,13 +48,21 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
 
 
-def slope(binary, name):
-    """Seconds per iteration of one benchmark, from a fresh process."""
+def command(binary, name, path, cpu):
+    """The run of one benchmark, pinned to cpu unless it is None."""
+    return ((['taskset', '-c', cpu] if cpu is not None else [])
+            + [binary, '-m', 'glob', name, '--regress', 'allocated:iters',
+               '--json', path, '+RTS', '-T'])
+
+
+def slopes(binary, name, cpu):
+    """Seconds and bytes allocated per iteration of one benchmark, from
+    a fresh process."""
     fd, path = tempfile.mkstemp(suffix='.json')
     os.close(fd)
     try:
-        r = subprocess.run([binary, '-m', 'glob', name, '--json', path,
-                            '+RTS', '-T'], stdout=subprocess.DEVNULL,
+        r = subprocess.run(command(binary, name, path, cpu),
+                           stdout=subprocess.DEVNULL,
                            stderr=subprocess.PIPE, text=True)
         if r.returncode != 0:
             raise ValueError(f'{binary} on {name} exited {r.returncode}: '
@@ -57,18 +76,33 @@ def slope(binary, name):
     if 'time' not in regs:
         raise ValueError(f'{name}: no time regression in the report')
     # A CriterionError is a ValueError, so main's exit 2 covers it.
-    return common.slope(path, name, regs['time'])
+    t = common.slope(path, name, regs['time'])
+    if 'allocated' not in regs:
+        raise ValueError(f'{name}: no allocated regression in the report')
+    return t, common.slope(path, name, regs['allocated'])
 
 
-def pairs(a, b, n, name, log):
-    ratios = []
-    for i in range(n):
-        ta, tb = slope(a, name), slope(b, name)
-        ratios.append(tb / ta)
-        if log:
-            log.write(f'{name}\t{i}\t{ta:.6e}\t{tb:.6e}\t{tb / ta:.4f}\n')
-            log.flush()
-    return statistics.median(ratios), min(ratios), max(ratios)
+def rounds(bins, n, name, cpu, log):
+    """Per BIN after the first: (median time ratio to the first, lowest,
+    highest, median allocation of the first, median allocation)."""
+    times = [[None] * n for _ in bins]
+    allocs = [[None] * n for _ in bins]
+    for r in range(n):
+        for i in range(len(bins)):
+            j = (i + r) % len(bins)
+            t, a = slopes(bins[j], name, cpu)
+            times[j][r], allocs[j][r] = t, a
+            if log:
+                log.write(f'{name}\t{r}\t{chr(ord("A") + j)}\t{t:.6e}'
+                          f'\t{a:.6e}\n')
+                log.flush()
+    out = []
+    for j in range(1, len(bins)):
+        ratios = [tb / ta for ta, tb in zip(times[0], times[j])]
+        out.append((statistics.median(ratios), min(ratios), max(ratios),
+                    statistics.median(allocs[0]),
+                    statistics.median(allocs[j])))
+    return out
 
 
 FAKE = '''#!/usr/bin/env python3
@@ -83,41 +117,54 @@ if name == 'none':
     reps = []
 else:
     t = secs[n % len(secs)]
-    reps = [{{'reportName': name, 'reportAnalysis': {{'anRegress': [
-        {{'regResponder': 'time', 'regCoeffs': {{'iters': {{'estPoint': t}}}}}}]}}}}]
+    regs = [{{'regResponder': 'time', 'regCoeffs': {{'iters': {{'estPoint': t}}}}}}]
+    if a[a.index('--regress') + 1:a.index('--regress') + 2] == ['allocated:iters']:
+        regs.append({{'regResponder': 'allocated',
+                     'regCoeffs': {{'iters': {{'estPoint': {alloc!r}}}}}}})
+    reps = [{{'reportName': name, 'reportAnalysis': {{'anRegress': regs}}}}]
 json.dump(['criterion', '1.6', reps], open(out, 'w'))
 '''
 
 
 def self_test():
-    """Two fake benchmark binaries that log their calls and report times."""
+    """Fake benchmark binaries that log their calls and report times."""
     bad = []
     with tempfile.TemporaryDirectory() as td:
         calls = os.path.join(td, 'calls')
-        bins = []
-        # A always 1.0; B's time is indexed by the global call number modulo
-        # 6, and B makes calls 2, 4 and 6, so its three ratios are 1.5, 1.2
-        # and 0.8 in that order only if the runs interleave A, B, A, B ---
-        # a median of 1.2 that neither the first ratio nor the mean equals.
-        for tag, secs in (('A', [1.0]), ('B', [0.8, 0, 1.5, 0, 1.2, 0])):
+
+        def fake(tag, secs, alloc):
             p = os.path.join(td, tag)
             with open(p, 'w') as fh:
-                fh.write(FAKE.format(secs=secs, calls=calls, tag=tag))
+                fh.write(FAKE.format(secs=secs, calls=calls, tag=tag,
+                                     alloc=alloc))
             os.chmod(p, 0o755)
-            bins.append(p)
-        got = pairs(bins[0], bins[1], 3, 'g/x', None)
-        if got != (1.2, 0.8, 1.5):
-            bad.append(f'median and range: {got}')
+            return p
+        # A always 1.0; B's and C's times are indexed by the global call
+        # number modulo 10. Rotated, three rounds run A B C, B C A, C A B,
+        # so B makes calls 2, 4 and 9, its ratios 1.5, 1.2 and 0.8 --- a
+        # median of 1.2 that neither the first ratio nor the mean equals
+        # --- and C calls 3, 5 and 7, all 2.0; unrotated, both would read
+        # the 9.0s.
+        bins = [fake('A', [1.0], 100.0),
+                fake('B', [9, 9, 1.5, 9, 1.2, 9, 9, 9, 9, 0.8], 50.0),
+                fake('C', [9, 9, 9, 2.0, 9, 2.0, 9, 2.0, 9, 9], 100.0)]
+        got = rounds(bins, 3, 'g/x', None, None)
+        if got != [(1.2, 0.8, 1.5, 100.0, 50.0),
+                   (2.0, 2.0, 2.0, 100.0, 100.0)]:
+            bad.append(f'medians and ranges: {got}')
         with open(calls) as fh:
             order = [line.split()[0] for line in fh]
-        if order != ['A', 'B'] * 3:
-            bad.append(f'not interleaved: {order}')
+        if order != ['A', 'B', 'C', 'B', 'C', 'A', 'C', 'A', 'B']:
+            bad.append(f'not rotated: {order}')
+        if command('x', 'g/x', 'j', '3')[:4] != ['taskset', '-c', '3', 'x']:
+            bad.append('--cpu did not pin the run')
+        if command('x', 'g/x', 'j', None)[0] != 'x':
+            bad.append('a run without --cpu was pinned')
         if main([bins[0], bins[1], '1', 'none']) != 2:
             bad.append('a name matching no benchmark did not exit 2')
-        nul = os.path.join(td, 'N')
-        with open(nul, 'w') as fh:
-            fh.write(FAKE.format(secs=[None], calls=calls, tag='N'))
-        os.chmod(nul, 0o755)
+        if main([bins[0], '1', 'g/x']) != 2:
+            bad.append('a single build did not exit 2')
+        nul = fake('N', [None], 100.0)
         if main([bins[0], nul, '1', 'g/x']) != 2:
             bad.append('a null slope did not exit 2')
     for b in bad:
@@ -129,22 +176,35 @@ def self_test():
 def main(argv):
     if argv == ['--self-test']:
         return self_test()
-    log_path = None
-    if argv[:1] == ['--log']:
+    log_path = cpu = None
+    while argv[:1] in (['--log'], ['--cpu']):
         if len(argv) < 2:
-            print('--log needs a path', file=sys.stderr)
+            print(f'{argv[0]} needs a value', file=sys.stderr)
             return 2
-        log_path, argv = argv[1], argv[2:]
-    if len(argv) < 4 or not argv[2].isdigit() or int(argv[2]) < 1:
+        if argv[0] == '--log':
+            log_path = argv[1]
+        else:
+            cpu = argv[1]
+        argv = argv[2:]
+    k = next((i for i, a in enumerate(argv) if a.isdigit()), None)
+    if k is None or k < 2 or int(argv[k]) < 1 or k == len(argv) - 1:
         print(__doc__.split('\n\n')[1], file=sys.stderr)
         return 2
-    a, b, n, names = argv[0], argv[1], int(argv[2]), argv[3:]
+    bins, n, names = argv[:k], int(argv[k]), argv[k + 1:]
+    if cpu is not None and shutil.which('taskset') is None:
+        print('taskset is not on PATH; nothing measured', file=sys.stderr)
+        return 2
+    for j, b in enumerate(bins):
+        print(f'{chr(ord("A") + j)} = {b}')
     log = open(log_path, 'w') if log_path else None
     try:
         for name in names:
-            med, lo, hi = pairs(a, b, n, name, log)
-            print(f'{name:60s} median B/A {med:.4f}  range {lo:.3f}..{hi:.3f}',
-                  flush=True)
+            for j, (med, lo, hi, a0, aj) in enumerate(
+                    rounds(bins, n, name, cpu, log), start=1):
+                print(f'{name:60s} {chr(ord("A") + j)}/A time {med:.4f}'
+                      f'  range {lo:.3f}..{hi:.3f}'
+                      f'  allocated {aj:.6g} against {a0:.6g} bytes/iter',
+                      flush=True)
     except (ValueError, OSError) as e:
         print(e, file=sys.stderr)
         return 2
