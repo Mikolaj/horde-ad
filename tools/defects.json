@@ -1146,6 +1146,29 @@
    "bug_text": "MOVED User 2->1"
   },
   {
+   "id": "rewrite-check-01",
+   "program": "rewrite-check.py",
+   "name": "a commit the rewrite moved was reported as one commit dropped and another added, though the docstring lists a reorder among the rewrites it checks",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "an old range A B C and its rewrite B C A, each commit replayed unchanged",
+   "ok": "A and its replay paired as moved and compared as a pair: no finding, exit 0",
+   "bug": "A reported dropped and its replay added, two findings, exit 1",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Met on 2026-10-06 moving orthotope's CHANGELOG commit to the tip of pr-mikolaj-toVectorListT, where the move was then checked by hand. The pairing aligned the two ranges' subject sequences with difflib, and a moved commit falls outside every matched block.",
+   "plant_cmd": "git init -q . && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -q --allow-empty -m base && git tag base && echo a > a && git add a && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm 'Add a' && echo b > b && git add b && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm 'Add b' && echo c > c && git add c && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm 'Add c' && git branch old && git checkout -q -b new base && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false cherry-pick old~1 old old~2 > /dev/null",
+   "invoke": [
+    "base..old",
+    "base..new"
+   ],
+   "expect_exit": 0,
+   "expect_text": "moved",
+   "bug_exit": 1,
+   "bug_text": "FINDING added"
+  },
+  {
    "id": "ticky-diff-01",
    "program": "ticky-diff.py",
    "name": "the row regex's optional arg-kinds word swallowed the first word of the closure name when a closure has no non-void argument, so every such closure was keyed by its unique and never matched between two builds",

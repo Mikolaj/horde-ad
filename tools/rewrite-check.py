@@ -8,10 +8,11 @@ Usage: python3 tools/rewrite-check.py OLD_BASE..OLD_TIP NEW_BASE..NEW_TIP
 The two ranges are the branch before and after a rewrite --- a fold, an
 amended message, a reorder --- given as git ranges, so a backup ref or a
 reflog entry names the old one. The commits are paired by their subjects in
-order; a commit of the old range with no counterpart is dropped, which is
-expected of a `fixup!`, `squash!` or `amend!` commit and of one named by
-`--expect`, and a finding otherwise. Each pair's patch is compared by `git
-patch-id --stable`. Where the two differ the change is
+order, and a commit the rewrite moved with the leftover of its subject; a
+commit of the old range with no counterpart is dropped, which is expected
+of a `fixup!`, `squash!` or `amend!` commit and of one named by `--expect`,
+and a finding otherwise. Each pair's patch is compared by `git patch-id
+--stable`. Where the two differ the change is
   expected, the old commit being one an `--expect REV` names;
   context-only, the lines the two patches add and remove being the same,
     only the context around them or their line numbers having moved, which
@@ -98,46 +99,61 @@ def check(repo, old, new, expect, allow, signed):
         nonlocal findings
         findings += 1
         lines.append('FINDING ' + text)
+    counts = collections.Counter()
+    def compare(o, n):
+        so, mo, ao, po, lo = oi[o]
+        sn, mn, an, pn, ln = ni[n]
+        tag = f'{o[:9]} -> {n[:9]} {sn}'
+        if o in exp:
+            used.add(o)
+            if po == pn and mo == mn:
+                find(f'expected to change, unchanged: {tag}')
+            else:
+                counts['expected'] += 1
+                lines.append(f'expected     {tag}')
+            return
+        if so != sn:
+            find(f'subject changed: {o[:9]} {so} -> {sn}')
+        if po == pn:
+            counts['unchanged'] += 1
+        elif lo == ln:
+            counts['context-only'] += 1
+            lines.append(f'context-only {tag}')
+        else:
+            find(f'patch changed: {tag}')
+        if mo != mn and so == sn:
+            find(f'message changed: {tag}')
+        if ao != an:
+            find(f'author changed: {tag} ({ao} -> {an})')
     sm = difflib.SequenceMatcher(None, [oi[c][0] for c in oc],
                                  [ni[c][0] for c in nc], autojunk=False)
-    counts = collections.Counter()
+    left_old, left_new = [], []
     for op, i1, i2, j1, j2 in sm.get_opcodes():
         if op == 'equal' or (op == 'replace' and i2 - i1 == j2 - j1):
             for o, n in zip(oc[i1:i2], nc[j1:j2]):
-                so, mo, ao, po, lo = oi[o]
-                sn, mn, an, pn, ln = ni[n]
-                tag = f'{o[:9]} -> {n[:9]} {sn}'
-                if o in exp:
-                    used.add(o)
-                    if po == pn and mo == mn:
-                        find(f'expected to change, unchanged: {tag}')
-                    else:
-                        counts['expected'] += 1
-                        lines.append(f'expected     {tag}')
-                    continue
-                if so != sn:
-                    find(f'subject changed: {o[:9]} {so} -> {sn}')
-                if po == pn:
-                    counts['unchanged'] += 1
-                elif lo == ln:
-                    counts['context-only'] += 1
-                    lines.append(f'context-only {tag}')
-                else:
-                    find(f'patch changed: {tag}')
-                if mo != mn and so == sn:
-                    find(f'message changed: {tag}')
-                if ao != an:
-                    find(f'author changed: {tag} ({ao} -> {an})')
-            continue
-        for o in oc[i1:i2]:
-            if oi[o][0].startswith(FOLDED) or o in exp:
-                used.add(o)
-                counts['folded'] += 1
-                lines.append(f'folded       {o[:9]} {oi[o][0]}')
-            else:
-                find(f'dropped: {o[:9]} {oi[o][0]}')
-        for n in nc[j1:j2]:
-            find(f'added: {n[:9]} {ni[n][0]}')
+                compare(o, n)
+        else:
+            left_old += oc[i1:i2]
+            left_new += nc[j1:j2]
+    # A commit the rewrite moved lies outside every block the order matched;
+    # paired with the leftover of its subject, it is compared as any pair is.
+    for n in list(left_new):
+        same = [o for o in left_old if oi[o][0] == ni[n][0]]
+        if same:
+            left_old.remove(same[0])
+            left_new.remove(n)
+            counts['moved'] += 1
+            lines.append(f'moved        {same[0][:9]} -> {n[:9]} {ni[n][0]}')
+            compare(same[0], n)
+    for o in left_old:
+        if oi[o][0].startswith(FOLDED) or o in exp:
+            used.add(o)
+            counts['folded'] += 1
+            lines.append(f'folded       {o[:9]} {oi[o][0]}')
+        else:
+            find(f'dropped: {o[:9]} {oi[o][0]}')
+    for n in left_new:
+        find(f'added: {n[:9]} {ni[n][0]}')
     for h, e in exp.items():
         if h not in used:
             find(f'--expect {e} is in neither range as a commit paired '
@@ -157,6 +173,7 @@ def check(repo, old, new, expect, allow, signed):
     lines.append(f'{len(oc)} commits -> {len(nc)}: ' + ', '.join(
         f'{counts[k]} {k}' for k in ('unchanged', 'context-only', 'expected',
                                      'folded') if counts[k])
+        + (f', {counts["moved"]} of them moved' if counts['moved'] else '')
         + f'; {findings} finding{"s" if findings != 1 else ""}')
     return lines, findings
 
@@ -165,7 +182,8 @@ def self_test():
     """A branch and its rewrite: a fold into an earlier commit, the later
     commits replayed above it; then the old branch with a fixup the rewrite
     dropped and with a commit nothing expects dropped, and the new one with
-    a reworded message and an unexpected edit, unsigned throughout."""
+    a reworded message and an unexpected edit, unsigned throughout; and a
+    reorder, a commit moved to the tip as it was and then changed."""
     import tempfile
     bad = []
     with tempfile.TemporaryDirectory() as td:
@@ -262,6 +280,30 @@ def self_test():
         got, n = chk([c2], ['b'], signed=True)
         if n < 2 or not any(l.startswith('FINDING signature') for l in got):
             report('unsigned commits under --signed', got)
+        # A reorder: the first of three commits replayed at the tip, as it
+        # was and then changed.
+        run('checkout', '-q', '-b', 'r1', base)
+        for name, date in (('x', '1000000600'), ('y', '1000000700'),
+                           ('z', '1000000800')):
+            put(name, name + '\n')
+            run('add', name)
+            commit('Add ' + name, date + ' +0000')
+        run('checkout', '-q', '-b', 'r2', base)
+        run('cherry-pick', 'r1~1', 'r1', 'r1~2')
+        R1, R2 = f'{base}..r1', f'{base}..r2'
+        got, n = check(td, R1, R2, [], [], False)
+        if n or not any(l.startswith('moved') and 'Add x' in l for l in got):
+            report('a moved commit', got)
+        put('x', 'x!\n')
+        run('commit', '-q', '--amend', '-am', 'Add x')
+        got, n = check(td, R1, R2, [run('rev-parse', 'r1~2')], ['x'], False)
+        if n or not any(l.startswith('expected') and 'Add x' in l
+                        for l in got):
+            report('a moved commit expected to change', got)
+        got, n = check(td, R1, R2, [], ['x'], False)
+        if n != 1 or not any('patch changed' in l and 'Add x' in l
+                             for l in got):
+            report('a moved commit changed unexpectedly', got)
         if main(['-C', td, f'{base}..nosuch', NEW]) != 2:
             bad.append('a range git cannot resolve did not exit 2')
         if main(['-C', td, f'{base}..{base}', NEW]) != 2:
