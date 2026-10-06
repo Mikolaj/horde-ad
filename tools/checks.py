@@ -78,6 +78,6 @@ UNCOVERED = {
                        'drivers, run-evening.sh\'s alarm among them, two '
                        'reads of /proc/stat; no case of its own yet',
     'probe-pageflags.py': 'a probe of a live process\'s page frames '
-                          'under sudo, an input to micro-regime3\'s '
+                          'as root, an input to micro-regime3\'s '
                           'README run by hand',
 }

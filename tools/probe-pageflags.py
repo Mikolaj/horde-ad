@@ -11,7 +11,7 @@ Written for orthotope's micro-regime3 benchmark and kept there until
 that directory's, at
 https://github.com/Mikolaj/orthotope/tree/speedup-strided-tovector/micro-regime3
 
-    sudo python3 probe-pageflags.py PID VADDR [VADDR ...] [--heap]
+    python3 probe-pageflags.py PID VADDR [VADDR ...] [--heap]    # as root
 
 PID is a live process of the binary, VADDR a virtual address in it. For
 each address: the page frame from /proc/PID/pagemap, its flags from
@@ -24,7 +24,7 @@ kept alive long enough to be read AND given ten seconds to reach the
 loop, a read taken before that finding the page `not present`:
 
     ./run33-exit classes runs -m glob 'runs-16384/lib-stage2-lean-u1' -L 60 \\
-      > /dev/null & sleep 10; sudo python3 probe-pageflags.py $! 0x430980 0x4bad80; wait
+      > /dev/null & sleep 10; python3 probe-pageflags.py $! 0x430980 0x4bad80; wait
 
 0x430980 is the u1 fill loop and 0x4bad80 the sum loop in run33-exit and
 in any byte-identical copy of it; in run32-nospec they are 0x430380 and
@@ -92,7 +92,7 @@ def main():
     first_pfn = None
     if os.geteuid() != 0:
         print('not root: /proc/PID/pagemap hides frame numbers and'
-              ' /proc/kpageflags refuses, so run this under sudo')
+              ' /proc/kpageflags refuses, so run this as root')
     for a in [x for x in sys.argv[2:] if x != '--heap']:
         va = int(a, 16)
         with open(f'/proc/{pid}/pagemap', 'rb') as f:
