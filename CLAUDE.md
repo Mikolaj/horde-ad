@@ -32,7 +32,7 @@ Development setup (fast builds, optimization off; guarded not to clobber an exis
       cp cabal.project.local.development cabal.project.local
     cabal build
 
-Run `cabal` (like all `git` writes and `gpg`) unsandboxed --- `~/.cabal` is read-only under the inner sandbox (sandboxing notes below). A full build takes long; never conclude it hung. Local `cabal haddock` costs ~10 minutes even for a sublibrary (haddock re-runs GHC's front end over the whole library dependency, with the typelits plugins dominating typechecking) --- prefer CI's `--haddock-all` step, which runs on every push.
+Run `cabal` (like all `git` writes and `gpg`) unsandboxed --- `~/.cabal` is read-only under the inner sandbox (sandboxing notes below). A full build takes long; never conclude it hung. Never run two builds of the test suites or benchmarks at once: together they run the machine out of memory, though two of the library alone are fine. Local `cabal haddock` costs ~10 minutes even for a sublibrary (haddock re-runs GHC's front end over the whole library dependency, with the typelits plugins dominating typechecking) --- prefer CI's `--haddock-all` step, which runs on every push.
 
 Cabal flags: `with_expensive_assertions` (extra checks), `release` (set for Hackage releases; disables `convVjpBench`, `inlineMicroBench`, the two live MNIST benchmarks and every test suite but `minimalTest`), `test_seq` (force parallelTest to run sequentially).
 
