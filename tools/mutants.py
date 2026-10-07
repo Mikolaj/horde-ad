@@ -448,6 +448,10 @@ MUTANTS = [
     # ticky-diff-01 (2026-10-02): a row with no non-void argument has no kinds word.
     ('ticky-diff kinds word dropped from a row that has none', 'ticky-diff.py',
      '            if int(m.group(4)) > 0:\n', '            if True:\n', ST),
+    # ticky-diff-02 (2026-10-07): an exported closure's unique, `{(x) v rW}`.
+    ('ticky-diff exported closure unique kept', 'ticky-diff.py',
+     "    name = re.sub(r'\\{(?:\\([^)]*\\) )?v\\b[^}]*\\}', '', name).strip()\n",
+     "    name = re.sub(r'\\{v[^}]*\\}', '', name).strip()\n", ST),
     ('core-diff numeric suffix of a binding kept', 'core-diff.py',
      '    return re.sub(r"([A-Za-z_$\'])[0-9]+\\b", r\'\\1\', tok)\n', '    return tok\n', ST),
     ('core-diff directory without dumps accepted', 'core-diff.py',

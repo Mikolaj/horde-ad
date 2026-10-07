@@ -59,9 +59,10 @@ def read(path):
 
 
 def normalise(name):
-    # The unique, `{v r1fgjA}` on a top-level closure and a bare `{v}` on
-    # a local one, whose own name then carries its unique instead.
-    name = re.sub(r'\{v[^}]*\}', '', name).strip()
+    # The unique, `{v r1fgjA}` on a top-level closure, `{(x) v rW}` on an
+    # exported one (ticky-diff-02) and a bare `{v}` on a local one, whose
+    # own name then carries its unique instead.
+    name = re.sub(r'\{(?:\([^)]*\) )?v\b[^}]*\}', '', name).strip()
     name = re.sub(r'_sat_s[0-9A-Za-z]+', '_sat', name)
     name = re.sub(r' in \S+$', '', name)
     return re.sub(r"([A-Za-z_$'])[0-9]+\b", r'\1', name)
@@ -82,7 +83,8 @@ def diff(a, b, top):
 
 
 def self_test():
-    """Two synthetic ticky tables of the same program from two builds."""
+    """Two synthetic ticky tables of the same program from two builds,
+    one closure exported, its unique printed `{(x) v r2}`."""
     import os
     import tempfile
     head = ('ENTERS: 1\n\n'
@@ -94,7 +96,7 @@ def self_test():
         'M.$w$w$sf5{v rQPTU} (fun)\n'
         '         5         500           0   1 M   '
         'g_sat_s1a{v} (M) (fun) in r1\n'
-        '         1          40           0   1 M   M.h{v r2} (fun)\n'
+        '         1          40           0   1 M   M.h{(x) v r2} (fun)\n'
         '         1          16           0   0       M.k1{v r3} (fun)\n')
     b = head + (
         '         2         200           0   2 MM  '
@@ -103,7 +105,7 @@ def self_test():
         'N.$w$w$s$w$w$sf23{v r2b91k} (fun,se)\n'
         '         5         500           0   1 M   '
         'g_sat_s2b{v} (M) (fun) in r7\n'
-        '         1          40           0   1 M   M.h{v r9} (fun)\n'
+        '         1          40           0   1 M   M.h{(x) v r9} (fun)\n'
         '         1          16           0   0       M.k1{v r8} (fun)\n')
     bad = []
     with tempfile.TemporaryDirectory() as td:

@@ -1197,6 +1197,33 @@
    ]
   },
   {
+   "id": "ticky-diff-02",
+   "program": "ticky-diff.py",
+   "name": "the unique of an exported closure, printed `{(x) v rW}`, was left in its name by a pattern that knew only `{v rW}`, so every exported closure was keyed by its unique and never matched between two builds",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "a row `1  100  0  1 M  Main.$wf{(x) v rW} (fun)` in A and the same closure under another unique in B",
+   "ok": "one line for Main.$wf (fun), alloc 100 -> 150",
+   "bug": "two phantom lines, `{(x) v rW}` lost and `{(x) v rQ}` gained",
+   "proved": "ran",
+   "harm": "unknown",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-07 by the one-run listing's first run over a real GHC HEAD ticky report of orthotope's fill benchmark, whose top closure printed as Main.$w$s$wgenericFillStrided{(x) v rW} (fun).",
+   "plant_cmd": "printf '    Entries       Alloc     Alloc'\\''d  Non-void Arguments      STG Name\\n----------\\n          1         100           0   1 M        Main.$wf{(x) v rW} (fun)\\n' > A.txt && printf '    Entries       Alloc     Alloc'\\''d  Non-void Arguments      STG Name\\n----------\\n          1         150           0   1 M        Main.$wf{(x) v rQ} (fun)\\n' > B.txt",
+   "invoke": [
+    "{tmp}/A.txt",
+    "{tmp}/B.txt"
+   ],
+   "expect_exit": 0,
+   "expect_text": "100 ->         150  entries         1 ->         1  Main.$wf (fun)",
+   "expect_absent": "(x) v",
+   "bug_exit": 0,
+   "bug_text": [
+    "{(x) v rW} (fun)",
+    "{(x) v rQ} (fun)"
+   ]
+  },
+  {
    "id": "core-diff-01",
    "program": "core-diff.py",
    "name": "a --module SUBSTRING that no module's path contains printed nothing and exited 0, so a misspelt module read as one whose bindings did not move",
