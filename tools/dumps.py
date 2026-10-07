@@ -1,7 +1,7 @@
 """What the readers of GHC's dump trees share, kept once so a fix lands once.
 
-Imported by core-diff.py, pragma-calls.py, ctime-diff.py and rules-diff.py,
-never run: each puts its own directory first on sys.path, as for common.py.
+Imported by core-diff.py, pragma-calls.py, ctime-diff.py, rules-diff.py and
+spec-audit.py, never run: each puts its own directory first on sys.path, as for common.py.
 
 A dump tree is either a cabal build directory, the dumps beside the objects
 under some `build/` directory, or a tree written with `-dumpdir`, which has

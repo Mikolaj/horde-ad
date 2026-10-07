@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Diff the per-closure allocation of two ticky-ticky runs.
+"""Diff the per-closure allocation of two ticky-ticky runs, or list one's.
 
 Usage: python3 tools/ticky-diff.py [--top N] A.txt B.txt
+       python3 tools/ticky-diff.py [--top N] A.txt
        python3 tools/ticky-diff.py --self-test
 
 A and B are the files a ticky run writes with `+RTS -rFILE`: one benchmark,
@@ -20,6 +21,11 @@ local closure, `f_sat_s1fhYi{v}`, carries its unique in its own name, and
 loses it too.
 That is what attributed a whole 31.5 MB difference on `100/grad k L` to
 `astTimesK` in one step (docs/overloaded-unfoldings.md).
+
+Given one file it prints that run's total and its N closures that allocated
+most, with their entry counts: a closure where a join point was meant,
+or boxed loop state (docs/perf-checklist.md, A1), in a build there is no
+other to compare with.
 
 Exit 0 when the diff was printed, 2 when it could not be: a file missing or
 without the per-closure table, which a run of a binary built without
@@ -82,6 +88,13 @@ def diff(a, b, top):
     return lines
 
 
+def top_lines(a, top):
+    lines = [f'total alloc {sum(v[1] for v in a.values())}']
+    for k in sorted(a, key=lambda k: (-a[k][1], k))[:top]:
+        lines.append(f'{a[k][1]:12d}  entries {a[k][0]:9d}  {k}')
+    return lines
+
+
 def self_test():
     """Two synthetic ticky tables of the same program from two builds,
     one closure exported, its unique printed `{(x) v r2}`."""
@@ -126,6 +139,14 @@ def self_test():
                 f'{0:9d} -> {8:9d}  N.$w$w$s$w$w$sf (fun,se)']
         if got != want:
             bad.append('diff:\n  ' + '\n  '.join(got))
+        got = top_lines(ra, 2)
+        want = ['total alloc 1556', f'{1000:12d}  entries {10:9d}  '
+                'M.$w$w$sf (fun)', f'{500:12d}  entries {5:9d}  '
+                'g_sat (M) (fun)']
+        if got != want:
+            bad.append('one run:\n  ' + '\n  '.join(got))
+        if main([pn]) != 2:
+            bad.append('one file without the table did not exit 2')
         if read(pn) is not None:
             bad.append('a file without the table read as an empty table')
         if main([pa, pn]) != 2:
@@ -145,7 +166,7 @@ def main(argv):
             print('--top needs a number', file=sys.stderr)
             return 2
         top, argv = int(argv[1]), argv[2:]
-    if len(argv) != 2:
+    if len(argv) not in (1, 2):
         print(__doc__.split('\n\n')[1], file=sys.stderr)
         return 2
     tables = []
@@ -160,7 +181,8 @@ def main(argv):
                   'built with -ticky?', file=sys.stderr)
             return 2
         tables.append(t)
-    print('\n'.join(diff(tables[0], tables[1], top)))
+    print('\n'.join(top_lines(tables[0], top) if len(tables) == 1
+                     else diff(tables[0], tables[1], top)))
     return 0
 
 

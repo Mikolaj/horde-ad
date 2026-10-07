@@ -3,6 +3,7 @@
 
 Usage: python3 tools/core-diff.py DIR_A DIR_B
        python3 tools/core-diff.py DIR_A DIR_B --module SUBSTRING
+       python3 tools/core-diff.py DIR --module SUBSTRING
        python3 tools/core-diff.py DIR_A DIR_B --verdicts
        python3 tools/core-diff.py --self-test
 
@@ -23,6 +24,10 @@ timestamps GHC writes; `literals`, identical once unboxed numeric literals
 are blanked too, a call stack's source line moving with each line added
 above it in a file the module inlined code from; or `differs`. Modules with
 the same Core are the controls a timing comparison wants (tools/ctime-diff.py).
+The fourth reads one build: for the modules whose path contains SUBSTRING,
+every binding name with its count, and its terms where the dump has size
+comments, largest first --- the copies of a function to set against
+a prediction of them (docs/perf-checklist.md, S2).
 
 This is what shows where a flag or pragma puts its compile-time cost. Taking
 `-fno-expose-overloaded-unfoldings` off `AstSimplify` left its own Core as it
@@ -158,6 +163,21 @@ def names_diff(a, b, sub):
     return lines
 
 
+def names_census(t, sub):
+    lines = []
+    for k in sorted(t):
+        if sub not in k:
+            continue
+        m = t[k]
+        sizes = m.sizes if m.sizes is not None else collections.Counter()
+        lines.append(f'== {k}' + ('' if m.sizes is not None else
+                                  '  (no size comments: counts only)'))
+        for n in sorted(m.names, key=lambda n: (-sizes[n], -m.names[n], n)):
+            terms = f'  terms {sizes[n]:8d}' if m.sizes is not None else ''
+            lines.append(f'  {m.names[n]:5d}{terms}  {n}')
+    return lines
+
+
 def verdict(ma, mb):
     """same, literals or differs, for one module present in both builds."""
     if ma.digests[0] == mb.digests[0]:
@@ -267,6 +287,21 @@ def self_test():
         if main([os.path.join(td, 'A'), os.path.join(td, 'B'),
                  '--module', 'NoSuch']) != 2:
             bad.append('a --module matching no module did not exit 2')
+        got = names_census(e, 'User')
+        want = ['== M/User', f'  {1:5d}  terms {4:8d}  $sf',
+                f'  {1:5d}  terms {3:8d}  lvl', f'  {1:5d}  terms {2:8d}  f']
+        if got != want:
+            bad.append('one-build names:\n  ' + '\n  '.join(got))
+        got = names_census(b, 'User')
+        want = ['== src/M/User  (no size comments: counts only)',
+                f'  {2:5d}  $sf', f'  {1:5d}  $w$sf', f'  {1:5d}  $wf',
+                f'  {1:5d}  f', f'  {1:5d}  loop']
+        if got != want:
+            bad.append('one-build names without size comments:\n  '
+                       + '\n  '.join(got))
+        if main([os.path.join(td, 'B'), '--module', 'NoSuch']) != 2:
+            bad.append('a one-build --module matching no module did not '
+                       'exit 2')
     for b_ in bad:
         print('FAIL', b_)
     print('self-test', 'FAILED' if bad else 'passed')
@@ -279,9 +314,11 @@ def main(argv):
     sub, mode = None, 'summary'
     if len(argv) == 4 and argv[2] == '--module':
         sub, argv, mode = argv[3], argv[:2], 'module'
+    elif len(argv) == 3 and argv[1] == '--module':
+        sub, argv, mode = argv[2], argv[:1], 'census'
     elif len(argv) == 3 and argv[2] == '--verdicts':
         argv, mode = argv[:2], 'verdicts'
-    if len(argv) != 2:
+    if len(argv) != (1 if mode == 'census' else 2):
         print(__doc__.split('\n\n')[1], file=sys.stderr)
         return 2
     trees = []
@@ -299,7 +336,8 @@ def main(argv):
     if sub is not None and not any(sub in k for t in trees for k in t):
         print(f"no module's path contains {sub}", file=sys.stderr)
         return 2
-    lines = (names_diff(*trees, sub) if mode == 'module'
+    lines = (names_census(trees[0], sub) if mode == 'census'
+             else names_diff(*trees, sub) if mode == 'module'
              else verdict_lines(*trees) if mode == 'verdicts'
              else summary(*trees))
     print('\n'.join(lines))

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Compare which rewrite rules fired, and what was inlined, in two builds.
+"""Compare which rewrite rules fired, and what was inlined, in two builds,
+or list them in one.
 
 Usage: python3 tools/rules-diff.py DIR_A DIR_B [--module SUBSTRING]
                                    [--unfolding NAME]...
+       python3 tools/rules-diff.py DIR [--module SUBSTRING] [--unfolding NAME]...
        python3 tools/rules-diff.py --self-test
 
 DIR_A and DIR_B are two build directories, or two trees written with
@@ -28,6 +30,12 @@ operations meeting --- `stream/unstream [Vector]`, `clone/new [Vector]`,
 `A/B [New]` in vector 0.13. The rules that only rewrite into and out of the
 fusible forms, `map`, `mapList`, `inplace [Vector]` and the like, are listed
 unmarked.
+
+Given one DIR, it lists for every module the fusion rules that fired and
+how often, then the totals of the fusion rules and of all rules, and with
+`--unfolding NAME` the inlinings of every name containing NAME: whether a
+chain fuses at all, or a function was inlined, in a build there is no
+other to compare with (docs/perf-checklist.md, F1 and F2).
 
 Only the "Grand total simplifier statistics" block of each dump is read, not
 the FloatOut statistics before it; within it, a section header is a count and
@@ -118,6 +126,27 @@ def rule_lines(a, b, keys):
     return lines
 
 
+def census_lines(t, keys, names):
+    lines, fus, tot = [], 0, 0
+    for k in keys:
+        r = t.get(k, {}).get('RuleFired', collections.Counter())
+        rows = sorted(((v, n) for n, v in r.items() if fusion(n)),
+                      key=lambda x: (-x[0], x[1]))
+        fus += sum(v for v, _ in rows)
+        tot += sum(r.values())
+        if rows:
+            lines.append(f'== {k}')
+            lines += [f'  fusion {v:7d}  {n}' for v, n in rows]
+    lines.append(f'fusion rules fired {fus}, all rules fired {tot}')
+    for name in names:
+        lines.append(f'== UnfoldingDone of names containing {name}')
+        for k in keys:
+            u = t.get(k, {}).get('UnfoldingDone', collections.Counter())
+            lines += [f'  {u[n]:7d}  {n}  in {k}' for n in sorted(u)
+                      if name in n]
+    return lines
+
+
 def unfolding_lines(a, b, keys, name):
     lines = [f'== UnfoldingDone of names containing {name}']
     for k in keys:
@@ -183,6 +212,15 @@ def self_test():
                            ('SPEC/Data.Vector slice @Vector @_', False)):
             if fusion(rule) != want:
                 bad.append(f'{rule} classified as fusion: {not want}')
+        got = census_lines(a, sorted(a), ['sumT'])
+        want = ['== src/M/Same', f'  fusion {1:7d}  fold/build',
+                '== src/M/User', f'  fusion {4:7d}  fold/build',
+                'fusion rules fired 5, all rules fired 12',
+                '== UnfoldingDone of names containing sumT',
+                f'  {1:7d}  Data.Array.Internal.sumT  in src/M/Same',
+                f'  {5:7d}  Data.Array.Internal.sumT  in src/M/User']
+        if got != want:
+            bad.append('one build:\n  ' + '\n  '.join(got))
         A, B = os.path.join(td, 'A'), os.path.join(td, 'B')
         empty = os.path.join(td, 'empty')
         os.makedirs(empty)
@@ -192,7 +230,12 @@ def self_test():
                 ([A, C], 'a dump without the grand total'),
                 ([A, B, '--module', 'NoSuch'], 'a --module matching nothing'),
                 ([A, B, '--unfolding', 'noSuchName'],
-                 'an --unfolding no entry contains')):
+                 'an --unfolding no entry contains'),
+                ([empty], 'one tree without stats dumps'),
+                ([A, '--module', 'NoSuch'], 'one tree and a --module '
+                 'matching nothing'),
+                ([A, '--unfolding', 'noSuchName'], 'one tree and an '
+                 '--unfolding no entry contains')):
             if main(argv) != 2:
                 bad.append(f'{why} did not exit 2')
     for b_ in bad:
@@ -216,7 +259,7 @@ def main(argv):
         else:
             rest.append(argv[i])
             i += 1
-    if len(rest) != 2 or any(r.startswith('--') for r in rest):
+    if len(rest) not in (1, 2) or any(r.startswith('--') for r in rest):
         print(__doc__.split('\n\n')[1], file=sys.stderr)
         return 2
     trees = []
@@ -231,18 +274,22 @@ def main(argv):
                   '-ddump-simpl-stats -ddump-to-file?', file=sys.stderr)
             return 2
         trees.append(t)
-    keys = sorted(k for k in set(trees[0]) | set(trees[1])
-                  if sub is None or sub in k)
+    keys = sorted(k for k in set().union(*trees) if sub is None or sub in k)
     if not keys:
         print(f"no module's path contains {sub}", file=sys.stderr)
         return 2
-    lines = rule_lines(*trees, keys)
     for n in names:
         if not any(n in x for t in trees for k in keys
                    for x in t.get(k, {}).get('UnfoldingDone', ())):
-            print(f'no UnfoldingDone entry contains {n} in either build',
+            print(f'no UnfoldingDone entry contains {n} in '
+                  + ('the build' if len(trees) == 1 else 'either build'),
                   file=sys.stderr)
             return 2
+    if len(trees) == 1:
+        print('\n'.join(census_lines(trees[0], keys, names)))
+        return 0
+    lines = rule_lines(*trees, keys)
+    for n in names:
         lines += unfolding_lines(*trees, keys, n)
     print('\n'.join(lines))
     return 0
