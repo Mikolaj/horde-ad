@@ -19,7 +19,7 @@ and the median bytes allocated per iteration of the two. `--log` also writes
 every run, one line each. Run it from the directory the benchmark expects
 as its working directory: the MNIST suites read `samplesData/`.
 
-This is bench/CLAUDE.md's A/B procedure as a script: runs interleaved, so
+This is docs/perf-checklist.md's A/B procedure as a script: interleaved, so
 drift over the run cancels within each round, and the order rotated, so
 no build always runs first; one benchmark per process, so
 no predecessor's RTS pool state reaches the measured one

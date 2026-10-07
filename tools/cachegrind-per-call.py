@@ -19,7 +19,7 @@ nondeterminism, so N need not be large --- the measured program runs about
 50 times slower under it, the simulation slower still, so size N for well
 under a second of native work. Two builds are compared by running this on
 each; for a banned-or-not decision about a slowdown, this is the instrument
-to back an interleaved wall-time A/B with (bench/CLAUDE.md).
+to back an interleaved wall-time A/B with (docs/perf-checklist.md).
 
 The cachegrind output is written under the system temporary directory and
 removed. Exit 0 when the figures were printed, 2 when they could not be:

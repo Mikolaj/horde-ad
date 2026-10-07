@@ -39,8 +39,8 @@ their roster: each run's numbers stay internally consistent to a few percent
 while the ratio moves with the selection.  That is how it once manufactured
 a phantom "~18% regression" on the fused-gather benchmarks in an interleaved,
 controlled A/B of the orthotope strided-fallback fix (since retracted), and why
-`bench/CLAUDE.md`'s A/B rules require the benchmark selection to be pinned
-across compared runs.
+the A/B rules of `docs/perf-checklist.md` require the benchmark selection
+to be pinned across compared runs.
 
 ## Mechanism
 
