@@ -50,6 +50,7 @@ STEPS = [
     ('check-twin-sync self-test', ['python3', '{root}/check-twin-sync.py', '--self-test']),
     ('core-diff self-test', ['python3', '{root}/core-diff.py', '--self-test']),
     ('ctime-diff self-test', ['python3', '{root}/ctime-diff.py', '--self-test']),
+    ('hascallstack self-test', ['python3', '{root}/hascallstack.py', '--self-test']),
     ('heading-outline self-test', ['python3', '{root}/heading-outline.py', '--self-test']),
     ('lazy-reads self-test', ['python3', '{root}/lazy-reads.py', '--self-test']),
     ('one-shot self-test', ['python3', '{root}/one-shot.py', '--self-test']),

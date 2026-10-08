@@ -25,7 +25,7 @@ with `T=~/r/horde-ad/tools`, wherever the session's wrapper mounts
    HEAD configuration (orthotope's is `cabal.project.local.head`), unless
    the project's notes name another; a released GHC is built only where a check
    says so.
-2. The static checks, which build nothing: W1, W3, W4, and the source halves
+2. The static checks, which build nothing: A2, W1, W3, W4, and the source halves
    of I1 and L1.
 3. The dump builds of the tip and, where a check compares, of the base (D
    below), backgrounded.
@@ -432,6 +432,22 @@ from what the enclosing function binds kept `go` a join point.
 `-fno-full-laziness` and `-fno-exitification` are flags to ask for, not fixes.
 Mark the workaround with its issue (W1).
 
+### A2. HasCallStack where its frame can show
+
+**Catches** a `HasCallStack` whose frame no backtrace can print, an argument
+on every call for nothing, and one missing on an operation that checks
+its arguments, whose error then names no caller. **Seen:** orthotope, where
+it sat on most of Dynamic's operations and on few of Ranked's or Shaped's.
+
+**Recipe:** `python3 $T/hascallstack.py ROOT` reports the signatures
+and `GHC.Stack` imports that disagree with the rule its docstring states,
+the errors worded as neither an argument's nor a violated contract's, which
+the rule reads, and the stack-taking functions that call themselves; `--fix`
+rewrites the signatures and imports, and `--list` prints the verdict.
+
+**Read:** a stack-taking function that calls itself pushes a frame at every
+level, so recurse through a local worker that takes none.
+
 ## W. Workarounds and their records
 
 ### W1. Every workaround names its cause
@@ -643,10 +659,11 @@ and `docs/pragmas-and-flags.md` `pragma-calls`.
 
 The tools written for the checks of one build or one source tree,
 `tools/spec-audit.py`, `tools/bang-drops.py`, `tools/lazy-reads.py`,
-`tools/captured-unbox.py` and `tools/workaround-cites.py`, exit 0 clean, 1
-with findings and 2 when the run did not happen, as `pragma-calls.py --inline`
-does; `tools/bang-lazy-check.py`, without `--allow`, exits 0 whatever
-it printed, its candidates being for the reader.
+`tools/captured-unbox.py`, `tools/workaround-cites.py`
+and `tools/hascallstack.py`, exit 0 clean, 1 with findings and 2 when the run
+did not happen, as `pragma-calls.py --inline` does; `tools/bang-lazy-check.py`,
+without `--allow`, exits 0 whatever it printed, its candidates being
+for the reader.
 
 - `tools/spec-audit.py` lists the calls in optimised Core that hand a function
   an instance dictionary, by callee, and the bindings that take a dictionary
@@ -663,3 +680,6 @@ it printed, its candidates being for the reader.
 - `tools/workaround-cites.py` lists the comment blocks that speak
   of a workaround and name no cause, and each filed issue of `docs/`
   with the files citing it (W1).
+- `tools/hascallstack.py` checks orthotope's `HasCallStack` constraints,
+  and the error wording they depend on, against the rule its docstring states,
+  and rewrites the constraints to it (A2).

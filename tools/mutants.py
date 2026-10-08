@@ -837,4 +837,26 @@ MUTANTS = [
      "            if m and '\"' not in line[:m.start()]:\n", '            if False:\n', ST),
     ('workaround-cites block comments unread', 'workaround-cites.py',
      "        if s.startswith('{-') and not s.startswith('{-#'):\n", '        if False:\n', ST),
+    # hascallstack (2026-10-08): each watched failing its self-test before
+    # it was written down here.
+    ('hascallstack contract wording ignored', 'hascallstack.py',
+     "         if any(CONTRACT not in msg for _, msg in d['errors'])}\n",
+     "         if d['errors']}\n", ST),
+    ('hascallstack delegation disabled', 'hascallstack.py',
+     "               if g not in v and f in v and f[1] == g[1] and f[0] != g[0]}\n",
+     "               if False}\n", ST),
+    ('hascallstack delegation under any name', 'hascallstack.py',
+     "               if g not in v and f in v and f[1] == g[1] and f[0] != g[0]}\n",
+     "               if g not in v and f in v and f[0] != g[0]}\n", ST),
+    ('hascallstack unused import kept', 'hascallstack.py',
+     "    elif has and not uses:\n", "    elif False:\n", ST),
+    ('hascallstack comments counted as uses', 'hascallstack.py',
+     "    code = '\\n'.join(l for l in strip_comments(s).split('\\n')\n",
+     "    code = '\\n'.join(l for l in s.split('\\n')\n", ST),
+    ('hascallstack recursion unreported', 'hascallstack.py',
+     "        if k in v and (k, k) in edges:\n", "        if False:\n", ST),
+    ('hascallstack internal wording unchecked', 'hascallstack.py',
+     "            if UNWORDED.search(line) or (k[0] == cfg['internal']\n"
+     "                                         and CONTRACT not in msg):\n",
+     "            if UNWORDED.search(line):\n", ST),
 ]
