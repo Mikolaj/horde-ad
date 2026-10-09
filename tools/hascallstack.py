@@ -4,17 +4,17 @@
 Usage: python3 tools/hascallstack.py ROOT [--fix] [--list]
        python3 tools/hascallstack.py --self-test
 
-ROOT is an orthotope checkout, of which Data.Array.Internal and the array
-modules under it are read. The rule, ruled 2026-10-08, rests on the contract
-policy that orthotope's README states: an operation's error on an argument
-that has no result names the operation, while a check of a contract that
-the operations establish says "violated contract". A function takes
-HasCallStack exactly when it calls `error` with a message that is not
-a violated contract's, or calls a function of the same name in another
-module that takes it, as a wrapper of a generic module does, so that
-the error shows the line the operation was called from. A contract check
-guards against a bug in orthotope and adds no stack, nor does an assert,
-and class methods take none, a stack on one binding every instance.
+ROOT is an orthotope checkout, of which Data.Array.Internal, the modules
+under it and Data.Array.Convert are read. The rule, ruled 2026-10-08, rests
+on the contract policy that orthotope's README states: an operation's error
+on an argument that has no result names the operation, while a check of a
+contract that the operations establish says "violated contract". A function
+takes HasCallStack exactly when it calls `error` with a message that is
+not a violated contract's, or calls a function of the same name in another
+module that takes it, as a wrapper of a generic module does, so that the
+error shows the line the operation was called from. A contract check guards
+against a bug in orthotope and adds no stack, nor does an assert, and class
+methods take none, a stack on one binding every instance.
 
 The rule reads the wording, so the wording is checked too: an error
 in Data.Array.Internal that does not say "violated contract", and one
@@ -38,11 +38,11 @@ from hssource import strip_comments  # noqa: E402
 
 MODS = ['Internal', 'DynamicG', 'RankedG', 'ShapedG', 'Dynamic', 'DynamicS',
         'DynamicU', 'Ranked', 'RankedS', 'RankedU', 'Shaped', 'ShapedS',
-        'ShapedU']
+        'ShapedU', 'Shape', 'Convert']
 ORTHOTOPE = dict(
     own='Data.Array',
     mods=MODS,
-    path={m: 'Data/Array/Internal.hs' if m == 'Internal'
+    path={m: 'Data/Array/%s.hs' % m if m in ('Internal', 'Convert')
           else 'Data/Array/Internal/%s.hs' % m for m in MODS},
     # Whose every error checks a contract.
     internal='Internal')

@@ -3247,6 +3247,23 @@
     "branch": "speedup-strided-tovector",
     "path": "micro-regime3/probe-entries-sweep.py"
    }
+  },
+  {
+   "id": "hascallstack-01",
+   "program": "hascallstack.py",
+   "name": "the modules read left out Data.Array.Internal.Shape, which lies under Data/Array/Internal as the docstring said the modules read do, and Data.Array.Convert, so withShape, withShapeP, natT and listP calling error without HasCallStack passed",
+   "family": "vacuous-check",
+   "fix_rev": "self",
+   "trigger": "an orthotope tree whose Data/Array/Internal/Shape.hs has a function calling error, not with a violated contract's message, and no HasCallStack",
+   "ok": "Shape and Convert are among the modules read, so the function is reported",
+   "bug": "neither module is read: 0 findings, exit 0",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "review",
+   "notes": "Watched 2026-10-09 on the orthotope worktree of pr-mikolaj-toVectorListT-fixes before its Shape.hs was fixed: the checker before the fix gave 0 findings, after it 5 (listP, natT, withShape, withShapeP, and withShapeP calling itself). Round 2 of that branch's review found withShape and withShapeP unstacked (R2-D6) after the checker had passed the tree.",
+   "unit": "sorted(m for m in ORTHOTOPE['mods'] if m in ('Shape', 'Convert'))",
+   "expect_text": "['Convert', 'Shape']",
+   "bug_text": "[]"
   }
  ]
 }
