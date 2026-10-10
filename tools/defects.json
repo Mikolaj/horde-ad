@@ -3610,6 +3610,28 @@
    "expect_text": "== overloaded instance methods without a pragma",
    "bug_exit": 1,
    "bug_text": "withRank [Int -> (forall n . KnownNat n]"
+  },
+  {
+   "id": "pragma-census-02",
+   "program": "pragma-census.py",
+   "name": "an instance method defined infix with a constructor application as its left operand, T u ==. T v = u == v, was read as defining no method and passed over",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "instance Eq a => EqH (T a) where T u ==. T v = u == v",
+   "ok": "the method listed, exit 1",
+   "bug": "nothing listed, exit 0",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-11 running docs/perf-checklist.md I4's command over horde-ad's src: the EqH and OrdH methods of Concrete in Core/CarriersConcrete.hs went unread.",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\nclass EqH f where\n  (==.) :: f -> f -> Bool\nnewtype T a = T a\ninstance Eq a => EqH (T a) where\n  T u ==. T v = u == v\nEOF",
+   "invoke": [
+    "{tmp}/S"
+   ],
+   "expect_exit": 1,
+   "expect_text": "M.hs:6 ==.",
+   "bug_exit": 0,
+   "bug_text": "== overloaded instance methods without a pragma"
   }
  ]
 }

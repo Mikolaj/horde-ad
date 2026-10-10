@@ -1055,8 +1055,8 @@ MUTANTS = [
      '    m = re.match(r"[\\w\']+@", s)\n',
      '    m = None\n', ST),
     ('pragma-census nested parentheses cut at the first', 'pragma-census.py',
-     '            if depth == 0:\n                return j + 1\n',
-     "            if s[j] == ')':\n                return j + 1\n", ST),
+     '        if depth == 0:\n            return j + 1\n',
+     "        if s[j] == close:\n            return j + 1\n", ST),
     # pragma-census-01, watched failing its self-test before it was written
     # down here.
     ("pragma-census a rank-2 argument's context taken for the signature's",
@@ -1140,4 +1140,8 @@ MUTANTS = [
     ('pragma-census --rule a root handing its list on left unreported', 'pragma-census.py',
      '        if not f1:\n            continue\n',
      '        if True:\n            continue\n', ST),
+    ('pragma-census constructor arguments cut from an infix pattern',
+     'pragma-census.py',
+     "    while s[i:i + 1].isupper():\n",
+     "    while False:\n", ST),
 ]

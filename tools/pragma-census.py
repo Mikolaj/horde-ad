@@ -18,8 +18,9 @@ defined as `undefined`.
 
 A signature may span lines, its context running to the first `=>` outside
 parentheses, a rank-2 argument's context being its own; a method may be
-defined prefix, as an operator section, `(<*>) = ...`, or infix, `x == y` or
-`` a@(T x) `compare` b ``, and on the instance's own line after its `where`;
+defined prefix, as an operator section, `(<*>) = ...`, or infix, `x == y`,
+`` a@(T x) `compare` b `` or `T u ==. T v`, and on the instance's own line
+after its `where`;
 an instance head may span lines too, and only the lines at the body's own
 indentation define a method, the deeper ones continuing it. A method's pragma
 is looked for in its instance, a top-level function's anywhere in its module,
@@ -112,21 +113,40 @@ def context(sig):
     return None
 
 
+def bracket_end(s, i):
+    """Where the bracketed group opening at s[i] closes, or None."""
+    close = {'(': ')', '[': ']'}[s[i]]
+    depth = 0
+    for j in range(i, len(s)):
+        depth += s[j] == s[i]
+        depth -= s[j] == close
+        if depth == 0:
+            return j + 1
+    return None
+
+
 def pattern_end(s):
-    """Where the first pattern of a definition ends: a variable or constructor,
-    or a parenthesised pattern, either behind an as-pattern's `x@`."""
+    """Where the first pattern of a definition ends: a variable, a constructor
+    with its arguments, `T u` in `T u ==. T v`, or a parenthesised pattern,
+    either behind an as-pattern's `x@`."""
     m = re.match(r"[\w']+@", s)
     i = m.end() if m else 0
     if s[i:i + 1] == '(':
-        depth = 0
-        for j in range(i, len(s)):
-            depth += s[j] == '('
-            depth -= s[j] == ')'
-            if depth == 0:
-                return j + 1
-        return None
+        return bracket_end(s, i)
     m = re.match(r"[\w'.]+", s[i:])
-    return i + m.end() if m else None
+    if not m:
+        return None
+    end = i + m.end()
+    while s[i:i + 1].isupper():
+        m = re.match(r"\s+(?=[\w'(\[])", s[end:])
+        if not m:
+            break
+        j = end + m.end()
+        end = (bracket_end(s, j) if s[j] in '([' else
+               j + re.match(r"[\w'.]+", s[j:]).end())
+        if end is None:
+            return None
+    return end
 
 
 def method_name(line):
@@ -756,7 +776,9 @@ def self_test():
            'withRank :: Int -> (forall n . KnownNat n => Proxy n -> r) -> r\n'
            'withRank = undefined\n'
            'hr :: Num a => (forall n . KnownNat n => Proxy n -> a) -> a\n'
-           'hr = undefined\n')
+           'hr = undefined\n'
+           'instance Eq a => L (T a) where\n'
+           '  T x ==. T y = x == y\n')
     want = ['== overloaded functions without a pragma'
             ' (file:line name [context])',
             '  M.hs:4 g [Num a]',
@@ -772,6 +794,7 @@ def self_test():
             '  F: M.hs:39 f1',
             '  F: M.hs:41 f2',
             '  K: M.hs:51 kk',
+            '  L: M.hs:80 ==.',
             '  Num: M.hs:26 +',
             '  Show: M.hs:20 show',
             '  Show: M.hs:63 showsPrec',
@@ -787,7 +810,7 @@ def self_test():
             fh.write('module N where\n{-# INLINE n #-}\n'
                      'n :: Num a => a\nn = 0\n')
         got, nbad, nfiles = report(os.path.join(td, 'S'))
-        if got != want or (nbad, nfiles) != (15, 1):
+        if got != want or (nbad, nfiles) != (16, 1):
             bad.append(f'report ({nbad}, {nfiles}):\n  ' + '\n  '.join(got))
         for d, code, why in (('S', 1, 'bindings without a pragma'),
                              ('E', 2, 'a tree without .hs files'),
