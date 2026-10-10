@@ -118,13 +118,12 @@ Not a check: the conditions every timing below assumes.
 
 Not a check: the rules by which a verdict on an inlining or specialisation
 pragma (`INLINE`, `INLINABLE`, `NOINLINE`, `SPECIALISE`, phase control) or
-on an optimisation flag is read, kept here and nowhere else; S1, S2, I3, W4
-and C1 refer their verdicts to them. Which half below holds is settled module
-by module, by whether a caller can specialise the module's overloaded functions
-without a pragma: it can where the module is built
-`-fexpose-overloaded-unfoldings` and the caller `-fspecialise-aggressively`,
-and otherwise, small functions aside, only through `INLINE` or `INLINABLE`.
-horde-ad builds `-fspecialise-aggressively` throughout
+on an optimisation flag is read, kept here and nowhere else. Which half below
+holds is settled module by module, by whether a caller can specialise
+the module's overloaded functions without a pragma: it can where the module
+is built `-fexpose-overloaded-unfoldings` and the caller
+`-fspecialise-aggressively`, and otherwise, small functions aside, only through
+`INLINE` or `INLINABLE`. horde-ad builds `-fspecialise-aggressively` throughout
 and `-fexpose-overloaded-unfoldings` from GHC 9.12, some of its modules opting
 out of the latter in their headers, so it has modules under each half, and all
 of them under the second on an older GHC. A library whose users build as they
@@ -150,30 +149,51 @@ reaching no user's build.
   with the `ADVal` instances, the delta expressions they record and their
   evaluation in `Core/DeltaEval.hs`; none of it may get slower than the state
   the work started from.
-- **Noise margins:** for a verdict that protected code got slower, up to 10%
-  in wall time or estimated cycles is noise; in a trade-off, only changes above
-  2% count.
+- **Noise margins** (Mikolaj's ruling of 2026-10-10): a change counts above 2%
+  on a wide benchmark, an end-to-end suite or a test suite of fixed inputs,
+  never one of QuickCheck properties, whose arguments change from run to run,
+  and above 10% on a narrow one, a micro-benchmark of one function, or
+  on a noisy reading, one that cannot tell 10% from nothing, as wall time
+  and estimated cycles are on a busy machine or in the cloud, though not
+  on a lightly loaded one here. Allocation, exact within one build, moved up
+  to 1.5% between builds under unrelated edits. It is screened first,
+  but a change in evaluation rather than allocation is priced in instructions:
+  removing `-fworker-wrapper-cbv` left every allocation figure but one unchanged
+  and cost up to 3.8% in instructions.
 - **What a pragma buys** is each check's rule, stated in the check: `INLINE`
   against `INLINABLE` I3's, a fusion path F1's, a call too unsaturated to inline
   I1's, a recursive function I2's, type-level keys in the constraints S2's,
-  a `NOINLINE` on a helper W3's, a flag W4's.
+  a `NOINLINE` on a helper W3's, a flag W4's. One kind is no check's: a phase
+  control, `INLINE [n]`, that orders inlining against rewrite rules, or against
+  specialisation that has to happen in code that is then inlined, stays
+  for that order even where plain `INLINE` would cost less. horde-ad's
+  `tscatterZRDict` and `tscatterZSDict` carry `INLINE [1]` and an explicit
+  dictionary argument so that GHC specialises the inlined code consistently
+  at each element type, though plain `INLINE` would save 2% of the Core.
 - **Removing a pragma:** not one that is dead only at today's thresholds,
   an `INLINE` on a function GHC inlines anyway or a `NOINLINE` on one it would
-  not inline, since the thresholds can change. Remove a pragma only when
+  not inline, since the thresholds can change. Remove such a pragma only when
   removing it changes the optimised Core and measurements show that what it did
-  buys nothing.
+  buys nothing, on each GHC the project builds with: without an `INLINE`
+  that did nothing measurable on GHC 9.14.1, some benchmarks allocated up to 43%
+  more on HEAD.
 - **Measuring compile time:** each build alone, in a fresh `--builddir`,
   on an otherwise idle machine, without `jobs` or `semaphore`
   in `cabal.project.local`, which skew build times; read the two per module
   with `ctime-diff.py`, whose modules of unchanged Core give the run's noise.
+  A flag's build cost moves with the Core it works on: one cost 17% of a build
+  and nothing measurable once a group of pragmas had gone, so price it on top
+  of the pragmas it will live with.
 
 `docs/pragmas-and-flags.md` records one application of these rules, to horde-ad.
 
 ### With `-fexpose-overloaded-unfoldings`
 
 Callers built `-fspecialise-aggressively` specialise every overloaded function
-of such a module from its exposed unfolding, so a pragma there buys only what
-inlining or a phase gives.
+of such a module from its exposed unfolding, so a pragma there buys what
+inlining or a phase gives and, for `INLINABLE`, the unfolding taken before
+the module's own optimisation rather than the optimised one, which escaped GHC
+[#27893](https://gitlab.haskell.org/ghc/ghc/-/work_items/27893)'s boxed loop.
 
 - **A pragma is a cost in itself:** visual noise, counted against a change
   in any trade-off. Where one module-level flag does what a dozen pragmas do,
@@ -185,16 +205,18 @@ inlining or a phase gives.
 A caller specialises an overloaded function of such a module only
 if the function is `INLINE` or `INLINABLE`, or small enough for GHC to expose
 its unfolding unasked; otherwise each call hands it the dictionaries at run
-time. The module's flags do not change that for its callers:
-`-fexpose-overloaded-unfoldings` would stand in for the pragma only where every
-caller is built `-fspecialise-aggressively`, which a library cannot know
-of its users.
+time. Exposing a module's overloaded unfoldings stands in for the pragma
+at callers built `-fspecialise-aggressively`, which a library cannot know
+of its users. At callers built without it, exposure did for a function GHC
+derived from an `INLINABLE` one, the partial specialisation of GHC
+[#23050](https://gitlab.haskell.org/ghc/ghc/-/work_items/23050), and
+not for orthotope's fill, which had no pragma at all (S1's variant C).
 
 - **Where the callers' speed is protected, every overloaded function they reach
-  at known types carries `INLINE` or `INLINABLE`**, or a recorded reason
-  it needs neither, such as an O(1) function GHC inlines unasked
-  or a measurement that specialising it buys nothing; S1's audit shows which
-  callers still pass a dictionary.
+  at known types carries `INLINE` or `INLINABLE`**, or a reason recorded beside
+  the code, a commit message not counting, that it needs neither, such
+  as an O(1) function GHC inlines unasked or a measurement that specialising
+  it buys nothing; S1's audit shows which callers still pass a dictionary.
 - **Where their speed is tradable,** a pragma is a trade like any other and pays
   for itself or goes, as in the half above. Opting a module out
   of `-fexpose-overloaded-unfoldings` is itself such a trade: compile time saved
@@ -322,7 +344,11 @@ through one another share a group and are marked together; a target whose worker
 alone is recursive, worker/wrapper having run, is rightly not marked.
 
 **Read:** INLINABLE or NOINLINE instead, or a non-recursive INLINE wrapper
-over the recursive worker.
+over the recursive worker; or no pragma on a monomorphic function, which
+INLINABLE has nothing to specialise. Such an INLINE is dead at every threshold,
+so P's rule on removing pragmas dead at today's does not keep it: dropping
+orthotope's on `getStridesT` changed its callers' Core only in the line numbers
+call stacks quote.
 
 ### I3. INLINE against INLINABLE: what each costs
 
@@ -338,7 +364,8 @@ module's final Core. What only inlining gives, as met there:
   and `traverseA` were specialised but not inlined, leaving a thunk an element
   in `reduce` and 1.6 times the time on `rerank2`;
 - a join point: a specialised copy met float-out before simplification,
-  and a loop became a heap closure of 56 to 80 bytes a call (GHC
+  and a loop became a heap closure of 56 to 64 bytes a call, with 8 more
+  in the closure capturing it (GHC
   [#27894](https://gitlab.haskell.org/ghc/ghc/-/work_items/27894)).
 
 A top-level function with no unfolding, called per element or per conversion,
@@ -391,8 +418,10 @@ it was not meant for: allocation rose 160 times on views of runs in one variant.
   of a dispatching producer.
 
 **Read:** the producer must be INLINE (I3) and reach the consumer in one
-expression. A count that falls may only have lost a duplicated consumer, so read
-it against `core-diff.py`.
+expression. P overrides this: a pragma that blocks the fusion stays where
+a measurement shows the speed or the Core size needs it, and a comment beside
+the pragma cites that measurement. A count that falls may only have lost
+a duplicated consumer, so read it against `core-diff.py`.
 
 ### F2. Vector stream fusion, and fusion that costs without SpecConstr
 
@@ -625,7 +654,9 @@ Mikolaj's approval, or without a comment saying why and for which GHCs.
 **Read:** never `-fno-full-laziness` with `-fno-cse` (#27886). Take `-O2`'s
 constituents, never the bundle: where it helps, bisect the flags it enables
 beyond `-O` and take only those that carry the effect. The trade is weighed
-by P.
+by P. An A/B of a flag wants fresh build directories rather than a rebuild:
+`ghc --make` does not recompile a module when only `-fkeep-auto-rules`
+or `-fpolymorphic-specialisation` changes, though both change what it exports.
 
 ## C. Compile time
 
