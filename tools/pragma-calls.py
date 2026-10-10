@@ -34,7 +34,9 @@ The token counts of each dump tree are cached beside it, in
 DUMPS.tokens.pickle, since tokenising 1.5 GB of Core takes a minute. The
 cache records every dump file's size and modification time, the tokeniser
 and the module keying it was counted with, and is recounted when any
-of them differs, as after a rebuild into the same builddir.
+of them differs, as after a rebuild into the same builddir. Where
+the directory refuses the write, the counts are made afresh on every run,
+which says so.
 
 `--inline` reads one build. For every INLINE pragma at column 0 of the
 `.hs` files under SRCDIR it counts, in every module's Core but the defining
@@ -50,8 +52,9 @@ RECURSIVE is I2, an INLINE that on GHC HEAD blocks worker/wrapper and is
 never honoured. A name with INLINE in several modules is marked, and its
 copies, which may be any of theirs, are listed once, after the lines. A
 pragma inside an instance, a class or a `where` is passed over, its name
-being a method's or a local's. Its own token counts, unnormalised, are
-cached beside the tree as DUMPS.rawtokens.pickle.
+being a method's or a local's. Its own token counts, unnormalised and
+of the Core alone, the specialisation rules GHC prints after it left out,
+are cached beside the tree as DUMPS.rawtokens.pickle.
 
 Exit 0 when the verdicts were printed, 2 when they could not be: a dump
 tree without `.dump-simpl` files, a WORKTREE that git cannot diff, or a
@@ -61,9 +64,12 @@ is found under SRCDIR or none of their modules has a dump.
 """
 
 import collections
+import contextlib
+import io
 import os
 import pickle
 import re
+import shutil
 import subprocess
 import sys
 
@@ -80,6 +86,8 @@ PRAGMA = re.compile(r'-\s*\{-#\s*(?:INLINE|INLINABLE|INLINEABLE|NOINLINE)'
                     r'\s*(?:\[~?\d\])?\s*(\S+)\s*#-\}')
 INLINE_SRC = re.compile(r'^\{-#\s*INLINE\s*(?:\[~?\d\])?\s*(\S+)\s*#-\}', re.M)
 MODULE = re.compile(r'^module\s+([A-Z][\w.]*)', re.M)
+# The header GHC prints above a module's specialisation rules, after its Core.
+RULES = '------ Local rules for imported ids --------'
 
 
 def target(n):
@@ -124,27 +132,44 @@ def signature(root):
     return TOK.pattern, KEYS, files
 
 
+def code(txt):
+    """A dump's Core without the specialisation rules GHC prints after it,
+    whose left-hand sides name the functions the rules replace and are no
+    calls of them (pragma-calls-06)."""
+    return txt.split('\n' + RULES, 1)[0]
+
+
 def load(root, raw=False):
-    """Module key -> Counter of normalised tokens, or with raw of tokens as
-    they print, cached beside root."""
+    """Module key -> Counter of normalised tokens, or with raw of the tokens
+    of the code alone as they print, cached beside root where it can be."""
     cache = root.rstrip('/') + ('.rawtokens.pickle' if raw else
                                 '.tokens.pickle')
     sig = signature(root)
-    if os.path.exists(cache):
+    key = sig + ('code',) if raw else sig
+    try:
         with open(cache, 'rb') as fh:
             got = pickle.load(fh)
-        if isinstance(got, tuple) and len(got) == 2 and got[0] == sig:
+        if isinstance(got, tuple) and len(got) == 2 and got[0] == key:
             return got[1]
+    except (OSError, pickle.UnpicklingError, EOFError):
+        pass
     out = {}
     for p, _, _ in sig[-1]:
-        counts = collections.Counter(TOK.findall(dumps.read_text(p)))
+        txt = dumps.read_text(p)
+        counts = collections.Counter(TOK.findall(code(txt) if raw else txt))
         c = collections.Counter()
         for t, n in counts.items():
             c[t if raw else normalise(t)] += n
         out[dumps.module_key(p, root, '.dump-simpl')] = c
     if out:
-        with open(cache, 'wb') as fh:
-            pickle.dump((sig, out), fh)
+        # A tree whose directory refuses the write is counted afresh each
+        # run rather than not at all (pragma-calls-05).
+        try:
+            with open(cache, 'wb') as fh:
+                pickle.dump((key, out), fh)
+        except OSError as e:
+            print(f'pragma-calls: could not cache the counts at {cache} '
+                  f'({e.strerror}); counted afresh', file=sys.stderr)
     return out
 
 
@@ -284,7 +309,10 @@ def inline_self_test(td):
             ('build/src/N.dump-simpl', 'N.f = 1\n'),
             ('build/src/User.dump-simpl',
              'User.u = \\ y -> M.f y\nUser.$sf1 = \\ y -> y\n'
-             'User.v = N.$wf 2\nUser.w = Other.$sg 3\nUser.x = User.$sk2\n'),
+             'User.v = N.$wf 2\nUser.w = Other.$sg 3\nUser.x = User.$sk2\n\n'
+             # A rule naming f and its copy, no call of either
+             # (pragma-calls-06).
+             + RULES + '\n"SPEC/User f"\n    forall. M.f = User.$sf1\n'),
             ('build/src/User2.dump-simpl',
              'User2.g = \\ x -> x\nUser2.$sg1 = User2.g 1\n')):
         p = os.path.join(tree, rel)
@@ -296,6 +324,11 @@ def inline_self_test(td):
             ('M.hs', 'M', 'r'), ('N.hs', 'N', 'f'), ('P.hs', 'P', 'p')]
     if prags != want:
         bad.append(f'INLINE pragmas found: {prags}')
+    # A cache of the whole dumps, as written before the rules were left
+    # out, must be recounted.
+    with open(tree + '.rawtokens.pickle', 'wb') as fh:
+        pickle.dump((signature(tree), {'src/User': collections.Counter(
+            {'M.f': 9})}), fh)
     got, flagged, seen = inline_census(tree, load(tree, raw=True), prags)
     want = ['M.hs\tf (name not unique)\tCALLED User 1',
             'M.hs\tg\tinlined', 'M.hs\tk\tCOPIED User 1',
@@ -387,6 +420,35 @@ def self_test():
         if got != want:
             bad.append('verdicts over -dumpdir trees, one module with a '
                        'stats file:\n  ' + '\n  '.join(got))
+        # A corrupt cache is counted afresh, and a tree whose directory
+        # refuses the write is counted without one (pragma-calls-05).
+        cc = os.path.join(td, 'cc')
+        shutil.copytree(os.path.join(td, 'A'), cc)
+        with open(cc + '.tokens.pickle', 'wb') as fh:
+            fh.write(b'not a pickle')
+        try:
+            got = load(cc)
+        except Exception as e:
+            got = {}
+            bad.append(f'a corrupt cache stopped the run: {e!r}')
+        if got.get('src/User', {}).get('g') != 1:
+            bad.append('a corrupt cache was not counted afresh')
+        ro = os.path.join(td, 'ro')
+        shutil.copytree(os.path.join(td, 'A'), os.path.join(ro, 'A'))
+        os.chmod(ro, 0o555)
+        err = io.StringIO()
+        try:
+            with contextlib.redirect_stderr(err):
+                got = load(os.path.join(ro, 'A'))
+        except Exception as e:
+            got = {}
+            bad.append(f'a refused cache write stopped the run: {e!r}')
+        finally:
+            os.chmod(ro, 0o755)
+        if (got.get('src/User', {}).get('g') != 1
+                or 'could not cache' not in err.getvalue()):
+            bad.append('a tree whose directory refuses the write was not '
+                       f'counted, or not said to be: {err.getvalue()!r}')
         empty = os.path.join(td, 'empty')
         os.makedirs(empty)
         if main([os.path.join(td, 'A'), empty, repo]) != 2:

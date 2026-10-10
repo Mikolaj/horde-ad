@@ -37,12 +37,16 @@ the module itself cannot show (docs/overloaded-unfoldings.md).
 Binding names are normalised as `-dsuppress-uniques` leaves them: the module
 qualifier and the numeric suffix GHC gives each specialisation or worker are
 dropped, so `$sf3` and `$sf7` count as two of `$sf`, and a renumbering
-between builds is not a difference. A dump made without `-dsuppress-all`
-prints a binder at column 0 twice, in its type signature and at its
-definition, so there a binding is counted from the size comment above it
-(core-diff-03). The size is the "Result size of Tidy Core" of each dump.
-Modules are matched by their dumps' paths below the last `build/` directory,
-or below the tree's root where there is none (core-diff-02).
+between builds is not a difference. A binding that is static data, a string
+literal, a string unpacked or a constructor applied, counts under its name
+and ` (data)`: GHC names what it floats out of a function after the
+function, and a call stack's strings and `SrcLoc` would otherwise count as
+copies of it (core-diff-04). A dump made without `-dsuppress-all` prints a
+binder at column 0 twice, in its type signature and at its definition, so
+there a binding is counted from the size comment above it (core-diff-03).
+The size is the "Result size of Tidy Core" of each dump. Modules are matched
+by their dumps' paths below the last `build/` directory, or below the tree's
+root where there is none (core-diff-02).
 
 Exit 0 when the comparison was printed, 2 when it could not be: a directory
 with no `.dump-simpl` file, or a dump without its result size, so that a
@@ -62,6 +66,8 @@ import dumps  # noqa: E402
 SIZE = re.compile(r'Result size of Tidy Core\s*=\s*\{terms: ([\d,]+)')
 RHS = re.compile(r'-- RHS size: \{terms: ([\d,]+)')
 SKIP = ('Rec {', 'end Rec', 'Result size')
+# A binding longer than this many lines is taken for code unread.
+DATA_LINES = 200
 
 
 class Module:
@@ -79,30 +85,70 @@ def family(tok):
     return re.sub(r"([A-Za-z_$'])[0-9]+\b", r'\1', tok)
 
 
+def rhs(lines, i, name):
+    """The right-hand side of the binding of name whose first line is
+    lines[i], its lines joined, or '' where it is past the reach of static
+    data or not found: the binding runs to the next blank line, and its
+    definition is `name = ...` or `name` over `  = ...`."""
+    block = []
+    for line in lines[i:i + DATA_LINES]:
+        if not line.strip():
+            break
+        block.append(line)
+    if len(block) == DATA_LINES:
+        return ''
+    for k, line in enumerate(block):
+        if line.startswith(name + ' = '):
+            return ' '.join([line[len(name) + 3:]] + block[k + 1:])
+        if (line == name and k + 1 < len(block)
+                and block[k + 1].lstrip().startswith('= ')):
+            return ' '.join([block[k + 1].lstrip()[2:]] + block[k + 2:])
+    return ''
+
+
+def is_data(rhs):
+    """Whether a right-hand side is static data: a string literal, a string
+    unpacked, or a constructor applied."""
+    if not rhs.strip():
+        return False
+    head = re.sub(r"^(?:[\w.'-]+:(?=[A-Z]))?(?:[A-Z][\w']*\.)*", '',
+                  rhs.split(None, 1)[0])
+    return (head.startswith('"')
+            or head in ('unpackCString#', 'unpackCStringUtf8#')
+            or head[:1].isupper() or head.startswith(':'))
+
+
 def bindings(txt):
     """(Counter of binder names, Counter of their terms or None) of a dump:
     from the size comment above each binding where the dump has them, else
-    from the binders at column 0 of a -dsuppress-all dump."""
+    from the binders at column 0 of a -dsuppress-all dump. A binding that is
+    static data counts under its name and ` (data)`: GHC names what it
+    floats out of a function after the function (core-diff-04)."""
     names = collections.Counter()
     lines = txt.split('\n')
+
+    def key(i, tok):
+        data = is_data(rhs(lines, i, tok))
+        return family(tok) + (' (data)' if data else '')
+
     if any(RHS.match(line) for line in lines):
         sizes, pending = collections.Counter(), None
-        for line in lines:
+        for i, line in enumerate(lines):
             m = RHS.match(line)
             if m:
                 pending = int(m.group(1).replace(',', ''))
             elif pending is not None and line and line[0] not in ' \t':
-                tok = family(line.split(None, 1)[0])
+                tok = key(i, line.split(None, 1)[0])
                 names[tok] += 1
                 sizes[tok] += pending
                 pending = None
         return names, sizes
-    for line in lines:
+    for i, line in enumerate(lines):
         if not line or line[0] in ' \t=-{' or line.startswith(SKIP):
             continue
         tok = line.split(None, 1)[0]
         if re.match(r'[A-Za-z_$]', tok):
-            names[family(tok)] += 1
+            names[key(i, tok)] += 1
     return names, None
 
 
@@ -210,30 +256,41 @@ def self_test():
     import tempfile
     head = '\n==================== Tidy Core ====================\n'
     size = 'Result size of Tidy Core\n  = {{terms: {}, types: 1}}\n\n'
-    def dump(terms, binds):
+    def dump(terms, binds, extra=''):
         return (head + size.format(terms)
                 + ''.join(f'{b}\n  = \\ x -> x\n\n' for b in binds)
-                + 'Rec {\nloop = loop\nend Rec }\n')
-    def sized(terms, binds, stamp='2026-10-05 10:00:00.123 UTC', lit='7#'):
+                + extra + 'Rec {\nloop = loop\nend Rec }\n')
+    def sized(terms, binds, stamp='2026-10-05 10:00:00.123 UTC', lit='7#',
+              extra=''):
+        # A function, or with a third field static data.
         rhs = '-- RHS size: {{terms: {}, types: 1, coercions: 0, joins: 0/0}}\n'
         return (head + f'{stamp}\n\n' + size.format(terms)
-                + ''.join(rhs.format(t) + f'{b} :: Int\n{b} = I# {lit}\n\n'
-                          for b, t in binds))
+                + ''.join(rhs.format(t) + f'{b} :: Int\n{b} = '
+                          + (f'I# {lit}' if data else f'\\ x -> I# {lit}')
+                          + '\n\n' for b, t, *data in binds) + extra)
+    # A string floated out of $sf and named after it, and the string
+    # unpacked (core-diff-04).
+    floated = ('-- RHS size: {terms: 1, types: 0, coercions: 0, joins: 0/0}\n'
+               'M.$sf13 :: Addr#\nM.$sf13\n  = "f"#\n\n'
+               '-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\n'
+               'M.$sf14 :: [Char]\n'
+               'M.$sf14 = GHC.CString.unpackCString# M.$sf13\n')
     bad = []
     with tempfile.TemporaryDirectory() as td:
         tree = {
             'A/build/src/M/User.dump-simpl': dump('1,000', ['f', '$wf']),
             'A/build/src/M/Same.dump-simpl': dump('10', ['g']),
             'B/build/src/M/User.dump-simpl':
-                dump('2,500', ['f', '$wf', '$sf1', '$sf2', '$w$sf3']),
+                dump('2,500', ['f', '$wf', '$sf1', '$sf2', '$w$sf3'],
+                     extra='$sf9 = "f"#\n\n'),
             'B/build/src/M/Same.dump-simpl': dump('10', ['g']),
             'C/build/src/M/User.dump-simpl': 'no size line\n',
-            'D/M/User.dump-simpl': sized('5', [('M.f', 2), ('lvl1', 3)]),
+            'D/M/User.dump-simpl': sized('5', [('M.f', 2), ('lvl1', 3, 1)]),
             'D/M/Lit.dump-simpl': sized('2', [('h', 2)]),
             'D/M/Eq.dump-simpl': sized('2', [('e', 2)]),
             'E/M/User.dump-simpl':
-                sized('9', [('M.f', 2), ('M.$sf12', 4), ('lvl7', 3)],
-                      stamp='2026-10-05 11:11:11.456 UTC'),
+                sized('9', [('M.f', 2), ('M.$sf12', 4), ('lvl7', 3, 1)],
+                      stamp='2026-10-05 11:11:11.456 UTC', extra=floated),
             'E/M/Lit.dump-simpl': sized('2', [('h', 2)], lit='8#'),
             'E/M/Eq.dump-simpl.gz': sized('2', [('e', 2)],
                                           stamp='2026-10-06 09:00:00 UTC'),
@@ -247,29 +304,31 @@ def self_test():
                 fh.write(text)
         a, b = scan(os.path.join(td, 'A')), scan(os.path.join(td, 'B'))
         got = summary(a, b)
-        want = [f'{"src/M/User":60s} bindings {3:6d} -> {6:6d}  '
+        want = [f'{"src/M/User":60s} bindings {3:6d} -> {7:6d}  '
                 f'terms {1000:9d} -> {2500:9d} {2.5:6.2f}',
-                f'{"TOTAL":60s} bindings {5:6d} -> {8:6d}  '
+                f'{"TOTAL":60s} bindings {5:6d} -> {9:6d}  '
                 f'terms {1010:9d} -> {2510:9d} {2510 / 1010:6.2f}']
         if got != want:
             bad.append('summary:\n  ' + '\n  '.join(got))
         got = names_diff(a, b, 'User')
         want = ['== src/M/User  (no size comments: counts only)',
-                f'  {0:5d} -> {2:5d}  $sf', f'  {0:5d} -> {1:5d}  $w$sf']
+                f'  {0:5d} -> {2:5d}  $sf', f'  {0:5d} -> {1:5d}  $sf (data)',
+                f'  {0:5d} -> {1:5d}  $w$sf']
         if got != want:
             bad.append('names:\n  ' + '\n  '.join(got))
         d, e = scan(os.path.join(td, 'D')), scan(os.path.join(td, 'E'))
         if sorted(d) != ['M/Eq', 'M/Lit', 'M/User'] or sorted(e) != sorted(d):
             bad.append(f'-dumpdir keys: {sorted(d)} and {sorted(e)}')
         got = summary(d, e)
-        want = [f'{"M/User":60s} bindings {2:6d} -> {3:6d}  '
+        want = [f'{"M/User":60s} bindings {2:6d} -> {5:6d}  '
                 f'terms {5:9d} -> {9:9d} {1.8:6.2f}',
-                f'{"TOTAL":60s} bindings {4:6d} -> {5:6d}  '
+                f'{"TOTAL":60s} bindings {4:6d} -> {7:6d}  '
                 f'terms {9:9d} -> {13:9d} {13 / 9:6.2f}']
         if got != want:
             bad.append('summary over size comments:\n  ' + '\n  '.join(got))
         got = names_diff(d, e, 'User')
-        want = ['== M/User', f'  {0:5d} -> {1:5d}  terms {0:8d} -> {4:8d}  $sf']
+        want = ['== M/User', f'  {0:5d} -> {1:5d}  terms {0:8d} -> {4:8d}  $sf',
+                f'  {0:5d} -> {2:5d}  terms {0:8d} -> {3:8d}  $sf (data)']
         if got != want:
             bad.append('names over size comments:\n  ' + '\n  '.join(got))
         got = verdicts(d, e)
@@ -289,12 +348,15 @@ def self_test():
             bad.append('a --module matching no module did not exit 2')
         got = names_census(e, 'User')
         want = ['== M/User', f'  {1:5d}  terms {4:8d}  $sf',
-                f'  {1:5d}  terms {3:8d}  lvl', f'  {1:5d}  terms {2:8d}  f']
+                f'  {2:5d}  terms {3:8d}  $sf (data)',
+                f'  {1:5d}  terms {3:8d}  lvl (data)',
+                f'  {1:5d}  terms {2:8d}  f']
         if got != want:
             bad.append('one-build names:\n  ' + '\n  '.join(got))
         got = names_census(b, 'User')
         want = ['== src/M/User  (no size comments: counts only)',
-                f'  {2:5d}  $sf', f'  {1:5d}  $w$sf', f'  {1:5d}  $wf',
+                f'  {2:5d}  $sf', f'  {1:5d}  $sf (data)',
+                f'  {1:5d}  $w$sf', f'  {1:5d}  $wf',
                 f'  {1:5d}  f', f'  {1:5d}  loop']
         if got != want:
             bad.append('one-build names without size comments:\n  '

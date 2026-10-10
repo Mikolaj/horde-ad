@@ -3507,6 +3507,87 @@
    ],
    "bug_exit": 0,
    "bug_absent": "$dNum"
+  },
+  {
+   "id": "pragma-calls-05",
+   "program": "pragma-calls.py",
+   "name": "a dump tree whose parent directory refuses a write stopped the run with a traceback at exit 1, the exit status of findings, the token counts being cached beside the tree",
+   "family": "quiet-failure",
+   "fix_rev": "self",
+   "trigger": "--inline over ro/T, ro made unwritable",
+   "ok": "the census printed from counts made afresh, a note that they could not be cached",
+   "bug": "PermissionError traceback, exit 1, no census",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-10 running docs/perf-checklist.md on orthotope pr-mikolaj-toVectorListT at 5396cdff, its dumps built by recipe D on GHC HEAD 10.1.20260918. The tree sat in the orthotope checkout, which the sandbox lets no Bash call write; the traceback ended in OSError: [Errno 30] Read-only file system.",
+   "plant_cmd": "mkdir -p src && cat > src/M.hs <<'EOF'\nmodule M where\n{-# INLINE f #-}\nf x = x\nEOF\nmkdir -p ro/T/build/src && cat > ro/T/build/src/M.dump-simpl <<'EOF'\nM.f = \\ x -> x\nEOF\nmkdir -p ro/T/build/src && cat > ro/T/build/src/User.dump-simpl <<'EOF'\nUser.u = \\ y -> M.f y\nEOF\nchmod a-w ro",
+   "probe_cmd": "chmod u+w ro",
+   "invoke": [
+    "--inline",
+    "{tmp}/ro/T",
+    "{tmp}/src"
+   ],
+   "expect_exit": 1,
+   "expect_text": [
+    "M.hs\tf\tCALLED User 1",
+    "could not cache"
+   ],
+   "bug_exit": 1,
+   "bug_text": "PermissionError",
+   "bug_absent": "CALLED User 1"
+  },
+  {
+   "id": "pragma-calls-06",
+   "program": "pragma-calls.py",
+   "name": "--inline counted the specialisation rules GHC prints after a module's Core, under Local rules for imported ids, as its code: a rule's left-hand side as a CALLED target and its right-hand side as one more occurrence of the copy",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "User.u calling User.$sf, and the rule \"SPEC/User f @Int\" forall ($dNum :: Num Int). M.f @Int $dNum = User.$sf",
+   "ok": "M.hs f COPIED User 2",
+   "bug": "M.hs f CALLED User 1, COPIED User 3",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-10 running docs/perf-checklist.md on orthotope pr-mikolaj-toVectorListT at 5396cdff, its dumps built by recipe D on GHC HEAD 10.1.20260918. toVectorListT read CALLED in each benchmark module, the calls being the left-hand sides of the rules that send them to $stoVectorListT.",
+   "plant_cmd": "mkdir -p src && cat > src/M.hs <<'EOF'\nmodule M where\n{-# INLINE f #-}\nf x = x\nEOF\nmkdir -p T/build/src && cat > T/build/src/M.dump-simpl <<'EOF'\nM.f = \\ x -> x\nEOF\nmkdir -p T/build/src && cat > T/build/src/User.dump-simpl <<'EOF'\nUser.u = \\ (y :: Int) -> User.$sf y\n\nUser.$sf = \\ (x :: Int) -> x\n\n\n------ Local rules for imported ids --------\n\"SPEC/User f @Int\"\n    forall ($dNum :: Num Int). M.f @Int $dNum = User.$sf\nEOF",
+   "invoke": [
+    "--inline",
+    "{tmp}/T",
+    "{tmp}/src"
+   ],
+   "expect_exit": 1,
+   "expect_text": "M.hs\tf\tCOPIED User 2",
+   "expect_absent": "CALLED",
+   "bug_exit": 1,
+   "bug_text": "M.hs\tf\tCALLED User 1, COPIED User 3"
+  },
+  {
+   "id": "core-diff-04",
+   "program": "core-diff.py",
+   "name": "a binding GHC floated out of a function as static data, a string or a SrcLoc, takes the function's name with a number, and was counted as one more copy of it",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "U.$s$wrotate beside U.$s$wrotate9 = \"rotate\"#, U.$s$wrotate8 = unpackCString# U.$s$wrotate9 and U.$s$wrotate3 = SrcLoc ...",
+   "ok": "1 copy of $s$wrotate, 2112 terms, and 3 of $s$wrotate (data)",
+   "bug": "4 copies of $s$wrotate, 2123 terms",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-10 running docs/perf-checklist.md on orthotope pr-mikolaj-toVectorListT at 5396cdff, its dumps built by recipe D on GHC HEAD 10.1.20260918. OpsRanked's 22 $s$wrotate bindings were 2 copies and 20 strings, their [Char] and the SrcLoc of call stacks.",
+   "plant_cmd": "mkdir -p D/build/src && cat > D/build/src/U.dump-simpl <<'EOF'\n\n==================== Tidy Core ====================\nResult size of Tidy Core\n  = {terms: 2,123, types: 9}\n\n-- RHS size: {terms: 1, types: 0, coercions: 0, joins: 0/0}\nU.$s$wrotate9 :: Addr#\nU.$s$wrotate9 = \"rotate\"#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nU.$s$wrotate8 :: [Char]\nU.$s$wrotate8 = ghc-internal:GHC.Internal.Types.unpackCString# U.$s$wrotate9\n\n-- RHS size: {terms: 8, types: 0, coercions: 0, joins: 0/0}\nU.$s$wrotate3 :: SrcLoc\nU.$s$wrotate3\n  = ghc-internal:GHC.Internal.Stack.Types.SrcLoc\n      U.$s$wrotate8 U.$s$wrotate8 U.$s$wrotate8 106# 7# 106# 30#\n\n-- RHS size: {terms: 2,112,\n              types: 9,\n              coercions: 0,\n              joins: 0/0}\nU.$s$wrotate\n  :: Int -> Int\nU.$s$wrotate\n  = \\ (x :: Int) -> case U.$s$wrotate3 of { __DEFAULT -> x }\nEOF",
+   "invoke": [
+    "{tmp}/D",
+    "--module",
+    "U"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "    1  terms     2112  $s$wrotate\n",
+    "    3  terms       11  $s$wrotate (data)"
+   ],
+   "bug_exit": 0,
+   "bug_text": "    4  terms     2123  $s$wrotate"
   }
  ]
 }
