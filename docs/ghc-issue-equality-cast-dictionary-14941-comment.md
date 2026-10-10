@@ -1,0 +1,7 @@
+# GHC issue comment: the specialisation part of GHC #14941 now has a reproducer
+
+Posted 2026-10-10 as a comment on GHC [#14941](https://gitlab.haskell.org/ghc/ghc/-/work_items/14941), pointing to GHC [#27920](https://gitlab.haskell.org/ghc/ghc/-/work_items/27920), filed from `docs/ghc-issue-equality-cast-dictionary.md`; this file stays as the record of the comment, the text from "The specialisation part" down being the body as drafted. Its claims about the worker of `f` were verified on 2026-10-10 with the example of the comment of 2018-09-14, on HEAD 10.1.20260918, 9.14.1, 9.12.4, 9.10.3, 9.8.4 and 9.6.7. The prose is ASD-STE100 Simplified Technical English.
+
+The specialisation part of this ticket now has a small reproducer, in #27920. It is the example that the comment of 2018-07-05 asks for: the importing module specialises the callee when the caller has no equality constraint, but not when the caller has one. The cause is as that comment says: the dictionary of the call is cast with the coercion from the equality, and the specialisation of the caller keeps that coercion as a parameter. GHC 9.6.7 to HEAD all do the same.
+
+The worker/wrapper part (the simple case of 2018-09-14 and the analysis of 2018-09-18) has changed. On 9.8.4, 9.10.3, 9.12.4, 9.14.1 and HEAD, `f :: forall a. (a ~ Int) => a -> a` with `NOINLINE` gets a worker of type `forall a. (a ~# Int) => a -> a`. But the worker still takes `a` boxed, and it adds with `$fNumInt_$c+`. 9.6.7 makes no worker.

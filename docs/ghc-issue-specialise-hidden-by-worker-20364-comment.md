@@ -1,0 +1,5 @@
+# GHC issue comment: a SPECIALISE rule that importers lose behind an INLINABLE caller's worker
+
+Posted 2026-10-10 as a comment on GHC [#20364](https://gitlab.haskell.org/ghc/ghc/-/work_items/20364), pointing to GHC [#27921](https://gitlab.haskell.org/ghc/ghc/-/work_items/27921), filed from `docs/ghc-issue-specialise-hidden-by-worker.md`; this file stays as the record of the comment, the text from "A case of this" down being the body as drafted. The prose is ASD-STE100 Simplified Technical English.
+
+A case of this problem, with a run-time cost and no user rule, is in #27921. A library has `{-# SPECIALISE helper :: Int -> Double -> Double #-}`, with no INLINABLE pragma on `helper`, and an INLINABLE function `f` that calls `helper`. When `f` gets a worker, the INLINABLE unfolding of `$wf` calls `$whelper`, because the wrapper of `helper` was inlined into it. The specialisation rule is only for `helper`. Thus a module that imports `f` and uses it at `Double` calls `$whelper` with the dictionary. When `f` has no worker, the importing module uses the specialisation. GHC 9.6.7 to HEAD all do the same.
