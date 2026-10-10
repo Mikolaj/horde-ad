@@ -154,7 +154,7 @@ Cost facts worth knowing before optimizing --- which operations dominate and why
 
 ### Pragmas and optimisation flags
 
-The rules for changing inlining and specialisation pragmas (`INLINE`, `INLINABLE`, `NOINLINE`, `SPECIALISE`, phase control) and optimisation flags, decided by Mikolaj in September 2026, are kept in `docs/perf-checklist.md`, section P, and nowhere else: open it before changing a pragma or a flag. Both of its halves apply here, module by module. The package builds `-fspecialise-aggressively` throughout and `-fexpose-overloaded-unfoldings` from GHC 9.12, so a module that opts out of the latter in its header, `-fno-expose-overloaded-unfoldings`, follows the half without it, as every module does on an older GHC.
+The rules for changing inlining and specialisation pragmas (`INLINE`, `INLINABLE`, `NOINLINE`, `SPECIALISE`, phase control) and optimisation flags, decided by Mikolaj in September 2026, are kept in `docs/perf-checklist.md`, section P, and nowhere else: open it before changing a pragma or a flag. Both of its halves apply here, module by module. The package builds `-fspecialise-aggressively` throughout and `-fexpose-overloaded-unfoldings` from GHC 9.12, so a module that opts out of the latter in its header, `-fno-expose-overloaded-unfoldings`, follows the half without it.
 
 ## Coding style
 

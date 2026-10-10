@@ -125,10 +125,9 @@ is built `-fexpose-overloaded-unfoldings` and the caller
 `-fspecialise-aggressively`, and otherwise, small functions aside, only through
 `INLINE` or `INLINABLE`. horde-ad builds `-fspecialise-aggressively` throughout
 and `-fexpose-overloaded-unfoldings` from GHC 9.12, some of its modules opting
-out of the latter in their headers, so it has modules under each half, and all
-of them under the second on an older GHC. A library whose users build as they
-please, orthotope among them, is under the second half throughout, its own flags
-reaching no user's build.
+out of the latter in their headers, so it has modules under each half. A library
+whose users build as they please, orthotope among them, is under the second half
+throughout, its own flags reaching no user's build.
 
 ### Common principles
 
@@ -160,6 +159,10 @@ reaching no user's build.
   but a change in evaluation rather than allocation is priced in instructions:
   removing `-fworker-wrapper-cbv` left every allocation figure but one unchanged
   and cost up to 3.8% in instructions.
+- **Which GHCs count** (Mikolaj's rulings of 2026-10-11): a GHC older than 9.12
+  decides nothing, neither by a measurement nor by the half its modules fall
+  under. HEAD's measurements carry 80% of a decision, those of the released GHCs
+  from 9.12 on the other 20%.
 - **What a pragma buys** is each check's rule, stated in the check: `INLINE`
   against `INLINABLE` I3's, a fusion path F1's, a call too unsaturated to inline
   I1's, a recursive function I2's, type-level keys in the constraints S2's,
@@ -174,7 +177,7 @@ reaching no user's build.
   an `INLINE` on a function GHC inlines anyway or a `NOINLINE` on one it would
   not inline, since the thresholds can change. Remove such a pragma only when
   removing it changes the optimised Core and measurements show that what it did
-  buys nothing, on each GHC the project builds with: without an `INLINE`
+  buys nothing, on the GHCs that count, weighed as above: without an `INLINE`
   that did nothing measurable on GHC 9.14.1, some benchmarks allocated up to 43%
   more on HEAD.
 - **Measuring compile time:** each build alone, in a fresh `--builddir`,
@@ -264,8 +267,8 @@ into a wrapper and a worker with no unfolding, which no client could specialise.
   the tests' and benchmarks' modules' paths contain;
 - first, the same run over a known positive, a module built `-fno-specialise`,
   so that its silence elsewhere means something;
-- on each GHC of the support range, the project's specialisation test, where
-  specialising depends on a flag one GHC defaults and another does not:
+- on HEAD and each released GHC from 9.12 on, the project's specialisation test,
+  where specialising depends on a flag one GHC defaults and another does not:
   `-fpolymorphic-specialisation` is on by default only on HEAD, and orthotope's
   boxed modules ran up to 8 times slower on 9.12.4 without it.
 
@@ -430,6 +433,9 @@ with none.
 
 **Read:** by P: settle each finding by changing its pragma, an existing one
 as P's rule on removing pragmas says, or by writing the comment P asks for.
+The rule binds only a module under P's second half, where its callers' speed
+is protected; elsewhere a finding is a candidate, a pragma there paying
+for itself or going.
 
 ## F. Fusion
 
