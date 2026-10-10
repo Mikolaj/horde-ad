@@ -26,8 +26,8 @@ than identical Core: a pragma that changes what a class method's default
 receives, or a function's unfolding without its call sites, can read DEAD
 and still move a benchmark, as the `rsize` family behind `tsize` did
 (docs/pragmas-and-flags.md). And a DEAD verdict does not make a pragma
-removable: it may be dead only at today's inliner thresholds (CLAUDE.md,
-Pragmas and optimisation flags). A name the diff removes a pragma from
+removable: it may be dead only at today's inliner thresholds
+(docs/perf-checklist.md, P). A name the diff removes a pragma from
 twice is marked, since its counts cover every binding of that name.
 
 The token counts of each dump tree are cached beside it, in

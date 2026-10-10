@@ -3,13 +3,13 @@
 The checks to run on Haskell code for its performance, each with what
 it catches, the case it came from, a recipe over horde-ad's `tools/` and how
 to read what comes back; then the measuring conditions every timing assumes,
-and the tools themselves. Distilled on 2026-10-07 from the orthotope work
-of 2026-09-30 to 2026-10-07, whose figures the cases quote, and the home
-of horde-ad's A/B rules and tool reference. A session reaches it through
-the user-scope `haskell-perf-checklist` skill: asked to do the checklist
-on a project, it runs the whole list as the next section says; asked for one
-check by name ("check eta vs INLINE"), it runs that check's recipe rather
-than composing one.
+the rules for pragmas and flags, and the tools themselves. Distilled
+on 2026-10-07 from the orthotope work of 2026-09-30 to 2026-10-07, whose figures
+the cases quote, and the home of horde-ad's A/B rules, pragma and flag rules
+and tool reference. A session reaches it through the user-scope
+`haskell-perf-checklist` skill: asked to do the checklist on a project, it runs
+the whole list as the next section says; asked for one check by name ("check eta
+vs INLINE"), it runs that check's recipe rather than composing one.
 
 The tools the checks call resolve their arguments against the working directory,
 so they run from any project's root as `python3 $T/NAME.py`
@@ -114,6 +114,96 @@ Not a check: the conditions every timing below assumes.
   costs: a dictionary call per call vanishes at 200000 elements. Judge O(1)
   operations per call.
 
+## P. Pragmas and flags: the rules
+
+Not a check: the rules by which a verdict on an inlining or specialisation
+pragma (`INLINE`, `INLINABLE`, `NOINLINE`, `SPECIALISE`, phase control) or
+on an optimisation flag is read, kept here and nowhere else; S1, S2, I3, W4
+and C1 refer their verdicts to them. Which half below holds is settled module
+by module, by whether a caller can specialise the module's overloaded functions
+without a pragma: it can where the module is built
+`-fexpose-overloaded-unfoldings` and the caller `-fspecialise-aggressively`,
+and otherwise, small functions aside, only through `INLINE` or `INLINABLE`.
+horde-ad builds `-fspecialise-aggressively` throughout
+and `-fexpose-overloaded-unfoldings` from GHC 9.12, some of its modules opting
+out of the latter in their headers, so it has modules under each half, and all
+of them under the second on an older GHC. A library whose users build as they
+please, orthotope among them, is under the second half throughout, its own flags
+reaching no user's build.
+
+### Common principles
+
+- **What is traded:** run time against compile time --- that of the project's
+  own optimised build, every component with exactly the flags of its `.cabal`
+  file, and for a library that of its users' builds too, which its `INLINE`
+  and `INLINABLE` bodies land in; the dependencies' build time does not count.
+  A change that improves the trade without costing speed is welcome, one
+  that only speeds compilation included, such as a pragma removed or a module's
+  `-fno-expose-overloaded-unfoldings`. A light compile-time cost is acceptable
+  for a large speed gain, but a speed cost never is for faster compilation,
+  except in code whose speed the project names as tradable. horde-ad names
+  simplification: the smart constructors, the traversals, vectorisation,
+  inlining, and building and simplifying artifacts. It protects computing
+  on concrete values: interpretation, `interpretAst` and every primitive
+  it calls, the `Concrete` instances, and all AD that never builds an AST,
+  the non-symbolic pipeline (`cgrad`, `cvjp`, `cjvp` and their `2` variants)
+  with the `ADVal` instances, the delta expressions they record and their
+  evaluation in `Core/DeltaEval.hs`; none of it may get slower than the state
+  the work started from.
+- **Noise margins:** for a verdict that protected code got slower, up to 10%
+  in wall time or estimated cycles is noise; in a trade-off, only changes above
+  2% count.
+- **What a pragma buys** is each check's rule, stated in the check: `INLINE`
+  against `INLINABLE` I3's, a fusion path F1's, a call too unsaturated to inline
+  I1's, a recursive function I2's, type-level keys in the constraints S2's,
+  a `NOINLINE` on a helper W3's, a flag W4's.
+- **Removing a pragma:** not one that is dead only at today's thresholds,
+  an `INLINE` on a function GHC inlines anyway or a `NOINLINE` on one it would
+  not inline, since the thresholds can change. Remove a pragma only when
+  removing it changes the optimised Core and measurements show that what it did
+  buys nothing.
+- **Measuring compile time:** each build alone, in a fresh `--builddir`,
+  on an otherwise idle machine, without `jobs` or `semaphore`
+  in `cabal.project.local`, which skew build times; read the two per module
+  with `ctime-diff.py`, whose modules of unchanged Core give the run's noise.
+
+`docs/pragmas-and-flags.md` records one application of these rules, to horde-ad.
+
+### With `-fexpose-overloaded-unfoldings`
+
+Callers built `-fspecialise-aggressively` specialise every overloaded function
+of such a module from its exposed unfolding, so a pragma there buys only what
+inlining or a phase gives.
+
+- **A pragma is a cost in itself:** visual noise, counted against a change
+  in any trade-off. Where one module-level flag does what a dozen pragmas do,
+  the flag wins. When a pragma proves beneficial, add similar ones only where
+  each pays for itself individually, never across the board.
+
+### Without `-fexpose-overloaded-unfoldings`
+
+A caller specialises an overloaded function of such a module only
+if the function is `INLINE` or `INLINABLE`, or small enough for GHC to expose
+its unfolding unasked; otherwise each call hands it the dictionaries at run
+time. The module's flags do not change that for its callers:
+`-fexpose-overloaded-unfoldings` would stand in for the pragma only where every
+caller is built `-fspecialise-aggressively`, which a library cannot know
+of its users.
+
+- **Where the callers' speed is protected, every overloaded function they reach
+  at known types carries `INLINE` or `INLINABLE`**, or a recorded reason
+  it needs neither, such as an O(1) function GHC inlines unasked
+  or a measurement that specialising it buys nothing; S1's audit shows which
+  callers still pass a dictionary.
+- **Where their speed is tradable,** a pragma is a trade like any other and pays
+  for itself or goes, as in the half above. Opting a module out
+  of `-fexpose-overloaded-unfoldings` is itself such a trade: compile time saved
+  where specialisation buys nothing, as horde-ad measured of its opt-out modules
+  (`docs/overloaded-unfoldings.md`).
+- **A removal shows in a caller's Core, not in the module's own:** the removing
+  rule above reads the dumps of the project's tests and benchmarks, or
+  of a probe client.
+
 ## S. Specialisation
 
 ### S1. Specialisation audit: does every hot call run specialised?
@@ -145,13 +235,10 @@ into a wrapper and a worker with no unfolding, which no client could specialise.
   boxed modules ran up to 8 times slower on 9.12.4 without it.
 
 **Read:** set aside dictionaries that feed `Show`, error messages and the test
-harness. Every other callee wants INLINE or INLINABLE, or a recorded reason
-it cannot have one. `-fexpose-overloaded-unfoldings` does not stand in
-for the pragma: a client specialises an imported function only if it is INLINE
-or INLINABLE or the client is built `-fspecialise-aggressively`,
-and the polymorphic worker ran 6 to 44 times slower in the fill's variant C.
-Library code is the scope: a user's own unspecialised call is the user's to fix
-in their Core.
+harness. Every other callee wants what P asks of its module, a pragma where
+the callers cannot specialise without one: the polymorphic worker ran 6 to 44
+times slower in the fill's variant C. Library code is the scope: a user's own
+unspecialised call is the user's to fix in their Core.
 
 **Keep** a test that fails when specialisation breaks, cheap enough for CI: one
 shape and `Double`, every operation at every vector type, an allocation bound
@@ -181,8 +268,8 @@ and `python3 $T/core-diff.py dist-dump-BASE dist-dump-TIP --module MODULE`
 those whose count differs between two builds.
 
 **Read:** investigate a gap either way. The recorded fix for type-level keys
-is an INLINE wrapper turning them into values over an INLINABLE worker
-that specialises on the vector and element types alone.
+is an INLINE wrapper turning them into values over a worker that specialises
+on the vector and element types alone, `INLINABLE` where P's second half holds.
 
 ## I. Inlining
 
@@ -272,9 +359,12 @@ For a group of pragmas removed at once,
 `python3 $T/pragma-calls.py DUMPS_A DUMPS_B WORKTREE_B` sorts them into DEAD
 and MOVED before any bisection.
 
-**Read** by the project's pragma rules: horde-ad's are in `CLAUDE.md`, Pragmas
-and optimisation flags, and the worked method in `docs/pragmas-and-flags.md`.
-GHC's `inline` at one call site is the per-site alternative to a pragma.
+**Read:** `INLINE` only for what inlining alone gives, the list above; otherwise
+the pragma P's half asks for, `INLINABLE` where a caller needs one to specialise
+and none where it does not. An `INLINE` body whose callers are all `INLINABLE`
+is copied once per type, into their specialised copies, not at every call site,
+so such a layer can be `INLINE` throughout. The trade is weighed by P. GHC's
+`inline` at one call site is the per-site alternative to a pragma.
 
 ## F. Fusion
 
@@ -533,7 +623,9 @@ Mikolaj's approval, or without a comment saying why and for which GHCs.
 `git diff BASE -- '*.hs' '*.cabal' 'cabal.project*' | command grep -nE '^\+.*(OPTIONS_GHC|ghc-options|-f[a-z]|-O[0-9])'`.
 
 **Read:** never `-fno-full-laziness` with `-fno-cse` (#27886). Take `-O2`'s
-constituents, never the bundle.
+constituents, never the bundle: where it helps, bisect the flags it enables
+beyond `-O` and take only those that carry the effect. The trade is weighed
+by P.
 
 ## C. Compile time
 
@@ -558,9 +650,10 @@ the body's terms.
 - `python3 $T/src-attrib.py DUMP SRCDIR` credits a `-g1` dump's code to source
   definitions. Ask for `-g1`, which changes what GHC floats, so it locates code
   and does not predict savings.
-- `ctime-diff.py` and `core-diff.py` compare two builds, each made alone.
+- `ctime-diff.py` and `core-diff.py` compare two builds, each made as P measures
+  compile time.
 
-**Read:** by the project's pragma rules (I3).
+**Read:** by P.
 
 ## The tools
 
@@ -615,9 +708,9 @@ and `docs/pragmas-and-flags.md` `pragma-calls`.
   module in two builds' dumps: DEAD where every count agrees, MOVED
   with the modules that differ. It is the step between removing a whole group
   of pragmas and bisecting it. DEAD is weaker than identical Core, and does
-  not make a pragma removable: the threshold rule in `CLAUDE.md` keeps it.
-  With `--inline` it reads one build instead, marking each INLINE target
-  of a source tree CALLED, COPIED or RECURSIVE (I1, I2).
+  not make a pragma removable: P's rule on removing keeps it. With `--inline`
+  it reads one build instead, marking each INLINE target of a source tree
+  CALLED, COPIED or RECURSIVE (I1, I2).
 - `tools/rules-diff.py` compares which rewrite rules fired per module in two
   builds, from `-ddump-simpl-stats` dumps, the fusion rules marked,
   and with `--unfolding NAME` how often a function was inlined. It answers

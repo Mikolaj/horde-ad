@@ -1,18 +1,17 @@
 # Exposing overloaded unfoldings: which modules, which pragmas, at what cost
 
+This is the record of one decision-making session for horde-ad, of late
+September 2026, and not a rule set: its findings were made on horde-ad's code,
+flags and GHC of that time, so they are no guide for another project, and they
+age as those move. The rules it applied are kept in `docs/perf-checklist.md`,
+section P.
+
 The question: in the modules that opt out of the package default
 `-fexpose-overloaded-unfoldings`, which functions should get a pragma to improve
 performance, and how large would each improvement be. During the work
 the question widened to any change that improves the trade-off between run time
-and horde-ad's own optimised compilation time, in either direction, under three
-rules. Interpretation --- `AstInterpret` and everything it calls, the Concrete
-instances, and, for the non-symbolic `cgrad` pipeline, the ADVal instances ---
-may not get slower than the branch tip by more than 10% in wall time
-or estimated cycles on any benchmark. Simplification --- the smart constructors,
-the traversals, vectorisation and inlining --- is fair game for trade-offs,
-which count only changes above 2%. And a light compile-time cost is acceptable
-for a large speed gain, not the other way around. Where one module-level flag
-and a dozen pragmas do the same job, the flag is preferred.
+and horde-ad's own optimised compilation time, in either direction,
+under those rules.
 
 The outcome is the commit that adds this document, which also adds the opt-out
 to five more modules, `OpsConcrete`, `CarriersConcrete`, `CommonRankedOps`,

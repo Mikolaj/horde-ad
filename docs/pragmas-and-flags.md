@@ -1,16 +1,14 @@
 # Pragmas and optimisation flags: which ones pay for their compile time
 
+This is the record of one large decision-making session for horde-ad, of late
+September and early October 2026, and not a rule set: its findings were made
+on horde-ad's code, flags and GHC of that time, so they are no guide for another
+project, and they age as those move. The rules it applied are kept
+in `docs/perf-checklist.md`, section P.
+
 The question: which of horde-ad's inlining and specialisation pragmas, and which
 of the package-wide optimisation flags in the `.cabal` file, are worth what they
-cost in compile time, under the rules in `CLAUDE.md` (Pragmas and optimisation
-flags). In short: run time is traded against the optimised build of every
-component of the package; the speed of computing on concrete values ---
-interpretation, `interpretAst` and the `Concrete` instances it calls,
-and the non-symbolic pipeline, `cgrad` and its kin with the `ADVal` instances
-and the delta evaluation --- may not drop, with 10% as the noise margin
-for that verdict; the speed of simplification may be traded, counting only
-changes above 2%; every pragma is itself a cost; and a pragma that is dead only
-at today's inliner thresholds stays.
+cost in compile time, under those rules.
 
 The change this document reports removes 165 pragmas and the flag
 `-flate-dmd-anal`. The whole package builds in 1086 s instead of 2485 s, 56%
