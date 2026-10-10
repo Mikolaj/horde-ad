@@ -216,7 +216,9 @@ not for orthotope's fill, which had no pragma at all (S1's variant C).
   at known types carries `INLINE` or `INLINABLE`**, or a reason recorded beside
   the code, a commit message not counting, that it needs neither, such
   as an O(1) function GHC inlines unasked or a measurement that specialising
-  it buys nothing; S1's audit shows which callers still pass a dictionary.
+  it buys nothing. `python3 $T/pragma-census.py SRC` lists the overloaded
+  bindings that carry no pragma, and S1's audit which callers still pass
+  a dictionary.
 - **Where their speed is tradable,** a pragma is a trade like any other and pays
   for itself or goes, as in the half above. Opting a module out
   of `-fexpose-overloaded-unfoldings` is itself such a trade: compile time saved
@@ -784,13 +786,15 @@ and `docs/pragmas-and-flags.md` `pragma-calls`.
   off its `-g3` twins; its cases are in `tools/defects.json`.
 
 The tools written for the checks of one build or one source tree,
-`tools/spec-audit.py`, `tools/bang-drops.py`, `tools/lazy-reads.py`,
-`tools/captured-unbox.py`, `tools/workaround-cites.py`
+`tools/pragma-census.py`, `tools/spec-audit.py`, `tools/bang-drops.py`,
+`tools/lazy-reads.py`, `tools/captured-unbox.py`, `tools/workaround-cites.py`
 and `tools/hascallstack.py`, exit 0 clean, 1 with findings and 2 when the run
 did not happen, as `pragma-calls.py --inline` does; `tools/bang-lazy-check.py`,
 without `--allow`, exits 0 whatever it printed, its candidates being
 for the reader.
 
+- `tools/pragma-census.py` lists the overloaded functions and instance methods
+  of a source tree that carry no pragma (P).
 - `tools/spec-audit.py` lists the calls in optimised Core that hand a function
   an instance dictionary, by callee, and the bindings that take a dictionary
   as a lambda argument: code running unspecialised (S1).

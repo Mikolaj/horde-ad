@@ -56,6 +56,7 @@ STEPS = [
     ('one-shot self-test', ['python3', '{root}/one-shot.py', '--self-test']),
     ('perf-per-call self-test', ['python3', '{root}/perf-per-call.py', '--self-test']),
     ('pragma-calls self-test', ['python3', '{root}/pragma-calls.py', '--self-test']),
+    ('pragma-census self-test', ['python3', '{root}/pragma-census.py', '--self-test']),
     ('rewrite-check self-test', ['python3', '{root}/rewrite-check.py', '--self-test']),
     ('rewrite-fold self-test', ['python3', '{root}/rewrite-fold.py', '--self-test']),
     ('rules-diff self-test', ['python3', '{root}/rules-diff.py', '--self-test']),
