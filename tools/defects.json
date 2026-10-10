@@ -3331,6 +3331,182 @@
    "unit": "sorted(m for m in ORTHOTOPE['mods'] if m in ('Shape', 'Convert'))",
    "expect_text": "['Convert', 'Shape']",
    "bug_text": "[]"
+  },
+  {
+   "id": "spec-audit-01",
+   "program": "spec-audit.py",
+   "name": "a dictionary's own binding, printed at column 0 behind its module qualifier, was read as a call, its callee `?`",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "Client.$fEqE :: Eq E, then Client.$fEqE = Client.mkE, each at column 0",
+   "ok": "nothing reported, exit 0",
+   "bug": "?  $fEqE: 2, exit 1",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-10 auditing orthotope pr-mikolaj-toVectorListT at 51ebf549 on GHC HEAD 10.1.20260918, in the dumps of recipe D. 83 of the library modules' 171 call findings and 55 of the clients' 138 were such lines.",
+   "plant_cmd": "mkdir -p A/build && cat > A/build/Client.dump-simpl <<'EOF'\nClient.$fEqE :: Eq E\nClient.$fEqE = Client.mkE\nEOF",
+   "invoke": [
+    "{tmp}/A"
+   ],
+   "expect_exit": 0,
+   "expect_absent": "$fEqE",
+   "bug_exit": 1,
+   "bug_text": "?  $fEqE: 2"
+  },
+  {
+   "id": "spec-audit-02",
+   "program": "spec-audit.py",
+   "name": "a binding GHC floated out of a dictionary and named after it, such as $fStorableE5 :: Int, was read as a dictionary, in its own module and in another the tree holds",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "Lib.g Client.$fStorableE5 x, with Client.$fStorableE5 :: Int; Lib.h Lib.$fNumT3 x, with Lib.$fNumT3 :: Int in Lib's dump",
+   "ok": "only Lib.peek given Client.$fStorableE :: Storable E is reported",
+   "bug": "Lib.g  $fStorableE5 and Lib.h  $fNumT3 reported too",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-10 auditing orthotope pr-mikolaj-toVectorListT at 51ebf549 on GHC HEAD 10.1.20260918, in the dumps of recipe D. $fVectorRepeated10 :: [Char] handed to SrcLoc 538 times in DynamicTest, $fStorableE5 :: Int in DynamicSTest, $fVectorVector1 :: Int, the constant 0, handed to vector's methods in DynamicU.",
+   "plant_cmd": "mkdir -p A/build && cat > A/build/Lib.dump-simpl <<'EOF'\nLib.$fNumT3 :: Int\nLib.$fNumT3 = GHC.Types.I# 3#\nEOF\nmkdir -p A/build && cat > A/build/Client.dump-simpl <<'EOF'\nClient.$fStorableE5 :: Int\nClient.$fStorableE5 = GHC.Types.I# 1#\n\nClient.$fStorableE :: Storable E\nClient.$fStorableE = Client.mkE\n\nf = \\ (x :: Int) -> Lib.g Client.$fStorableE5 (Lib.h Lib.$fNumT3 x)\n\nk = \\ (x :: E) -> Lib.peek Client.$fStorableE x\nEOF",
+   "invoke": [
+    "{tmp}/A",
+    "--module",
+    "Client"
+   ],
+   "expect_exit": 1,
+   "expect_text": "Client  Lib.peek  $fStorableE: 1",
+   "expect_absent": [
+    "$fStorableE5",
+    "$fNumT3"
+   ],
+   "bug_exit": 1,
+   "bug_text": [
+    "Lib.g  $fStorableE5",
+    "Lib.h  $fNumT3"
+   ]
+  },
+  {
+   "id": "spec-audit-03",
+   "program": "spec-audit.py",
+   "name": "an instance method before the dictionary, GHC.Classes.$fEqList_$c==, lost its $fEqList_$c to the stripping of dictionaries, so the callee read `==`, and a named one, $fOrdList_$ccompare, lost the whole finding",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "GHC.Classes.$fEqList_$c== @Word8 GHC.Word.$fEqWord8 a b; GHC.Classes.$fOrdList_$ccompare @Int GHC.Classes.$fOrdInt a b",
+   "ok": "both reported, each under its method",
+   "bug": "==  $fEqWord8, and the compare not reported",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-10 auditing orthotope pr-mikolaj-toVectorListT at 51ebf549 on GHC HEAD 10.1.20260918, in the dumps of recipe D. 144 such comparisons of Word8 lists in DynamicGTest read `==`.",
+   "plant_cmd": "mkdir -p A/build && cat > A/build/Client.dump-simpl <<'EOF'\nbaz = \\ (a :: [Word8]) (b :: [Word8]) -> GHC.Classes.$fEqList_$c== @Word8 GHC.Word.$fEqWord8 a b\n\ncmp = \\ (a :: [Int]) (b :: [Int]) -> GHC.Classes.$fOrdList_$ccompare @Int GHC.Classes.$fOrdInt a b\nEOF",
+   "invoke": [
+    "{tmp}/A"
+   ],
+   "expect_exit": 1,
+   "expect_text": [
+    "GHC.Classes.$fEqList_$c==  $fEqWord8: 1",
+    "GHC.Classes.$fOrdList_$ccompare  $fOrdInt: 1"
+   ],
+   "bug_exit": 1,
+   "bug_text": "  ==  $fEqWord8: 1",
+   "bug_absent": "$fOrdInt"
+  },
+  {
+   "id": "spec-audit-04",
+   "program": "spec-audit.py",
+   "name": "a constructor storing a dictionary, a class's C:Elem building one from its superclasses or GHC.Real.:% given a constant, was read as a call, C:Elem's callee as `Elem`",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "GHC.Real.:% @Integer GHC.Real.$fEnumRatio1 x; Client.C:Elem @Int GHC.Real.$fIntegralInt GHC.Show.$fShowInt, the dictionary opening its line",
+   "ok": "nothing reported, exit 0",
+   "bug": ":%  $fEnumRatio1 and Elem  $fIntegralInt, exit 1",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-10 auditing orthotope pr-mikolaj-toVectorListT at 51ebf549 on GHC HEAD 10.1.20260918, in the dumps of recipe D. Views built its Elem dictionaries so; base's $fEnumRatio1, an Integer, is outside the tree, so only its constructor tells it apart.",
+   "plant_cmd": "mkdir -p A/build && cat > A/build/Client.dump-simpl <<'EOF'\nr = \\ (x :: Integer) -> GHC.Real.:% @Integer GHC.Real.$fEnumRatio1 x\n\nClient.$fElemInt :: Elem Int\nClient.$fElemInt\n  = Client.C:Elem\n      @Int\n      GHC.Real.$fIntegralInt\n      GHC.Show.$fShowInt\nEOF",
+   "invoke": [
+    "{tmp}/A"
+   ],
+   "expect_exit": 0,
+   "expect_absent": [
+    "$fEnumRatio1",
+    "$fIntegralInt"
+   ],
+   "bug_exit": 1,
+   "bug_text": [
+    "GHC.Real.:%  $fEnumRatio1",
+    "  Elem  $fIntegralInt"
+   ]
+  },
+  {
+   "id": "spec-audit-05",
+   "program": "spec-audit.py",
+   "name": "a callee whose name ends in #, such as indexByteArray#, was named `#`",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "Data.Primitive.Types.indexByteArray# @Double Data.Primitive.Types.$fPrimDouble ba i",
+   "ok": "Data.Primitive.Types.indexByteArray#  $fPrimDouble",
+   "bug": "#  $fPrimDouble",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-10 auditing orthotope pr-mikolaj-toVectorListT at 51ebf549 on GHC HEAD 10.1.20260918, in the dumps of recipe D. Seen as unpackCString# given floated strings in DynamicTest and Shaped/Instances.",
+   "plant_cmd": "mkdir -p A/build && cat > A/build/Client.dump-simpl <<'EOF'\nix = \\ (ba :: ByteArray#) (i :: Int#) -> Data.Primitive.Types.indexByteArray# @Double Data.Primitive.Types.$fPrimDouble ba i\nEOF",
+   "invoke": [
+    "{tmp}/A"
+   ],
+   "expect_exit": 1,
+   "expect_text": "Data.Primitive.Types.indexByteArray#  $fPrimDouble: 1",
+   "bug_exit": 1,
+   "bug_text": "  #  $fPrimDouble: 1"
+  },
+  {
+   "id": "spec-audit-06",
+   "program": "spec-audit.py",
+   "name": "a lambda's $d binder of an unboxed type, a worker's field of a KnownNat dictionary such as ($dKnownNat :: ByteArray#), was listed as a dictionary taken at run time",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "t = \\ ($dKnownNat :: GHC.Prim.ByteArray#) -> Lib.rotate (GHC.Num.Integer.IP $dKnownNat)",
+   "ok": "nothing reported, exit 0",
+   "bug": "t  $dKnownNat: 1, exit 1",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-10 auditing orthotope pr-mikolaj-toVectorListT at 51ebf549 on GHC HEAD 10.1.20260918, in the dumps of recipe D. ShapedTest.test842.",
+   "plant_cmd": "mkdir -p A/build && cat > A/build/Client.dump-simpl <<'EOF'\nt = \\ ($dKnownNat :: GHC.Prim.ByteArray#) -> Lib.rotate (GHC.Num.Integer.IP $dKnownNat)\nEOF",
+   "invoke": [
+    "{tmp}/A"
+   ],
+   "expect_exit": 0,
+   "expect_absent": "$dKnownNat",
+   "bug_exit": 1,
+   "bug_text": "t  $dKnownNat: 1"
+  },
+  {
+   "id": "spec-audit-07",
+   "program": "spec-audit.py",
+   "name": "a lambda whose binders ran onto further lines, or followed a binder of function type, hid the dictionaries among them, the binder list being read to the first -> on one line",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "poly = \\ (@a) on one line and (f :: a -> a), ($dNum :: Num a), (y :: a) -> on the next three; g = \\ (@a) (f :: a -> a) ($dNum :: Num a) -> f on one",
+   "ok": "poly's and g's $dNum both listed",
+   "bug": "neither listed, exit 0",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-10 auditing orthotope pr-mikolaj-toVectorListT at 51ebf549 on GHC HEAD 10.1.20260918, in the dumps of recipe D. Over that build's dumps the one-line reading found 2455 dictionary binders and a reading of balanced binders across lines 3620, four more of them in the client module Views.",
+   "plant_cmd": "mkdir -p A/build && cat > A/build/Client.dump-simpl <<'EOF'\npoly\n  = \\ (@a)\n      (f :: a -> a)\n      ($dNum :: Num a)\n      (y :: a) ->\n      f (+ @a $dNum y y)\n\ng = \\ (@a) (f :: a -> a) ($dNum :: Num a) -> f\nEOF",
+   "invoke": [
+    "{tmp}/A"
+   ],
+   "expect_exit": 1,
+   "expect_text": [
+    "poly  $dNum :: Num a: 1",
+    "g  $dNum :: Num a: 1"
+   ],
+   "bug_exit": 0,
+   "bug_absent": "$dNum"
   }
  ]
 }

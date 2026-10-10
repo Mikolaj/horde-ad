@@ -19,9 +19,18 @@ library's function from the client's own. Two lists are printed:
   callee and dictionary, with the count and the line of the first;
 - bindings that take a dictionary as a lambda argument, a `$d...` or an
   `irred`, which is how a type-family constraint such as orthotope's
-  `VecElem v a` prints: code polymorphic at run time. A library's own
-  originals take them by design, so read this list over the clients
-  (`--module`).
+  `VecElem v a` prints: code polymorphic at run time. Each argument
+  is printed with the type the dump gives it, so that a constraint whose
+  class has no methods, orthotope's `VecElem [] a` say, reads as costing
+  nothing. A library's own originals take them by design, so read this
+  list over the clients (`--module`).
+
+A `$f` name is a dictionary unless the tree's dump of the module
+qualifying it gives it a type not headed by its class: GHC names a binding
+it floats out of a dictionary after it, `$fStorableE5 :: Int`. A name
+of a module outside the tree, base's say, or qualified by an import's
+alias, is taken for a dictionary. A `$d` argument of an unboxed type,
+a worker's field of a dictionary, is not one.
 
 The callee is a guess, and each finding is read in the dump before anything
 is done about it. It is the token before the dictionary on its line, its
@@ -30,10 +39,12 @@ dictionary that opens its line, the last token of the nearest line above
 that is indented less, the head of the application the dictionary is an
 argument of. Where that token is a keyword, `=`, `->` or an opening
 parenthesis, the `$f` name heads its own application, `case $fNumSize2 r`,
-called rather than handed over, and is no finding. `--ignore REGEX` drops the calls whose dictionary matches, `List` for
-the `Eq [Int]` comparisons of shapes, say; dictionaries that feed error
-messages and the test harness are the reader's to set aside. A lambda whose
-binders run onto a second line is not seen.
+called rather than handed over, and is no finding; where it is
+a constructor, `C:Elem` building a dictionary or `:%`, the dictionary
+is stored and runs nothing, and is no finding either. `--ignore REGEX`
+drops the calls whose dictionary matches, `List` for the `Eq [Int]`
+comparisons of shapes, say; dictionaries that feed error messages and
+the test harness are the reader's to set aside.
 
 This is the audit of docs/perf-checklist.md's S1. Prove it on a known
 positive before trusting its silence anywhere: a module built
@@ -44,6 +55,7 @@ not happen: no `.dump-simpl` file under DUMPS, or a SUBSTRING no module's
 path contains.
 """
 
+import bisect
 import collections
 import os
 import re
@@ -54,16 +66,30 @@ import dumps  # noqa: E402
 
 CLASSES = ('Vector|MVector|Unbox|Storable|Prim|Num|Fractional|Floating|'
            'RealFrac|RealFloat|Real|Integral|Eq|Ord|Enum|Bits|NFData|IsList')
-DICT = re.compile(r'\$f(?:' + CLASSES + r')[A-Z][A-Za-z0-9_]*')
-NAME = re.compile(r"(?:[A-Z][\w']*\.)*(?:[$\w][\w$']*|[!#$%&*+./<=>?\\^|~:-]+)")
+DICT = re.compile(r'\$f(' + CLASSES + r')[A-Z][A-Za-z0-9_]*')
+OPS = r"[!#$%&*+./<=>?\\^|~:-]+"
+# A class's data constructor, an operator's instance method, an identifier
+# with its trailing #s, or an operator, each behind its qualifiers.
+NAME = re.compile(r"(?:[A-Z][\w']*\.)*(?:C:[\w']+|[$\w][\w$']*\$c" + OPS
+                  + r"|[$\w][\w$']*#*|" + OPS + ")")
 NOT_CALLEE = {'case', 'of', 'let', 'in', 'join', 'joinrec', 'letrec', 'jump',
               'forall', 'cast', '__DEFAULT', 'type', 'ww', 'wild',
               '->', '=', '\\', '::', '.', '|'}
 # A name's package and module qualifiers, `vector-0.13.2.0-28fe:Data.Vector.`.
 QUAL = r"(?:[\w.'-]+:)?(?:[A-Z][\w']*\.)*"
-LAMBDA = re.compile(r'\\\s((?:[^-]|-(?!>))*?)->')
-LAMBDA_DICT = re.compile(r"(?<![\w$'])(\$d(?!IP)[A-Za-z0-9_]+|irred[0-9]*)"
-                         r"(?![\w$'])")
+# A dictionary or a dictionary variable, but not an instance method.
+OTHER_DICT = re.compile(QUAL + r"\$[fd](?:(?!\$c)[\w$])*"
+                        r"(?![\w$'!#%&*+./<=>?\\^|~:-])")
+LAMBDA_DICT = re.compile(r"\$d(?!IP)[A-Za-z0-9_]+|irred[0-9]*")
+# A top-level `$f` binding's name at column 0, and its type where the
+# signature shares the line.
+SIG = re.compile(r"(" + QUAL + r"\$f[\w$']*)(?:\s+::\s+(.*))?$")
+FORALL = re.compile(r"\s*forall\b(?:\s*(?:\([^()]*\)|\{[^{}]*\}|[\w']+))*"
+                    r"\s*\.")
+HEAD = re.compile(r"[(\s]*" + QUAL + r"([\w']+#*)")
+# A lambda's binder: its parentheses, or a bare name.
+PAREN = re.compile(r'[()]')
+BARE = re.compile(r"@?[\w$'][\w$'#]*")
 
 
 def bare(prefix):
@@ -71,8 +97,41 @@ def bare(prefix):
     dictionaries and literals removed."""
     prefix = re.sub(r'@\([^()]*\)', ' ', prefix)
     prefix = re.sub(r'@\S+', ' ', prefix)
-    prefix = re.sub(QUAL + r'\$[fd][A-Za-z0-9_$]*', ' ', prefix)
+    prefix = OTHER_DICT.sub(' ', prefix)
     return re.sub(r'"[^"]*"|\b\d[\w.#]*', ' ', prefix)
+
+
+def signatures(lines):
+    """{name: type} of the `$f` bindings a dump defines at top level, by the
+    name its module prints them with, the type's lines joined."""
+    sigs = {}
+    for i, line in enumerate(lines):
+        if '$f' not in line or line[:1].isspace():
+            continue
+        m = SIG.match(line)
+        if not m:
+            continue
+        if m.group(2) is not None:
+            parts, j = [m.group(2)], i + 1
+        elif i + 1 < len(lines) and lines[i + 1].lstrip().startswith(':: '):
+            parts, j = [lines[i + 1].lstrip()[3:]], i + 2
+        else:
+            continue
+        while j < len(lines) and lines[j][:1].isspace() and lines[j].strip():
+            parts.append(lines[j].strip())
+            j += 1
+        sigs[m.group(1)] = ' '.join(parts)
+    return sigs
+
+
+def type_head(ty):
+    """The head of a type, behind its foralls and its context, or None."""
+    m = FORALL.match(ty)
+    while m:
+        ty = ty[m.end():]
+        m = FORALL.match(ty)
+    m = HEAD.match(ty.rsplit('=>', 1)[-1])
+    return m.group(1) if m else None
 
 
 def indent(line):
@@ -97,24 +156,70 @@ def callee(lines, i, col):
     names = NAME.findall(prefix)
     if not names or names[-1] in NOT_CALLEE:
         return None
+    # A constructor stores the dictionary and runs nothing with it.
+    if re.sub(r"^(?:[A-Z][\w']*\.)*", '', names[-1]).startswith((':', 'C:')):
+        return None
     return names[-1]
 
 
-def audit(txt, ignore):
+def binders(txt, k):
+    """[(name, type or None)] of the lambda whose binders start at offset k,
+    read to the `->` outside them, whatever lines they run onto."""
+    out = []
+    while True:
+        while k < len(txt) and txt[k] in ' \n':
+            k += 1
+        if k >= len(txt) or txt.startswith('->', k):
+            return out
+        if txt[k] == '(':
+            depth = 0
+            for p in PAREN.finditer(txt, k):
+                depth += 1 if p.group() == '(' else -1
+                if depth == 0:
+                    break
+            else:
+                return out
+            name, sep, ty = txt[k + 1:p.start()].partition(' :: ')
+            out.append((name.split()[0] if name.split() else '',
+                        ' '.join(ty.split()) if sep else None))
+            k = p.end()
+        else:
+            m = BARE.match(txt, k)
+            if not m:
+                return out
+            out.append((m.group(), None))
+            k = m.end()
+
+
+def audit(txt, ignore, resolve=lambda module: None):
     """(Counter of (callee, dictionary), {key: first line}, Counter of
-    (binding, argument), {key: first line}) of one dump."""
+    (binding, argument, its type), {key: first line}) of one dump. resolve
+    gives the signatures of another module of the tree, by its name, or
+    None."""
     calls, lams = collections.Counter(), collections.Counter()
     first_call, first_lam = {}, {}
     lines = txt.split('\n')
-    cur = None
+    sigs = signatures(lines)
+    owner, cur = [], None
     for i, line in enumerate(lines):
         if (line and not line[0].isspace() and not line.startswith(
                 ('Rec {', 'end Rec', '--', '====', 'Result size'))):
             cur = line.split()[0]
+        owner.append(cur)
         for m in DICT.finditer(line):
-            if m.start() == 0 or line[m.end():].startswith('$c'):
+            qual = re.search(QUAL + '$', line[:m.start()]).group()
+            # The binding's own name, in its signature or its definition.
+            if (re.fullmatch(QUAL, line[:m.start()])
+                    or line[m.end():].startswith('$c')):
                 continue
             if any(re.search(r, m.group(0)) for r in ignore):
+                continue
+            # A binding GHC floated out of a dictionary takes its name.
+            ty = sigs.get(qual + m.group(0))
+            module = qual.split(':')[-1]
+            if ty is None and qual:
+                ty = (resolve(module[:-1]) or {}).get(module + m.group(0))
+            if ty is not None and type_head(ty) != m.group(1):
                 continue
             c = callee(lines, i, m.start())
             if c is None:
@@ -122,11 +227,20 @@ def audit(txt, ignore):
             key = (c, m.group(0))
             calls[key] += 1
             first_call.setdefault(key, i + 1)
-        for mm in LAMBDA.finditer(line):
-            for a in LAMBDA_DICT.findall(mm.group(1)):
-                key = (cur or '?', re.sub(r'[0-9]+$', '', a))
-                lams[key] += 1
-                first_lam.setdefault(key, i + 1)
+    starts = [0]
+    for line in lines:
+        starts.append(starts[-1] + len(line) + 1)
+    for m in re.finditer(r'\\ ', txt):
+        i = bisect.bisect_right(starts, m.start()) - 1
+        for a, ty in binders(txt, m.end()):
+            if not LAMBDA_DICT.fullmatch(a):
+                continue
+            # An unboxed field a worker took out of a dictionary.
+            if ty is not None and (type_head(ty) or '').endswith('#'):
+                continue
+            key = (owner[i] or '?', re.sub(r'[0-9]+$', '', a), ty)
+            lams[key] += 1
+            first_lam.setdefault(key, i + 1)
     return calls, first_call, lams, first_lam
 
 
@@ -134,15 +248,34 @@ def report(root, sub, ignore):
     """The lines of both lists, the number of findings, and the number of
     modules read."""
     call_lines, lam_lines, found, read = [], [], 0, 0
-    for p, key in dumps.walk(root, '.dump-simpl'):
+    tree, cache = dumps.walk(root, '.dump-simpl'), {}
+
+    def resolve(module):
+        """The signatures of a module of the tree other than key's, or None;
+        where two components hold it, key's own, since flags that differ
+        between them can number the floated bindings differently."""
+        rel = module.replace('.', '/')
+        hits = [(len(os.path.commonprefix([q, key])), p) for p, q in tree
+                if (q == rel or q.endswith('/' + rel)) and q != key]
+        if not hits:
+            return None
+        p = max(hits)[1]
+        if p not in cache:
+            cache[p] = signatures(dumps.read_text(p).split('\n'))
+        return cache[p]
+
+    for p, key in tree:
         if sub is not None and sub not in key:
             continue
         read += 1
-        calls, fc, lams, fl = audit(dumps.read_text(p), ignore)
+        calls, fc, lams, fl = audit(dumps.read_text(p), ignore, resolve)
         for (c, d), n in sorted(calls.items()):
             call_lines.append(f'  {key}  {c}  {d}: {n}, line {fc[(c, d)]}')
-        for (b, a), n in sorted(lams.items()):
-            lam_lines.append(f'  {key}  {b}  {a}: {n}, line {fl[(b, a)]}')
+        for (b, a, t), n in sorted(lams.items(), key=lambda kv: (
+                kv[0][0], kv[0][1], kv[0][2] or '')):
+            ty = '' if t is None else ' :: ' + t
+            lam_lines.append(f'  {key}  {b}  {a}{ty}: {n}, '
+                             f'line {fl[(b, a, t)]}')
         found += len(calls) + len(lams)
     lines = (['== calls handed an instance dictionary '
               '(module, callee, dictionary: count, first line)'] + call_lines
@@ -152,12 +285,17 @@ def report(root, sub, ignore):
 
 
 def self_test():
-    """A client dump with a worker given an instance at run time, calls
-    whose dictionary opens a line, under a case alternative, under a case
-    scrutinee and package-qualified, a shape comparison to ignore, an
-    instance method and a `$f` binding in head position that are no calls,
-    and two bindings polymorphic at run time; a library dump with its own original;
-    and a client dump with nothing to find."""
+    """A client dump with a worker given an instance at run time, calls whose
+    dictionary opens a line, under a case alternative, under a case scrutinee
+    and package-qualified, a shape comparison to ignore, an instance method and
+    a `$f` binding in head position that are no calls, and two bindings
+    polymorphic at run time; then a dictionary of its own and one of the
+    library's, bindings floated out of dictionaries, here and in the library,
+    two instance methods and a name ending in # as callees, two constructors,
+    an unboxed `$d` binder and binders running onto further lines; a library
+    dump with its own original; a component whose floated binding shares its
+    name with another component's dictionary; and a client dump with nothing to
+    find."""
     import tempfile
     head = ('\n==================== Tidy Core ====================\n'
             'Result size of Tidy Core\n  = {terms: 9, types: 1}\n\n')
@@ -185,13 +323,47 @@ def self_test():
         '$fNumSize2 r of\n\n'
         'pkg\n  = Lib.$windex\n'
         '      ghc-internal:GHC.Internal.Foreign.Storable.$fStorableDouble\n'
-        '      ww\n')
-    lib = head + 'Lib.h = \\ (@v) ($dUnbox :: Unbox v) -> Lib.g @v $dUnbox\n'
+        '      ww\n\n'
+        'Client.$fStorableE\n  :: forall a.\n     Num a =>\n'
+        '     Storable (E a)\n'
+        'Client.$fStorableE = Client.mkE\n\n'
+        'Client.$fStorableE5 :: Int\n'
+        'Client.$fStorableE5 = GHC.Types.I# 1#\n\n'
+        'real = \\ (x :: E) -> Lib.peek Client.$fStorableE x\n\n'
+        'aux = \\ (x :: Int) -> Lib.g Client.$fStorableE5 '
+        '(Lib.h Lib.$fNumT3 x)\n\n'
+        'eqw = GHC.Classes.$fEqList_$c== @Word8 GHC.Word.$fEqWord8 a b\n\n'
+        'cmp = GHC.Classes.$fOrdList_$ccompare @Int '
+        'GHC.Classes.$fOrdInt a b\n\n'
+        'ix = Data.Primitive.Types.indexByteArray# @Double '
+        'Data.Primitive.Types.$fPrimDouble ba i\n\n'
+        'r = GHC.Real.:% @Integer GHC.Real.$fEnumRatio1 x\n\n'
+        'Client.$fElemInt :: Elem Int\n'
+        'Client.$fElemInt\n  = Client.C:Elem\n      @Int\n'
+        '      GHC.Real.$fIntegralInt\n\n'
+        't = \\ ($dKnownNat :: GHC.Prim.ByteArray#) -> '
+        'Lib.rotate $dKnownNat\n\n'
+        'multi\n  = \\ (@a)\n      (f :: (a -> a) -> a)\n'
+        '      ($dEq :: Eq a)\n      (y :: a) ->\n      f y\n\n'
+        'srt = Lib.sort Lib.$fOrdT xs\n')
+    lib = head + ('Lib.h = \\ (@v) ($dUnbox :: Unbox v) -> '
+                  'Lib.g @v $dUnbox\n\n'
+                  'Lib.$fNumT3\n  :: Int\nLib.$fNumT3 = GHC.Types.I# 3#\n\n'
+                  'Lib.$fOrdT :: forall a. Ord (T a)\nLib.$fOrdT = Lib.mk\n')
+    # The component's own Shared floated a binding where the other's has
+    # a dictionary of the same name.
+    comp = head + 'c = Shared.k Shared.$fNumT1\n'
+    shared_b = head + 'Shared.$fNumT1 :: Num T\nShared.$fNumT1 = Shared.mk\n'
+    shared_z = head + ('Shared.$fNumT1 :: Int\n'
+                       'Shared.$fNumT1 = GHC.Types.I# 1#\n')
     clean = head + 'ok = \\ (x :: Double) -> GHC.Prim.+## x x\n'
     bad = []
     with tempfile.TemporaryDirectory() as td:
         for rel, text in (('A/build/src/Client.dump-simpl', client),
                           ('A/build/src/Lib.dump-simpl', lib),
+                          ('C/build/b/b-tmp/Shared.dump-simpl', shared_b),
+                          ('C/build/z/z-tmp/Shared.dump-simpl', shared_z),
+                          ('C/build/z/z-tmp/Comp.dump-simpl', comp),
                           ('B/build/src/Clean.dump-simpl', clean)):
             p = os.path.join(td, rel)
             os.makedirs(os.path.dirname(p), exist_ok=True)
@@ -203,15 +375,28 @@ def self_test():
                 '(module, callee, dictionary: count, first line)',
                 '  src/Client  Data.Array.Internal.DynamicU.$wscalar  '
                 '$fUnboxDouble: 1, line 29',
+                '  src/Client  Data.Primitive.Types.indexByteArray#  '
+                '$fPrimDouble: 1, line 57',
+                '  src/Client  GHC.Classes.$fEqList_$c==  $fEqWord8: 1, '
+                'line 53',
+                '  src/Client  GHC.Classes.$fOrdList_$ccompare  $fOrdInt: 1, '
+                'line 55',
                 '  src/Client  Lib.$windex  $fStorableDouble: 1, line 37',
                 '  src/Client  Lib.$wscalar  $fUnboxDouble: 1, line 6',
                 '  src/Client  Lib.k  $fOrdDouble: 1, line 14',
+                '  src/Client  Lib.peek  $fStorableE: 1, line 49',
+                '  src/Client  Lib.sort  $fOrdT: 1, line 76',
                 '== bindings taking a dictionary '
                 '(module, binding, argument: count, first line)',
-                '  src/Client  fam  irred: 1, line 24',
-                '  src/Client  poly  $dNum: 1, line 22']
-        if got != want or found != 6 or read != 1:
+                '  src/Client  fam  irred :: VecElem v Double: 1, line 24',
+                '  src/Client  multi  $dEq :: Eq a: 1, line 70',
+                '  src/Client  poly  $dNum :: Num a: 1, line 22']
+        if got != want or found != 12 or read != 1:
             bad.append(f'client report ({found} found, {read} read):\n  '
+                       + '\n  '.join(got))
+        got, found, _ = report(os.path.join(td, 'C'), 'Comp', [])
+        if found:
+            bad.append("a floated binding resolved in another component:\n  "
                        + '\n  '.join(got))
         got, _, _ = report(A, 'Client', [])
         if not any('GHC.Classes.==  $fEqList_' in x for x in got):
