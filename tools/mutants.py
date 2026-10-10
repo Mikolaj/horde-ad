@@ -633,6 +633,10 @@ MUTANTS = [
      '        if same:\n', '        if False:\n', ST),
     ('rewrite-check message change not reported', 'rewrite-check.py',
      '        if mo != mn and so == sn:\n', '        if False:\n', ST),
+    # rewrite-check-02: an --expect may name either commit of a pair.
+    ('rewrite-check an --expect naming the new commit not taken for its pair',
+     'rewrite-check.py',
+     '        if o in exp or n in exp:\n', '        if o in exp:\n', ST),
     # rewrite-fold-01: the self-test folds two substitutions of one file.
     ('rewrite-fold a second substitution of a file restarts from the old text', 'rewrite-fold.py',
      '                s = s.replace(o, n)\n',

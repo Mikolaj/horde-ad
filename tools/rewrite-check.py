@@ -13,7 +13,8 @@ commit of the old range with no counterpart is dropped, which is expected
 of a `fixup!`, `squash!` or `amend!` commit and of one named by `--expect`,
 and a finding otherwise. Each pair's patch is compared by `git patch-id
 --stable`. Where the two differ the change is
-  expected, the old commit being one an `--expect REV` names;
+  expected, the old commit or the new one paired with it being one an
+    `--expect REV` names;
   context-only, the lines the two patches add and remove being the same,
     only the context around them or their line numbers having moved, which
     is what a commit replayed over an earlier fold looks like; or
@@ -104,8 +105,8 @@ def check(repo, old, new, expect, allow, signed):
         so, mo, ao, po, lo = oi[o]
         sn, mn, an, pn, ln = ni[n]
         tag = f'{o[:9]} -> {n[:9]} {sn}'
-        if o in exp:
-            used.add(o)
+        if o in exp or n in exp:
+            used.update((o, n))
             if po == pn and mo == mn:
                 find(f'expected to change, unchanged: {tag}')
             else:
@@ -238,6 +239,9 @@ def self_test():
         if n or not any(l.startswith('expected ') for l in got) or not any(
                 l.startswith('context-only') for l in got):
             report('the fold', got)
+        got, n = chk([run('rev-parse', 'new~2')], ['a'])
+        if n or not any(l.startswith('expected ') for l in got):
+            report('the fold expected by its new commit', got)
         got, n = chk([c2], [])
         if n != 1 or not any('tree differs: a' in l for l in got):
             report('the fold without --allow-tree', got)

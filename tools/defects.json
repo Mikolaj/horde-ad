@@ -1170,6 +1170,33 @@
    "bug_text": "FINDING added"
   },
   {
+   "id": "rewrite-check-02",
+   "program": "rewrite-check.py",
+   "name": "an --expect naming the rewritten commit rather than the old one was reported as a finding about the rewrite",
+   "family": "two-spellings",
+   "fix_rev": "self",
+   "trigger": "a fold whose changed commit is given to --expect by its new hash",
+   "ok": "the pair counted as expected: no finding, exit 0",
+   "bug": "the pair's patch reported changed and the --expect reported in neither range, exit 1",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Met on 2026-10-10 checking the fold of the sharing_1 fix into orthotope's pr-mikolaj-toVectorListT, the fold's new commit given to --expect.",
+   "plant_cmd": "export GIT_AUTHOR_DATE='1000000000 +0000' GIT_COMMITTER_DATE='1000000000 +0000' && git init -q . && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -q --allow-empty -m base && git tag base && echo 1 > a && git add a && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm 'Add a' && echo b > b && git add b && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm 'Add b' && git branch old && git checkout -q -b new base && echo 2 > a && git add a && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm 'Add a' && git tag newA && echo b > b && git add b && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm 'Add b'",
+   "invoke": [
+    "base..old",
+    "base..new",
+    "--expect",
+    "newA",
+    "--allow-tree",
+    "a"
+   ],
+   "expect_exit": 0,
+   "expect_text": "expected",
+   "bug_exit": 1,
+   "bug_text": "is in neither range"
+  },
+  {
    "id": "rewrite-fold-01",
    "program": "rewrite-fold.py",
    "name": "a second substitution of one file started again from the old text of the file, so only the last substitution of each file reached the new tree",
