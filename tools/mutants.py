@@ -217,6 +217,13 @@ MUTANTS = [
     # check-doc-wrap: "folding BLOCKED back into exit 1"
     ('check-doc-wrap BLOCKED folded back into exit 1', 'check-doc-wrap.py',
      "    return 1 if bad else (2 if blocked else 0)\n", "    return 1 if bad or blocked else 0\n", ST),
+    # check-doc-wrap: a document git does not have yet is judged by its own form.
+    ('check-doc-wrap a new document at neither fixed point passed', 'check-doc-wrap.py',
+     '                  f" --unwrap -i over it, whichever form it is to keep")\n            return 1\n',
+     '                  f" --unwrap -i over it, whichever form it is to keep")\n            return 0\n', ST),
+    ('check-doc-wrap a new document at a fixed point refused', 'check-doc-wrap.py',
+     '              if t == have]\n',
+     '              if False]\n', ST),
     # check-doc-wrap: a fence closed by one of another kind (check-doc-wrap-06)
     ('check-doc-wrap closes a block with a fence of any kind', 'common.py',
      '        elif (m and m.group(2)[0] == fence[0]\n',

@@ -25,9 +25,11 @@ pushes its last words onto the next.
 No width appears here. The number lives in `wrap80` alone, as its name
 and its default, so there is nowhere for a second copy to drift from.
 
-Exit 1 when a document fails -- hand-wrapping found, or a refusal: an
-untracked document, a committed version at neither fixed point, both
-having a fix to name. Exit 2 when nothing could be checked at all
+Exit 1 when a document fails -- hand-wrapping found, or a refusal: a
+committed version at neither fixed point, or a document git does not have
+yet that is itself at neither, both having a fix to name. A document git
+does not have yet passes at either fixed point, its history having no form
+to ask for. Exit 2 when nothing could be checked at all
 (wrap80 missing), which `wrap80 -i` would not fix and which used to be
 misreported: committed_form met the missing tool first and called the
 document "at neither fixed point", so on a wrap80-less machine every
@@ -42,7 +44,8 @@ hand-wrapping; one paragraph left on one line, and one list item joined back to
 one line, pass as mid-edit; a planted "2b." enumerator fails, and one inside a
 fenced or an indented code block does not, a fence line indented four spaces
 being code on either side of a block; a hand-wrapped committed document
-and an untracked one are refused; a committed document checked from its own
+is refused, and an untracked one passes at either fixed point and is
+refused at neither; a committed document checked from its own
 subdirectory passes; a repository tracking no Markdown reports BLOCKED rather
 than "0 of 0 failed"; and a PATH carrying git but no wrap80 reports BLOCKED,
 exit 2. That the self-test bites is mutants.py's to show.
@@ -81,20 +84,27 @@ import common  # noqa: E402
 # fixed point the document is kept in, so `git show HEAD:DOC` answers what two
 # hand-maintained lists used to, and answers it for a document mid-edit too,
 # HEAD being unaffected by the working copy. A document whose committed
-# version is at neither fixed point, and one git does not have, are refused
-# rather than guessed at, exactly as an unlisted one was.
+# version is at neither fixed point is refused rather than guessed at,
+# exactly as an unlisted one was. One git does not have yet has no history
+# to ask, so it passes at either fixed point, both being forms the formatter
+# leaves, and is refused at neither.
 #
 # The lists this replaces named ten documents and had to be added to by hand
 # once per new document, in a repo whose CLAUDE.md is itself one of the ten.
 # Deriving them reproduced all ten, which is the check that let them go.
 
 
-def committed_form(rel):
-    """("--unwrap" flag, name) for the form DOC's last commit is in, or None.
+NEW = "not yet in git"
 
-    None where git has no such file, and where the committed version sits at
-    neither fixed point -- someone else's hand-wrapping, or a document nobody
-    has run the formatter over yet. Both are refusals rather than guesses.
+
+def committed_form(rel):
+    """("--unwrap" flag, name) for the form DOC's last commit is in, NEW, or
+    None.
+
+    NEW where git has no such file, which check() then classifies by the
+    working copy; None where the committed version sits at neither fixed
+    point -- someone else's hand-wrapping, or a document nobody has run the
+    formatter over before committing it. That is a refusal, not a guess.
     A missing or failing wrap80 raises instead (OSError or
     CalledProcessError) and check() reports it as BLOCKED: swallowing it
     here read as "neither fixed point", which diagnoses the document for a
@@ -109,7 +119,7 @@ def committed_form(rel):
                             os.path.join(prefix, rel))],
                        capture_output=True, text=True)
     if p.returncode != 0:
-        return None
+        return NEW
     base = p.stdout
     w = subprocess.run(["wrap80"], input=base, capture_output=True,
                        text=True, check=True).stdout
@@ -187,9 +197,33 @@ def check(doc):
         return 2
     if got is None:
         print(f"FAIL {rel}: its committed version is at neither of wrap80's"
-              f" fixed points, or git has no such file, so the form it keeps"
-              f" cannot be told --- run the formatter over it and commit that")
+              f" fixed points, so the form it keeps cannot be told --- run the"
+              f" formatter over it and commit that")
         return 1
+    if got is NEW:
+        try:
+            forms = [(f, subprocess.run(["wrap80"] + f + [rel],
+                                        capture_output=True, text=True,
+                                        check=True).stdout)
+                     for f in ([], ["--unwrap"])]
+        except OSError:
+            print(f"BLOCKED {rel}: wrap80 is not on PATH, so nothing was"
+                  f" checked")
+            return 2
+        except subprocess.CalledProcessError as e:
+            print(f"BLOCKED {rel}: wrap80 failed ({e.returncode}), nothing"
+                  f" checked")
+            return 2
+        have = open(rel, encoding="utf-8").read()
+        at = [(f, n) for (f, t), n in zip(forms, ("wrapped",
+                                                  "one line per paragraph"))
+              if t == have]
+        if not at:
+            print(f"FAIL {rel}: git does not have it yet, and it is at neither"
+                  f" of wrap80's fixed points --- run wrap80 -i or wrap80"
+                  f" --unwrap -i over it, whichever form it is to keep")
+            return 1
+        got = (at[0][0], at[0][1] + ", " + NEW)
     flag, form = got
     try:
         want = subprocess.run(["wrap80"] + flag + [rel], capture_output=True,
@@ -358,9 +392,16 @@ def self_test():
                    "one line per paragraph")
             code, out = run_check("n.md")
             expect("committed hand-wrapping", code, 1, out, "neither")
-            open("t.md", "w").write(raw)
-            code, out = run_check("t.md")
-            expect("untracked", code, 1, out, "neither")
+            open("t1.md", "w").write(wrapped)
+            code, out = run_check("t1.md")
+            expect("untracked, wrapped", code, 0, out, "not yet in git")
+            open("t2.md", "w").write(open("u.md").read())
+            code, out = run_check("t2.md")
+            expect("untracked, one line per paragraph", code, 0, out,
+                   "not yet in git")
+            open("t3.md", "w").write("# T\n\nalpha\nbeta gamma\ndelta\n")
+            code, out = run_check("t3.md")
+            expect("untracked, hand-wrapped", code, 1, out, "does not have")
 
             lines = wrapped.split("\n")
             k = next(i for i, l in enumerate(lines)
