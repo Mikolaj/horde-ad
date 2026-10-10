@@ -1197,6 +1197,31 @@
    "bug_text": "is in neither range"
   },
   {
+   "id": "rewrite-check-03",
+   "program": "rewrite-check.py",
+   "name": "a patch that changed only in whitespace was counted unchanged, git patch-id --stable stripping whitespace before it hashes",
+   "family": "other:normalised-away",
+   "fix_rev": "self",
+   "trigger": "a rewrite that changes only the indentation of a line a commit adds",
+   "ok": "the pair's patch reported changed, exit 1",
+   "bug": "the pair counted unchanged: no finding, exit 0",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Met on 2026-10-10 checking a fold into orthotope's pr-mikolaj-toVectorListT-fixes that doubled the space after a full stop in a comment: the commit the fold changed was reported expected to change, unchanged. The case plants the other direction, an indentation change nothing expects counted unchanged, which in Haskell can change what a program means.",
+   "plant_cmd": "export GIT_AUTHOR_DATE='1000000000 +0000' GIT_COMMITTER_DATE='1000000000 +0000' && git init -q . && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -q --allow-empty -m base && git tag base && printf 'x\\n  y\\n' > a && git add a && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm 'Add a' && git branch old && git checkout -q -b new base && printf 'x\\n    y\\n' > a && git add a && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm 'Add a'",
+   "invoke": [
+    "base..old",
+    "base..new",
+    "--allow-tree",
+    "a"
+   ],
+   "expect_exit": 1,
+   "expect_text": "patch changed",
+   "bug_exit": 0,
+   "bug_text": "1 unchanged"
+  },
+  {
    "id": "rewrite-fold-01",
    "program": "rewrite-fold.py",
    "name": "a second substitution of one file started again from the old text of the file, so only the last substitution of each file reached the new tree",

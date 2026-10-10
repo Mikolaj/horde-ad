@@ -12,7 +12,7 @@ order, and a commit the rewrite moved with the leftover of its subject; a
 commit of the old range with no counterpart is dropped, which is expected
 of a `fixup!`, `squash!` or `amend!` commit and of one named by `--expect`,
 and a finding otherwise. Each pair's patch is compared by `git patch-id
---stable`. Where the two differ the change is
+--verbatim`, whitespace included. Where the two differ the change is
   expected, the old commit or the new one paired with it being one an
     `--expect REV` names;
   context-only, the lines the two patches add and remove being the same,
@@ -75,7 +75,7 @@ def info(repo, rev):
     fmt = git(repo, 'log', '-1', '--date=raw', '--format=' + FORMAT, rev)
     subject, message, author = fmt.split('\x00')
     patch = git(repo, 'show', '--format=', '--no-color', rev)
-    pid = git(repo, 'patch-id', '--stable', stdin=patch).split()
+    pid = git(repo, 'patch-id', '--verbatim', stdin=patch).split()
     lines, cur = collections.Counter(), None
     for line in patch.split('\n'):
         if line.startswith('diff --git '):
@@ -184,7 +184,8 @@ def self_test():
     commits replayed above it; then the old branch with a fixup the rewrite
     dropped and with a commit nothing expects dropped, and the new one with
     a reworded message and an unexpected edit, unsigned throughout; and a
-    reorder, a commit moved to the tip as it was and then changed."""
+    reorder, a commit moved to the tip as it was and then changed; and a
+    rewrite that changes only a line's indentation."""
     import tempfile
     bad = []
     with tempfile.TemporaryDirectory() as td:
@@ -308,6 +309,16 @@ def self_test():
         if n != 1 or not any('patch changed' in l and 'Add x' in l
                              for l in got):
             report('a moved commit changed unexpectedly', got)
+        # A rewrite that changes only the indentation of a line.
+        for name, indent in (('w1', '  '), ('w2', '    ')):
+            run('checkout', '-q', '-b', name, base)
+            put('w', 'x\n' + indent + 'y\n')
+            run('add', 'w')
+            commit('Add w', '1000000900 +0000')
+        got, n = check(td, f'{base}..w1', f'{base}..w2', [], ['w'], False)
+        if n != 1 or not any('patch changed' in l and 'Add w' in l
+                             for l in got):
+            report('a change of whitespace alone', got)
         if main(['-C', td, f'{base}..nosuch', NEW]) != 2:
             bad.append('a range git cannot resolve did not exit 2')
         if main(['-C', td, f'{base}..{base}', NEW]) != 2:
