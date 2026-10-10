@@ -1,5 +1,5 @@
 {-# OPTIONS_GHC -Wno-missing-export-lists #-}
--- | A set of benchmarks using fully connected MNIST neural networks.
+-- | A set of benchmarks using MNIST neural networks.
 module BenchMnistTools where
 
 import Prelude
@@ -29,6 +29,7 @@ import MnistData
 import MnistFcnnRanked1 qualified
 import MnistFcnnRanked2 (XParams2)
 import MnistFcnnRanked2 qualified
+import MnistRnnRanked2 qualified
 
 -- * Using lists of vectors, which is rank 1
 
@@ -340,6 +341,45 @@ mnistBGroup2VTC chunkLength =
        , mnistTrainBench2VTC "300|100 " 300 100
        , mnistTrainBench2VTC "500|150 " 500 150
        , mnistTrainBench2VTC "1500|500 " 1500 500
+       ]
+
+-- Only compilation time: the recurrent net's gradient artifact, built
+-- and simplified as the RNNRO test builds it.
+mnistTrainBenchRNNRVTC
+  :: String -> Int -> [MnistDataR Double] -> Benchmark
+mnistTrainBenchRNNRVTC prefix width0 xs =
+  bench prefix $ whnf artifact width0
+ where
+  miniBatchSize = length xs
+  (glyphs, labels) = mkMnistDataBatchR xs
+  dataInit = (rconcrete glyphs, rconcrete labels)
+  artifact width = withSNat width $ \(SNat @width) ->
+    let targetInit =
+          forgetShape $ fst
+          $ randomValue
+              @(Concrete (X (MnistRnnRanked2.ADRnnMnistParametersShaped
+                               Concrete width Double)))
+              0.23 (mkStdGen 44)
+        f :: ( MnistRnnRanked2.ADRnnMnistParameters
+                 (AstTensor AstMethodLet FullSpan) Double
+             , ( AstTensor AstMethodLet FullSpan (TKR 3 Double)
+               , AstTensor AstMethodLet FullSpan (TKR 2 Double) ) )
+          -> AstTensor AstMethodLet FullSpan (TKScalar Double)
+        f (pars, (glyphR, labelR)) =
+          MnistRnnRanked2.rnnMnistLossFusedR
+            miniBatchSize (rprimalPart glyphR, rprimalPart labelR) pars
+    in simplifyArtifactRev $ gradArtifact f (fromTarget targetInit, dataInit)
+
+mnistBGroupRNNRVTC :: Int -> Benchmark
+mnistBGroupRNNRVTC chunkLength =
+  env (do
+    testData0 <- loadMnistData testGlyphsPath testLabelsPath  -- 10k total
+    let testData = shuffle (mkStdGen 42) testData0
+    return $! map mkMnistDataR $ take chunkLength testData) $
+  \ xs ->
+  bgroup ("RNNR VTC compilation MNIST nn with samples: " ++ show chunkLength)
+       [ mnistTrainBenchRNNRVTC "32 " 32 xs
+       , mnistTrainBenchRNNRVTC "128 " 128 xs
        ]
 
 -- The same as above, but only runtime.
