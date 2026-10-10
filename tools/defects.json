@@ -1170,6 +1170,21 @@
    "bug_text": "FINDING added"
   },
   {
+   "id": "rewrite-fold-01",
+   "program": "rewrite-fold.py",
+   "name": "a second substitution of one file started again from the old text of the file, so only the last substitution of each file reached the new tree",
+   "family": "other:restarted-from-the-source",
+   "fix_rev": "self",
+   "trigger": "two SUBS of one path whose commits both precede or are a commit of the chain",
+   "ok": "both substitutions in the new tree of every commit they reach",
+   "bug": "the earlier substitution missing from the new tree, with no message and exit 0",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Met on 2026-10-09 in the session script this tool grew from, folding orthotope's review fixes into pr-mikolaj-toVectorListT; the net diff between the old and the new tip showed the loss before any ref moved. The self-test's fold of two substitutions of one file is the case, and the first rewrite-fold mutant reproduces the bug.",
+   "no_audit": "other:fixed-before-the-program-entered-this-tree"
+  },
+  {
    "id": "ticky-diff-01",
    "program": "ticky-diff.py",
    "name": "the row regex's optional arg-kinds word swallowed the first word of the closure name when a closure has no non-void argument, so every such closure was keyed by its unique and never matched between two builds",
