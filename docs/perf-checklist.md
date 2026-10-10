@@ -102,7 +102,9 @@ Not a check: the conditions every timing below assumes.
   file's and the shim (`bench/CLAUDE.md`). Never `-fno-full-laziness`
   with `-fno-cse`, which GHC
   [#27886](https://gitlab.haskell.org/ghc/ghc/-/work_items/27886) miscompiles;
-  keep iterations from sharing work by a NOINLINE `perturb i x` instead.
+  keep iterations from sharing work by a NOINLINE `perturb i x` instead, whose
+  result depends on `i`: one ignoring `i` let 2000 iterations share one call,
+  allocating barely more than 100 did.
 - Fusion and sharing can delete the work being measured: a `length` let fusion
   skip building the vector, a `take . generate` control fused, and four
   identical parts were computed once. Feed distinct inputs and consume the whole
