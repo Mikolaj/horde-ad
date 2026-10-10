@@ -25,8 +25,8 @@ with `T=~/r/horde-ad/tools`, wherever the session's wrapper mounts
    HEAD configuration (orthotope's is `cabal.project.local.head`), unless
    the project's notes name another; a released GHC is built only where a check
    says so.
-2. The static checks, which build nothing: A2, W1, W3, W4, and the source halves
-   of I1 and L1.
+2. The static checks, which build nothing: A2, I4, W1, W3, W4, and the source
+   halves of I1 and L1.
 3. The dump builds of the tip and, where a check compares, of the base (D
    below), backgrounded.
 4. The Core checks over those dumps: S1, S2, I1, I2, L1, L2 and C1, and the rule
@@ -212,13 +212,24 @@ derived from an `INLINABLE` one, the partial specialisation of GHC
 [#23050](https://gitlab.haskell.org/ghc/ghc/-/work_items/23050), and
 not for orthotope's fill, which had no pragma at all (S1's variant C).
 
-- **Where the callers' speed is protected, every overloaded function they reach
-  at known types carries `INLINE` or `INLINABLE`**, or a reason recorded beside
-  the code, a commit message not counting, that it needs neither, such
-  as an O(1) function GHC inlines unasked or a measurement that specialising
-  it buys nothing. `python3 $T/pragma-census.py SRC` lists the overloaded
-  bindings that carry no pragma, and S1's audit which callers still pass
-  a dictionary.
+- **Where the callers' speed is protected, a binding needs `INLINE` where
+  inlining alone gives it something**: its type takes an argument of function
+  type, which inlining makes a known call; it is directly fusing (F1);
+  or a measurement shows another of I3's gains. **A binding that forwards to one
+  needing `INLINE` needs it too**: its body calls that binding and its own type
+  carries the function or the list that makes the callee need it, so
+  that the gain reaches the caller through every link. A recursive binding takes
+  a non-recursive `INLINE` wrapper over it instead (I2). **Otherwise a binding
+  gets `INLINABLE` where it is overloaded**, by a class constraint
+  in its signature, in its instance's context or in its class method's own type,
+  `HasCallStack`, equalities, `TypeError` and type-level comparisons
+  not counting, **and otherwise no pragma**. A need for `INLINE` that the type
+  does not show, and any departure from this, stands only under a plain comment
+  directly above the binding's haddock that names its pragma and cites
+  the measurement or reading behind it, a commit message not counting; a module
+  comment saying a layer is INLINE throughout covers that layer's top-level
+  `INLINE`s, as I3 allows where its callers are `INLINABLE`. I4 checks a tree
+  against this.
 - **Where their speed is tradable,** a pragma is a trade like any other and pays
   for itself or goes, as in the half above. Opting a module out
   of `-fexpose-overloaded-unfoldings` is itself such a trade: compile time saved
@@ -395,6 +406,31 @@ is copied once per type, into their specialised copies, not at every call site,
 so such a layer can be `INLINE` throughout. The trade is weighed by P. GHC's
 `inline` at one call site is the per-site alternative to a pragma.
 
+### I4. Pragma by P's rule: does each binding carry the pragma P gives it?
+
+**Catches** a binding whose pragma differs from what P's rule gives it
+with no comment saying why: one missing, one superfluous or one of the wrong
+kind, a forwarder's included. **Seen:** orthotope's boxed `fmap`, `foldr`
+and `traverse` forwarded a caller's function to `mapA`, `foldrA` and `traverseA`
+with no pragma, and the list instance of `Vector` took function arguments
+with none.
+
+**Recipe:**
+
+- `python3 $T/pragma-census.py --rule SRC` lists every top-level function
+  with a signature and every instance method whose pragma differs from P's rule
+  with no comment above its haddock naming one, the recursive bindings the rule
+  would make `INLINE`, the methods of classes whose method types it does
+  not know, and the bindings whose comment names F1 but which hand their list
+  to a tree binding, the innermost being the one to carry it; a class's default
+  methods it does not read.
+- `python3 $T/pragma-census.py SRC` lists only the overloaded bindings
+  that carry no pragma.
+- S1's audit shows which callers still pass a dictionary at run time.
+
+**Read:** by P: settle each finding by changing its pragma, an existing one
+as P's rule on removing pragmas says, or by writing the comment P asks for.
+
 ## F. Fusion
 
 ### F1. List fusion (foldr/build)
@@ -419,11 +455,16 @@ it was not meant for: allocation rose 160 times on views of runs in one variant.
   by `ab-time.py`, allocates nothing per element when fused. Measure every route
   of a dispatching producer.
 
-**Read:** the producer must be INLINE (I3) and reach the consumer in one
-expression. P overrides this: a pragma that blocks the fusion stays where
-a measurement shows the speed or the Core size needs it, and a comment beside
-the pragma cites that measurement. A count that falls may only have lost
-a duplicated consumer, so read it against `core-diff.py`.
+**Read:** a binding is directly fusing when its own body holds the `build`
+or `augment` of its list result, or the `foldr` that consumes its list argument
+once, written there or inside a function outside the tree defined by it, such
+as `all` or `sum`, and the recipe shows `fold/build` firing where it is inlined
+beside its counterpart; one handing the list to a tree binding that does so
+is a forwarder, and one applying its `foldr` to a call's list is where
+the fusion happens and needs nothing for it. The comment P asks of a directly
+fusing binding names F1. P says what that asks of it and of the bindings
+forwarding to it. A count that falls may only have lost a duplicated consumer,
+so read it against `core-diff.py`.
 
 ### F2. Vector stream fusion, and fusion that costs without SpecConstr
 
@@ -794,7 +835,8 @@ without `--allow`, exits 0 whatever it printed, its candidates being
 for the reader.
 
 - `tools/pragma-census.py` lists the overloaded functions and instance methods
-  of a source tree that carry no pragma (P).
+  of a source tree that carry no pragma, and with `--rule` every one whose
+  pragma differs from what P's rule gives it, a forwarder's included (I4).
 - `tools/spec-audit.py` lists the calls in optimised Core that hand a function
   an instance dictionary, by callee, and the bindings that take a dictionary
   as a lambda argument: code running unspecialised (S1).
