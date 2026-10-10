@@ -1057,4 +1057,10 @@ MUTANTS = [
     ('pragma-census nested parentheses cut at the first', 'pragma-census.py',
      '            if depth == 0:\n                return j + 1\n',
      "            if s[j] == ')':\n                return j + 1\n", ST),
+    # pragma-census-01, watched failing its self-test before it was written
+    # down here.
+    ("pragma-census a rank-2 argument's context taken for the signature's",
+     'pragma-census.py',
+     "        if depth == 0 and sig.startswith('=>', i):\n",
+     "        if sig.startswith('=>', i):\n", ST),
 ]

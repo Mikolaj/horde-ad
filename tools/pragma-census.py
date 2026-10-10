@@ -15,7 +15,8 @@ to specialise, so a signature or an instance with only those is passed over,
 as are a `TypeError` instance, whose methods cannot be called, and a method
 defined as `undefined`.
 
-A signature may span lines, its context running to `=>`; a method may be
+A signature may span lines, its context running to the first `=>` outside
+parentheses, a rank-2 argument's context being its own; a method may be
 defined prefix, as an operator section, `(<*>) = ...`, or infix, `x == y` or
 `` a@(T x) `compare` b ``, and on the instance's own line after its `where`;
 an instance head may span lines too, and only the lines at the body's own
@@ -73,6 +74,18 @@ def constraints(ctx):
             and not p.strip().startswith('TypeError') and '<=' not in p]
 
 
+def context(sig):
+    """The context of a signature, before its first `=>` outside parentheses
+    and brackets, or None where it has none."""
+    depth = 0
+    for i, ch in enumerate(sig):
+        depth += ch in '(['
+        depth -= ch in ')]'
+        if depth == 0 and sig.startswith('=>', i):
+            return sig[:i]
+    return None
+
+
 def pattern_end(s):
     """Where the first pattern of a definition ends: a variable or constructor,
     or a parenthesised pattern, either behind an as-pattern's `x@`."""
@@ -127,8 +140,9 @@ def census(text):
                    and not lines[j].strip().startswith('--')):
                 sig += ' ' + lines[j]
                 j += 1
-            if '=>' in sig:
-                cs = constraints(sig.split('=>')[0])
+            ctx = context(sig)
+            if ctx is not None:
+                cs = constraints(ctx)
                 for name in re.split(r'\s*,\s*', m.group(1).strip()):
                     name = name.strip('()')
                     if cs and name not in module_pragmas:
@@ -274,13 +288,18 @@ def self_test():
            'instance Arbitrary a => Arbitrary (V a) where\n'
            '  arbitrary = do\n'
            '    x <- arbitrary\n'
-           '    return (V x)\n')
+           '    return (V x)\n'
+           'withRank :: Int -> (forall n . KnownNat n => Proxy n -> r) -> r\n'
+           'withRank = undefined\n'
+           'hr :: Num a => (forall n . KnownNat n => Proxy n -> a) -> a\n'
+           'hr = undefined\n')
     want = ['== overloaded functions without a pragma'
             ' (file:line name [context])',
             '  M.hs:4 g [Num a]',
             '  M.hs:8 k [Show a]',
             '  M.hs:53 q1 [Num a]',
             '  M.hs:53 q2 [Num a]',
+            '  M.hs:77 hr [Num a]',
             '== overloaded instance methods without a pragma'
             ' (class: file:line method)',
             '  Arbitrary: M.hs:72 arbitrary',
@@ -304,7 +323,7 @@ def self_test():
             fh.write('module N where\n{-# INLINE n #-}\n'
                      'n :: Num a => a\nn = 0\n')
         got, nbad, nfiles = report(os.path.join(td, 'S'))
-        if got != want or (nbad, nfiles) != (14, 1):
+        if got != want or (nbad, nfiles) != (15, 1):
             bad.append(f'report ({nbad}, {nfiles}):\n  ' + '\n  '.join(got))
         for d, code, why in (('S', 1, 'bindings without a pragma'),
                              ('E', 2, 'a tree without .hs files'),

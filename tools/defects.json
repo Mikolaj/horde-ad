@@ -3588,6 +3588,28 @@
    ],
    "bug_exit": 0,
    "bug_text": "    4  terms     2123  $s$wrotate"
+  },
+  {
+   "id": "pragma-census-01",
+   "program": "pragma-census.py",
+   "name": "a signature taking a rank-2 function with a context of its own, Int -> (forall n . KnownNat n => Proxy n -> r) -> r, was read as having that context, cut at its =>, and listed",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "withRank :: Int -> (forall n . KnownNat n => Proxy n -> r) -> r",
+   "ok": "nothing listed, exit 0",
+   "bug": "withRank [Int -> (forall n . KnownNat n] listed, exit 1",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-10 running docs/perf-checklist.md P's command over orthotope pr-mikolaj-toVectorListT at c21e8ad6, in tests/RankedGTest.hs.",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\nwithRank :: Int -> (forall n . KnownNat n => Proxy n -> r) -> r\nwithRank = undefined\nEOF",
+   "invoke": [
+    "{tmp}/S"
+   ],
+   "expect_exit": 0,
+   "expect_text": "== overloaded instance methods without a pragma",
+   "bug_exit": 1,
+   "bug_text": "withRank [Int -> (forall n . KnownNat n]"
   }
  ]
 }
