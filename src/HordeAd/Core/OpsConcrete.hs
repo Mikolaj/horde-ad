@@ -333,14 +333,15 @@ instance BaseTensor Concrete where
     --
     -- Benchmarks indicate this lowers allocation considerably, but increases
     -- runtime just as considerably, so it's disabled for now.
-  -- The operations of this module that dispatch on the element type with
-  -- typeRep, directly or through contFromTypeable or contFromTKAllNum,
-  -- keep their INLINE, the local casts' too, so that a caller at known
-  -- types gets one monomorphic kernel instead of the dispatch running in
-  -- one generic compiled copy at every call. Without them, but with the
-  -- higher-order operations' pragmas (tscan has the setup), CAFlessTest
-  -- allocates 382.7 GB instead of 372.1 GB and its mutator time is 2.6%
-  -- higher, while the package builds in 1751 s instead of 2016 s.
+  -- INLINE: I3. The operations of this module that dispatch on the
+  -- element type with typeRep, directly or through contFromTypeable or
+  -- contFromTKAllNum, keep their INLINE, the local casts' too, so that
+  -- a caller at known types gets one monomorphic kernel instead of the
+  -- dispatch running in one generic compiled copy at every call. Without
+  -- them, but with the higher-order operations' pragmas (tscan has the
+  -- setup), CAFlessTest allocates 382.7 GB instead of 372.1 GB and its
+  -- mutator time is 2.6% higher, while the package builds in 1751 s instead
+  -- of 2016 s.
   {-# INLINE tkcast #-}
   tkcast @r1 @r2 a =
     let cast :: (Differentiable r1', Differentiable r2')

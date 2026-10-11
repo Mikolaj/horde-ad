@@ -48,26 +48,32 @@ binding, by its name in its own module, in one it imports unqualified
 or through a qualified alias, a module defining no such name followed
 through its unqualified imports as a facade re-exports them, and its type
 shares a list type with it. The
-INLINE bindings a comment above them explains need it, which is how a
-directly fusing one is told, and so, to a fixed point, does each forwarder.
+INLINE bindings whose comment above them gives P's reason for it need it,
+which is how a directly fusing one is told, and so, to a fixed point, does
+each forwarder.
 A binding whose comment names F1 but whose body hands a list of its type
 to a tree binding is listed too: the innermost binding should carry it.
 It lists each binding whose pragma differs, unless a plain comment directly
 above its haddock, or for a method above the method or its instance or
-class, a default method's signature too, names a pragma (INLINE, INLINABLE,
-NOINLINE or "pragma"), a declaration covers it, or the pragma has a phase;
+class, a default method's signature too, gives P's reason, a declaration
+covers it, or the pragma has a phase;
 the recursive bindings the rule makes INLINE that carry INLINE, which want
 a wrapper over a worker instead, a body naming its own name outside string
 literals being recursive; and the methods of classes whose method types
 it does not know. A method defined
 as `undefined` or `error ...` is passed over.
 
+P's reason is a comment whose first line opens with the pragma the binding
+carries, or with No pragma for none, and a colon, `-- INLINE:`, and which
+cites one of the checks I1, I2, I3, F1, S2, W3 and W4, a GHC version,
+HEAD included, with a date, or, saying see, another comment.
+
 A declaration is a comment saying INLINE throughout, INLINABLE (or
 INLINEABLE) throughout or No pragma throughout. In the module's header,
 above its `module` line, it covers each binding of the module carrying
 that pragma, or none; directly above an instance or class, each of its
-methods, overriding the module's there, and it is then no note for them:
-a method carrying another pragma is held to the rule and its own comment.
+methods, overriding the module's there. A binding carrying another pragma
+is held to the rule and its own comment.
 
 Exit 0 when every overloaded binding carries a pragma, or with `--rule`
 when nothing differs, 1 when one does not, 2 when SRC holds no `.hs` file.
@@ -456,10 +462,12 @@ def want(ty, overloaded_too):
 
 def plain_lines(lines, i):
     """The plain comment lines directly above line i, above the pragmas and
-    the haddock directly above it."""
+    the haddock directly above it, those at line i's own indentation:
+    a deeper one ends the body above."""
     k = i - 1
-    while k >= 0 and (lines[k].lstrip().startswith('{-#')
-                      or lines[k].lstrip().startswith('--')):
+    while k >= 0 and indent(lines[k]) == indent(lines[i]) and (
+            lines[k].lstrip().startswith('{-#')
+            or lines[k].lstrip().startswith('--')):
         k -= 1
     block = [x.lstrip() for x in lines[k + 1:i]]
     plain, inside = [], False
@@ -478,6 +486,30 @@ def noted(lines, i, pat=NOTE):
     pat."""
     plain = plain_lines(lines, i)
     return any(pat.search(x) for x in plain)
+
+
+LEAD = re.compile(r'--\s*(INLINE(?: \[~?\d+\])?|INLINABLE|INLINEABLE|NOINLINE'
+                  r'|SPECIALI[SZ]E|No pragma):')
+CITE = re.compile(r'\b(?:I[123]|F1|S2|W[34])\b|\bsee\b')
+VERSION = re.compile(r'\bGHC (?:\d+\.\d+[\d.]*|HEAD)\b')
+DATE = re.compile(r'\b\d{4}-\d{2}-\d{2}\b')
+
+
+def reasoned(lines, i, has):
+    """Whether the plain comment above line i gives the reason P asks of a
+    binding carrying has: its first line opens with that pragma, or with
+    No pragma for none, and a colon, and it cites one of the checks, a GHC
+    version with a date, or, saying see, another comment."""
+    plain = plain_lines(lines, i)
+    m = LEAD.match(plain[0]) if plain else None
+    if not m:
+        return False
+    lead = re.sub(r' \[.*', '', m.group(1))
+    lead = {'INLINEABLE': 'INLINABLE', 'SPECIALISE': 'INLINABLE',
+            'SPECIALIZE': 'INLINABLE', 'No pragma': 'none'}.get(lead, lead)
+    text = ' '.join(plain)
+    cited = CITE.search(text) or (VERSION.search(text) and DATE.search(text))
+    return lead == has and bool(cited)
 
 
 DECL = re.compile(r'\b(INLINE|INLINABLE|INLINEABLE|[Nn]o pragma) throughout\b')
@@ -585,7 +617,7 @@ def forwarding(texts):
                 name = name.strip('()')
                 table[(mod, name)] = (
                     lists_of(body_type(sig)),
-                    kinds.get(name) == 'INLINE' and noted(lines, i),
+                    kinds.get(name) == 'INLINE' and reasoned(lines, i, 'INLINE'),
                     definition(lines, j, name))
                 where[(mod, name)] = (path, i, noted(lines, i, F1NOTE))
 
@@ -653,11 +685,12 @@ def rule_check(text, classes, fwd=None):
     mdecl = declared([x for x in lines[:start] if x.lstrip().startswith('--')])
     off, rec, unknown = [], [], []
 
-    def judge(n, name, has, phased, ty, over, note, extra=(), decl=mdecl):
+    def judge(n, name, has, phased, ty, over, notes, extra=(), decl=mdecl):
         if phased:
             return
         has = {'INLINEABLE': 'INLINABLE', 'SPECIALISE': 'INLINABLE',
                'SPECIALIZE': 'INLINABLE'}.get(has, has)
+        note = any(reasoned(lines, x, has) for x in notes)
         w, why = want(ty, over)
         why = why + list(extra)
         if w != 'INLINE' and (mod, name) in fwd:
@@ -680,18 +713,17 @@ def rule_check(text, classes, fwd=None):
                 name = name.strip('()')
                 recursive_here[name] = recursive(lines, j, name)
                 has, phased = kinds.get(name, ('none', False))
-                judge(i, name, has, phased, sig, False, noted(lines, i))
+                judge(i, name, has, phased, sig, False, [i])
             i = j
             continue
         if re.match(r'^class\b', line):
             cls, dm, k = defaults(lines, i)
             cdecl = declared(plain_lines(lines, i))
-            cls_note = cdecl is None and noted(lines, i)
             for n, name, sn, p in dm:
                 has, phased = p or ('none', False)
                 judge(n, f'{cls}.{name}', has, phased,
                       classes.get(cls, {}).get(name, ''), True,
-                      cls_note or noted(lines, n) or noted(lines, sn),
+                      [i, n, sn],
                       ['default method'], mdecl if cdecl is None else cdecl)
             i = k
             continue
@@ -708,7 +740,6 @@ def rule_check(text, classes, fwd=None):
                     for p in KINDS.finditer(b):
                         pk[p.group(3)] = (p.group(1), bool(p.group(2)))
                 hdecl = declared(plain_lines(lines, i))
-                head_note = hdecl is None and noted(lines, i)
                 seen = set()
                 for n, b in body:
                     name = method_name(b)
@@ -724,7 +755,7 @@ def rule_check(text, classes, fwd=None):
                         continue
                     has, phased = pk.get(name, ('none', False))
                     judge(n, f'{cls}.{name}', has, phased, ty, over,
-                          head_note or noted(lines, n), (),
+                          [i, n], (),
                           mdecl if hdecl is None else hdecl)
             i = k
             continue
@@ -756,7 +787,7 @@ def report_rule(src):
         off += [(rel, *x) for x in o]
         rec += [(rel, *x) for x in r]
         unknown += [(rel, *x) for x in u]
-    out = ['== pragma unlike the rule and no comment above naming one'
+    out = ['== pragma unlike the rule and no comment above in its form'
            ' (file:line name: has -> wants [why])']
     out += [f'  {rel}:{n} {name}: {has} -> {w} [{", ".join(why)}]'
             for rel, n, name, has, w, why in off]
@@ -976,13 +1007,13 @@ def self_test_rule():
            '{-# INLINE f5 #-}\n'
            'f5 :: Num a => T a -> a\n'
            'f5 = sumT\n'
-           '-- INLINE: measured faster.\n'
+           '-- INLINE: I3, measured faster.\n'
            '-- | Doc.\n'
            '{-# INLINE f6 #-}\n'
            'f6 :: Num a => T a -> a\n'
            'f6 = sumT\n'
            '-- | Doc,\n'
-           '-- its second line saying INLINE.\n'
+           '-- INLINE: I3, its second line in the form.\n'
            '{-# INLINE f7 #-}\n'
            'f7 :: Num a => T a -> a\n'
            'f7 = sumT\n'
@@ -1023,7 +1054,10 @@ def self_test_rule():
            '  vlen = lenT\n'
            'instance Show (T a) where\n'
            '  showsPrec _ _ = id\n'
-           '-- No pragma: reference semantics.\n'
+           '    -- INLINE: I3, a comment ending the body above.\n'
+           '  {-# INLINE show #-}\n'
+           '  show _ = ""\n'
+           '-- No pragma: reference semantics, on GHC 9.14.1 (2026-10-11).\n'
            'instance Functor U where\n'
            '  fmap = mapU\n'
            'instance Foo T where\n'
@@ -1051,12 +1085,12 @@ def self_test_rule():
            '  d4 = show\n'
            '  d6 :: a -> a\n'
            '  d6 = undefined\n'
-           '  -- INLINE: measured faster.\n'
+           '  -- INLINE: I3, measured faster.\n'
            '  {-# INLINE d7 #-}\n'
            '  d7 :: a -> String\n'
            '  d7 = show\n'
            '  d8 :: a -> String\n'
-           '  -- INLINE: measured faster, said above the definition.\n'
+           '  -- INLINE: I3, measured faster, said above the definition.\n'
            '  {-# INLINE d8 #-}\n'
            '  d8 = show\n'
            '-- a comment at column 0 inside the class\n'
@@ -1065,11 +1099,39 @@ def self_test_rule():
            '  d9 x _ = x\n'
            'instance Show b => Dflt [b] where\n'
            '  d2 = concatMap show\n'
-           '-- INLINE: measured faster, said of the class.\n'
+           '-- INLINE: I3, measured faster, said of the class.\n'
            'class Dnote a where\n'
            '  {-# INLINE dn #-}\n'
            '  dn :: a -> String\n'
-           '  dn _ = ""\n')
+           '  dn _ = ""\n'
+           '-- INLINE: measured faster, citing nothing.\n'
+           '{-# INLINE s1 #-}\n'
+           's1 :: Num a => T a -> a\n'
+           's1 = sumT\n'
+           '-- INLINABLE: I3, the lead naming another pragma.\n'
+           '{-# INLINE s2 #-}\n'
+           's2 :: Num a => T a -> a\n'
+           's2 = sumT\n'
+           '-- Measured faster, the pragma not leading:\n'
+           '-- INLINE: I3.\n'
+           '{-# INLINE s3 #-}\n'
+           's3 :: Num a => T a -> a\n'
+           's3 = sumT\n'
+           '-- INLINE: on GHC 9.14.1, a version without a date.\n'
+           '{-# INLINE s4 #-}\n'
+           's4 :: Num a => T a -> a\n'
+           's4 = sumT\n'
+           '-- INLINE: on GHC HEAD (2026-10-10), 0.8 times the instructions.\n'
+           '{-# INLINE s5 #-}\n'
+           's5 :: Num a => T a -> a\n'
+           's5 = sumT\n'
+           '-- INLINE: see s5.\n'
+           '{-# INLINE s6 #-}\n'
+           's6 :: Num a => T a -> a\n'
+           's6 = sumT\n'
+           '-- No pragma: I3, measured no faster with one.\n'
+           's7 :: Num a => T a -> a\n'
+           's7 = sumT\n')
     layer = ('-- These are INLINE throughout, their callers being INLINABLE.\n'
              'module L where\n'
              '{-# INLINE g1 #-}\n'
@@ -1089,7 +1151,7 @@ def self_test_rule():
             '{-# INLINABLE n3 #-}\n'
             'n3 :: T a -> Int\n'
             'n3 = lenT\n'
-            '-- INLINABLE: measured faster.\n'
+            '-- INLINABLE: I3, measured faster.\n'
             '{-# INLINABLE n4 #-}\n'
             'n4 :: T a -> Int\n'
             'n4 = lenT\n'
@@ -1123,6 +1185,10 @@ def self_test_rule():
             '  dc2 :: a -> a\n'
             '  dc2 = id\n')
     low = ('module Low where\n'
+           '-- INLINE: built with build, citing nothing.\n'
+           '{-# INLINE rootU #-}\n'
+           'rootU :: T a -> [a]\n'
+           'rootU t = build (\\c n -> foldT c n t)\n'
            '-- INLINE: directly fusing (F1), its list built with build.\n'
            '{-# INLINE rootT #-}\n'
            'rootT :: T a -> [a]\n'
@@ -1151,17 +1217,20 @@ def self_test_rule():
            '-- INLINE: measured faster.\n'
            '{-# INLINE mid6 #-}\n'
            'mid6 :: A a -> [a]\n'
-           'mid6 = L.rootT . unA\n')
+           'mid6 = L.rootT . unA\n'
+           'mid7 :: A a -> [a]\n'
+           'mid7 = L.rootU . unA\n')
     fac = ('module Fac(module L) where\n'
            'import Low as L\n')
     api = ('module Api where\n'
            'import Mid\n'
            'top :: B a -> [a]\n'
            'top = mid . unB\n')
-    want = ['== pragma unlike the rule and no comment above naming one'
+    want = ['== pragma unlike the rule and no comment above in its form'
             ' (file:line name: has -> wants [why])',
             '  Api.hs top: none -> INLINE [forwards to Mid.mid]',
             '  L.hs g2: none -> INLINABLE [class constraint]',
+            '  Low.hs rootU: INLINE -> none [no class constraint]',
             '  Mid.hs mid2: INLINABLE -> INLINE [forwards to Low.rootT]',
             '  Mid.hs mid4: INLINABLE -> INLINE [forwards to Low.rootT]',
             '  N.hs n3: INLINABLE -> none [no class constraint]',
@@ -1177,6 +1246,7 @@ def self_test_rule():
             '  R.hs Num.negate: INLINE -> INLINABLE [class constraint]',
             '  R.hs Vec.vmap: none -> INLINE [function argument]',
             '  R.hs Vec.vlen: none -> INLINABLE [class constraint]',
+            '  R.hs Show.show: INLINE -> none [no class constraint]',
             '  R.hs Show.show: none -> INLINABLE [class constraint]',
             '  R.hs Conv.conv: INLINE -> none [no class constraint]',
             '  R.hs Dflt.d1: none -> INLINE'
@@ -1188,6 +1258,10 @@ def self_test_rule():
             '  R.hs Dflt.d9: none -> INLINE'
             ' [function argument, default method]',
             '  R.hs Dflt.d2: none -> INLINABLE [class constraint]',
+            '  R.hs s1: INLINE -> INLINABLE [class constraint]',
+            '  R.hs s2: INLINE -> INLINABLE [class constraint]',
+            '  R.hs s3: INLINE -> INLINABLE [class constraint]',
+            '  R.hs s4: INLINE -> INLINABLE [class constraint]',
             '  V.hs v1: none -> INLINABLE [class constraint]',
             '  V.hs Vec2.vs: INLINE -> INLINABLE [class constraint]',
             '  V.hs Vec2.vs: none -> INLINABLE [class constraint]',
@@ -1212,7 +1286,7 @@ def self_test_rule():
                 fh.write(text)
         got, nbad, _ = report_rule(td)
         got = [re.sub(r'^(  \S+\.hs):\d+', r'\1', x) for x in got]
-        if got != want or nbad != 31:
+        if got != want or nbad != 37:
             bad.append(f'--rule ({nbad}):\n  ' + '\n  '.join(got))
         if main(['--rule', td]) != 1:
             bad.append('--rule with findings did not exit 1')

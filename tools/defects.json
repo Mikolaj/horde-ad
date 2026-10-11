@@ -3753,6 +3753,29 @@
    "expect_text": "Show: M.hs:6 showsPrec",
    "bug_exit": 0,
    "bug_text": "== overloaded instance methods without a pragma"
+  },
+  {
+   "id": "pragma-census-06",
+   "program": "pragma-census.py",
+   "name": "a comment ending the previous definition's body, indented deeper than the next binding, was read as part of the next binding's note, so it could excuse that binding",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "instance Show a => C [a] where c1 = length, then a comment at deeper indentation naming INLINE, then c2 with its INLINE",
+   "ok": "C.c2: INLINE -> INLINABLE listed, exit 1",
+   "bug": "c2 passed over as excused, exit 1 for c1 alone",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-11 putting horde-ad's comments in P's form: tkcast's note in Core/OpsConcrete.hs was read as starting with tkfromIntegral's trailing comment.",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\nclass C a where\n  c1 :: a -> Int\n  c2 :: a -> Int\ninstance Show a => C [a] where\n  c1 = length\n    -- INLINE: I3, a comment ending c1's body.\n  {-# INLINE c2 #-}\n  c2 = length\nEOF",
+   "invoke": [
+    "--rule",
+    "{tmp}/S"
+   ],
+   "expect_exit": 1,
+   "expect_text": "M.hs:9 C.c2: INLINE -> INLINABLE",
+   "bug_exit": 1,
+   "bug_text": "M.hs:6 C.c1: none -> INLINABLE"
   }
  ]
 }
