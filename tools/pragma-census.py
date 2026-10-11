@@ -6,7 +6,8 @@ Usage: python3 tools/pragma-census.py SRC
        python3 tools/pragma-census.py --self-test
 
 For every `.hs` file under SRC, the top-level functions whose signature has
-a context and the methods of the instances that have one, which carry
+a context, the methods of the instances that have one and the default
+methods of every class, which carry
 no `INLINE`, `INLINABLE`, `NOINLINE` or `SPECIALISE` pragma of their name:
 what docs/perf-checklist.md's P asks a pragma, or a comment above the
 haddock, of where their callers' speed is protected. A context counts only where it
@@ -21,21 +22,25 @@ parentheses, a rank-2 argument's context being its own; a method may be
 defined prefix, as an operator section, `(<*>) = ...`, or infix, `x == y`,
 `` a@(T x) `compare` b `` or `T u ==. T v`, and on the instance's own line
 after its `where`;
-an instance head may span lines too, and only the lines at the body's own
-indentation define a method, the deeper ones continuing it. A method's pragma
-is looked for in its instance, a top-level function's anywhere in its module,
-and a line `m :: ...` in an instance is its signature while a definition
-holding `(Proxy :: Proxy n)` is not. A class's own signatures and default
-methods, indented under it, are no instance's. It is a reader of lines and
-not a parser: a top-level binding without a signature, a local function and a
-pragma naming a binding of another module are not seen, and its verdict is a
-list of candidates for P's rule, which only the callers decide.
+an instance or class head may span lines too, a comment line inside it left
+out, and only the lines at the body's own indentation define a method,
+the deeper ones continuing it, a blank line or a comment at column 0 ending
+the body only where the code after it is not indented. A method's pragma
+is looked for in its instance or class, a top-level function's anywhere
+in its module, and a line `m :: ...` or `m:: ...` in an instance or class
+is its signature while a definition holding `(Proxy :: Proxy n)` is not.
+A default method defined as `undefined` or `error ...` is passed over, as
+is a default signature. It is a reader of lines and not a parser:
+a top-level binding without a signature, a local function and a pragma
+naming a binding of another module are not seen, and its verdict is a list
+of candidates for P's rule, which only the callers decide.
 
-`--rule` checks every top-level function with a signature and every
-instance method against the pragma P's rule gives it by its own type: INLINE
-where the type takes an argument of function type; otherwise INLINABLE
-where it is overloaded, a class constraint in the signature, in the instance's
-context or in the class method's own type; otherwise none. A method's type
+`--rule` checks every top-level function with a signature, every
+instance method and every class default method against the pragma P's rule
+gives it by its own type: INLINE where the type takes an argument of function
+type; otherwise INLINABLE where it is overloaded, a class constraint in the
+signature, in the instance's context or in the class method's own type,
+and a default method always, by its class; otherwise none. A method's type
 is its class's, read from the tree's class declarations or from a table of
 the standard classes. SPECIALISE counts as INLINABLE. A top-level binding
 also wants INLINE where it forwards to one needing it: its body calls that
@@ -48,7 +53,8 @@ directly fusing one is told, and so, to a fixed point, does each forwarder.
 A binding whose comment names F1 but whose body hands a list of its type
 to a tree binding is listed too: the innermost binding should carry it. It lists each binding whose pragma differs,
 unless a plain comment directly above its haddock, or for a method above
-the method or its instance, names a pragma (INLINE, INLINABLE, NOINLINE or
+the method or its instance or class, a default method's signature too,
+names a pragma (INLINE, INLINABLE, NOINLINE or
 "pragma"), a module comment saying INLINE throughout covers its top-level
 INLINEs, or the pragma has a phase; the recursive bindings the rule makes
 INLINE that carry INLINE, which want a wrapper over a worker instead, a body
@@ -71,7 +77,8 @@ TOP_SIG = re.compile(r"^([a-z_][\w']*(?:\s*,\s*[a-z_][\w']*)*"
 OP = r"[!#$%&*+./<=>?@\\^|~:-]+"
 SECTION = re.compile(r'^\((' + OP + r')\)')
 INFIX_OP = re.compile(r"\s+(`[\w']+`|" + OP + r")(?=\s)")
-SIGNATURE = re.compile(r"^(?:[\w']+|\(" + OP + r"\))(?:\s*,\s*[\w']+)*\s+::")
+SIGNATURE = re.compile(r"^(?:[\w']+|\(" + OP + r"\))(?:\s*,\s*[\w']+)*"
+                       r"\s*::(?![!#$%&*+./<=>?@\\^|~:-])")
 
 
 def constraints(ctx):
@@ -180,42 +187,108 @@ def signature_at(lines, i, m):
     return sig, j
 
 
-def instance_at(lines, i):
+def decl_at(lines, i, kw='instance'):
     """(head, its last line, the line after the body, the head's match) of the
-    instance whose head starts at line i."""
+    instance, or the class with kw `class`, whose head starts at line i, the
+    comment lines inside the head left out."""
     head, j = lines[i], i
     while not re.search(r'\bwhere\b', head) and j + 1 < len(lines) \
             and lines[j + 1][:1] in (' ', '\t'):
         j += 1
-        head += ' ' + lines[j].strip()
-    hm = re.match(r'^instance\b(.*?)(?:\bwhere\b(.*))?$', head)
+        if not lines[j].lstrip().startswith('--'):
+            head += ' ' + lines[j].strip()
+    hm = re.match(r'^' + kw + r'\b(.*?)(?:\bwhere\b(.*))?$', head)
     k = j + 1
-    while k < len(lines) and (lines[k][:1] in (' ', '\t')
-                              or not lines[k].strip()):
-        if not lines[k].strip() and k + 1 < len(lines) \
-                and lines[k + 1][:1] not in (' ', '\t'):
-            break
+    while k < len(lines) and (lines[k][:1] in (' ', '\t') or gap(lines[k])):
+        if gap(lines[k]):
+            n = k
+            while n < len(lines) and gap(lines[n]):
+                n += 1
+            if n == len(lines) or lines[n][:1] not in (' ', '\t'):
+                break
+            k = n
+            continue
         k += 1
     return head, j, k, hm
 
 
+def gap(line):
+    """Whether a line is blank or a comment at column 0, which ends a body
+    only where the next line of code is not indented."""
+    return not line.strip() or bool(re.match(r'--+(?!' + OP + ')', line))
+
+
 def instance_body(lines, j, k, hm):
-    """[(line, text)] of an instance's lines that can define a method: what
-    follows its where on the head's last line, and the lines at the body's
-    own indentation."""
-    rest = [(n, lines[n]) for n in range(j + 1, k) if lines[n].strip()]
+    """[(line, text)] of an instance's or a class's lines that can define
+    a method: what follows its where on the head's last line, and the lines
+    at the body's own indentation."""
+    rest = [(n, lines[n]) for n in range(j + 1, k) if not gap(lines[n])]
     base = min((indent(b) for _, b in rest), default=0)
     return [(j, hm.group(2) or '')] + [
         (n, b) for n, b in rest if indent(b) == base]
 
 
+def class_at(lines, i):
+    """(class, {method: (type, its signature's line)}, [(line, text)] of the
+    body's lines that can define a default method, {name: (kind, phased)} of
+    its pragmas, the line after the body) of the class whose head starts at
+    line i, the class None where the head names none."""
+    head, j, k, hm = decl_at(lines, i, 'class')
+    if not hm:
+        return None, {}, [], {}, k
+    h = hm.group(1)
+    ctx = context(h)
+    h = h[len(ctx) + 2:] if ctx is not None else h
+    words = re.findall(r"[A-Za-z_][\w']*", h.split('|')[0])
+    body = instance_body(lines, j, k, hm)
+    sigs = {}
+    for n, b in body:
+        sm = re.match(r"^\s*((?:[a-z_][\w']*|\(" + OP + r"\))"
+                      r"(?:\s*,\s*(?:[a-z_][\w']*|\(" + OP + r"\)))*)"
+                      r"\s*::(.*)", b)
+        if sm:
+            ty, c = sm.group(2), n + 1
+            while c < k and indent(lines[c]) > indent(b) and lines[c].strip():
+                ty += ' ' + lines[c].strip()
+                c += 1
+            for name in re.split(r'\s*,\s*', sm.group(1)):
+                sigs[name.strip('() ')] = (ty, n)
+    pk = {}
+    for b in lines[i:k]:
+        for p in KINDS.finditer(b):
+            pk[p.group(3)] = (p.group(1), bool(p.group(2)))
+    return (words[0] if words else None), sigs, body, pk, k
+
+
+def stub(b):
+    """Whether a method's defining line defines it as undefined or error."""
+    rhs = b.split('=', 1)[1].strip() if '=' in b else ''
+    return rhs == 'undefined' or rhs.startswith('error ')
+
+
+def defaults(lines, i):
+    """(class, [(line, method, its signature's line, its pragma or None)],
+    the line after the body) of the default methods the class at line i
+    defines, one an equation group, those defined as undefined or error left
+    out."""
+    cls, sigs, body, pk, k = class_at(lines, i)
+    out, seen = [], set()
+    for n, b in body:
+        name = method_name(b)
+        if name in sigs and name not in seen and not stub(b):
+            out.append((n, name, sigs[name][1], pk.get(name)))
+        seen.add(name)
+    return cls, out, k
+
+
 def census(text):
-    """([(line, name, constraints)] of the top-level functions and
-    [(line, class, method)] of the instance methods carrying no pragma."""
+    """([(line, name, constraints)] of the top-level functions,
+    [(line, class, method)] of the instance methods and [(line, class,
+    method)] of the class default methods carrying no pragma."""
     lines = text.split('\n')
     module_pragmas = {m.group(1) for line in lines
                       for m in PRAGMA.finditer(line)}
-    funs, meths = [], []
+    funs, meths, dms = [], [], []
     i = 0
     while i < len(lines):
         line = lines[i]
@@ -231,8 +304,13 @@ def census(text):
                         funs.append((i + 1, name, cs))
             i = j
             continue
+        if re.match(r'^class\b', line):
+            cls, dm, k = defaults(lines, i)
+            dms += [(n + 1, cls, name) for n, name, _, p in dm if p is None]
+            i = k
+            continue
         if line.startswith('instance'):
-            head, j, k, hm = instance_at(lines, i)
+            head, j, k, hm = decl_at(lines, i)
             if hm and '=>' in hm.group(1):
                 ctx, cls_head = hm.group(1).split('=>', 1)
                 cs = constraints(ctx)
@@ -251,7 +329,7 @@ def census(text):
             i = k
             continue
         i += 1
-    return funs, meths
+    return funs, meths, dms
 
 
 KINDS = re.compile(r'\{-#\s*(INLINE|INLINABLE|INLINEABLE|NOINLINE|SPECIALI[SZ]E)'
@@ -392,31 +470,10 @@ def class_methods(text):
     """{class: {method: type}} of the classes a module declares."""
     lines, out = text.split('\n'), {}
     for i, line in enumerate(lines):
-        m = re.match(r'^class\b(.*?)\bwhere\b', line)
-        if not m:
-            continue
-        head = m.group(1)
-        head = head.split('=>', 1)[1] if '=>' in head else head
-        words = re.findall(r"[A-Za-z_][\w']*", head.split('|')[0])
-        if not words:
-            continue
-        cls = words[0]
-        meths, j = {}, i + 1
-        while j < len(lines) and (lines[j][:1] in (' ', '\t')
-                                  or not lines[j].strip()):
-            sm = re.match(r"^\s+((?:[a-z_][\w']*|\(" + OP + r"\))"
-                          r"(?:\s*,\s*(?:[a-z_][\w']*|\(" + OP + r"\)))*)"
-                          r"\s*::(.*)", lines[j])
-            if sm:
-                ty, k = sm.group(2), j + 1
-                while k < len(lines) and indent(lines[k]) > indent(lines[j]) \
-                        and lines[k].strip():
-                    ty += ' ' + lines[k].strip()
-                    k += 1
-                for n in re.split(r'\s*,\s*', sm.group(1)):
-                    meths[n.strip('() ')] = ty
-            j += 1
-        out[cls] = meths
+        if re.match(r'^class\b', line):
+            cls, sigs, _, _, _ = class_at(lines, i)
+            if cls:
+                out[cls] = {n: ty for n, (ty, _) in sigs.items()}
     return out
 
 
@@ -567,12 +624,13 @@ def rule_check(text, classes, fwd=None):
                 if x.lstrip().startswith('--'))
     off, rec, unknown = [], [], []
 
-    def judge(n, name, has, phased, ty, over, note):
+    def judge(n, name, has, phased, ty, over, note, extra=()):
         if phased:
             return
         has = {'INLINEABLE': 'INLINABLE', 'SPECIALISE': 'INLINABLE',
                'SPECIALIZE': 'INLINABLE'}.get(has, has)
         w, why = want(ty, over)
+        why = why + list(extra)
         if w != 'INLINE' and (mod, name) in fwd:
             w, why = 'INLINE', [f'forwards to {fwd[(mod, name)]}']
         if w == 'INLINE' and recursive_here.get(name):
@@ -598,8 +656,19 @@ def rule_check(text, classes, fwd=None):
                 judge(i, name, has, phased, sig, False, noted(lines, i))
             i = j
             continue
+        if re.match(r'^class\b', line):
+            cls, dm, k = defaults(lines, i)
+            cls_note = noted(lines, i)
+            for n, name, sn, p in dm:
+                has, phased = p or ('none', False)
+                judge(n, f'{cls}.{name}', has, phased,
+                      classes.get(cls, {}).get(name, ''), True,
+                      cls_note or noted(lines, n) or noted(lines, sn),
+                      ['default method'])
+            i = k
+            continue
         if line.startswith('instance'):
-            head, j, k, hm = instance_at(lines, i)
+            head, j, k, hm = decl_at(lines, i)
             if hm and 'TypeError' not in hm.group(1):
                 ctx, cls_head = (hm.group(1).split('=>', 1)
                                  if '=>' in hm.group(1) else ('', hm.group(1)))
@@ -618,8 +687,7 @@ def rule_check(text, classes, fwd=None):
                             re.match(r'\s*(type|data)\b', b):
                         continue
                     seen.add(name)
-                    rhs = b.split('=', 1)[1].strip() if '=' in b else ''
-                    if rhs == 'undefined' or rhs.startswith('error '):
+                    if stub(b):
                         continue
                     ty = classes.get(cls, {}).get(name)
                     if ty is None:
@@ -679,13 +747,14 @@ def report_rule(src):
 def report(src):
     """(lines, number of bindings listed, number of .hs files read)."""
     files = hs_files(src)
-    funs, meths = [], []
+    funs, meths, dms = [], [], []
     for path in files:
         with open(path) as fh:
-            f, m = census(fh.read())
+            f, m, d = census(fh.read())
         rel = os.path.relpath(path, src)
         funs += [(rel, n, name, cs) for n, name, cs in f]
         meths += [(cls, rel, n, name) for n, cls, name in m]
+        dms += [(cls, rel, n, name) for n, cls, name in d]
     out = ['== overloaded functions without a pragma'
            ' (file:line name [context])']
     out += [f'  {rel}:{n} {name} [{", ".join(cs)}]'
@@ -694,7 +763,11 @@ def report(src):
                ' (class: file:line method)')
     out += [f'  {cls}: {rel}:{n} {name}'
             for cls, rel, n, name in sorted(meths)]
-    return out, len(funs) + len(meths), len(files)
+    out.append('== class default methods without a pragma'
+               ' (class: file:line method)')
+    out += [f'  {cls}: {rel}:{n} {name}'
+            for cls, rel, n, name in sorted(dms)]
+    return out, len(funs) + len(meths) + len(dms), len(files)
 
 
 def self_test():
@@ -778,7 +851,26 @@ def self_test():
            'hr :: Num a => (forall n . KnownNat n => Proxy n -> a) -> a\n'
            'hr = undefined\n'
            'instance Eq a => L (T a) where\n'
-           '  T x ==. T y = x == y\n')
+           '  T x ==. T y = x == y\n'
+           'class (Show a,\n'
+           '       -- a comment inside the head, saying where\n'
+           '       Eq a) => CD a where\n'
+           '  cd1, cd2 :: a -> a\n'
+           '  cd1 = id\n'
+           '  {-# INLINABLE cd2 #-}\n'
+           '  cd2 = id\n'
+           '  cd3 :: a\n'
+           '  cd3 = undefined\n'
+           '  cd4 :: a -> String\n'
+           '  default cd4 :: Show a => a -> String\n'
+           '  cd4 x = show x\n'
+           '  cd4 _ = ""\n'
+           '  cd5:: a -> a\n'
+           'instance Ord a => G2 (T a) where\n'
+           '  {-# INLINE g2a #-}\n'
+           '  g2a = id\n'
+           '-- a comment at column 0 inside the body\n'
+           '  g2b = id\n')
     want = ['== overloaded functions without a pragma'
             ' (file:line name [context])',
             '  M.hs:4 g [Num a]',
@@ -793,12 +885,18 @@ def self_test():
             '  Eq: M.hs:24 /=',
             '  F: M.hs:39 f1',
             '  F: M.hs:41 f2',
+            '  G2: M.hs:99 g2b',
             '  K: M.hs:51 kk',
             '  L: M.hs:80 ==.',
             '  Num: M.hs:26 +',
             '  Show: M.hs:20 show',
             '  Show: M.hs:63 showsPrec',
-            '  Show: M.hs:65 show']
+            '  Show: M.hs:65 show',
+            '== class default methods without a pragma'
+            ' (class: file:line method)',
+            '  C: M.hs:19 c',
+            '  CD: M.hs:85 cd1',
+            '  CD: M.hs:92 cd4']
     bad = []
     with tempfile.TemporaryDirectory() as td:
         os.makedirs(os.path.join(td, 'S'))
@@ -810,7 +908,7 @@ def self_test():
             fh.write('module N where\n{-# INLINE n #-}\n'
                      'n :: Num a => a\nn = 0\n')
         got, nbad, nfiles = report(os.path.join(td, 'S'))
-        if got != want or (nbad, nfiles) != (16, 1):
+        if got != want or (nbad, nfiles) != (20, 1):
             bad.append(f'report ({nbad}, {nfiles}):\n  ' + '\n  '.join(got))
         for d, code, why in (('S', 1, 'bindings without a pragma'),
                              ('E', 2, 'a tree without .hs files'),
@@ -904,7 +1002,44 @@ def self_test_rule():
            '  show _ = ""\n'
            'instance (a ~ b) => Conv (T a) (U b) where\n'
            '  conv (T x) = U x\n'
-           '  {-# INLINE conv #-}\n')
+           '  {-# INLINE conv #-}\n'
+           'class ( Show a\n'
+           '        -- a comment inside the head\n'
+           '      )\n'
+           '      => Dflt a where\n'
+           '\n'
+           '  d1 :: (a -> a) -> a -> a\n'
+           '  d1 g = g\n'
+           '  d2 :: a -> String\n'
+           '  default d2 :: Show a => a -> String\n'
+           '  d2 = show\n'
+           '  {-# INLINE d3 #-}\n'
+           '  d3 :: a -> String\n'
+           '  d3 = show\n'
+           '  {-# INLINABLE d4 #-}\n'
+           '  d4 :: a -> String\n'
+           '  d4 = show\n'
+           '  d6 :: a -> a\n'
+           '  d6 = undefined\n'
+           '  -- INLINE: measured faster.\n'
+           '  {-# INLINE d7 #-}\n'
+           '  d7 :: a -> String\n'
+           '  d7 = show\n'
+           '  d8 :: a -> String\n'
+           '  -- INLINE: measured faster, said above the definition.\n'
+           '  {-# INLINE d8 #-}\n'
+           '  d8 = show\n'
+           '-- a comment at column 0 inside the class\n'
+           '  d9 :: a\n'
+           '     -> (a -> a) -> a\n'
+           '  d9 x _ = x\n'
+           'instance Show b => Dflt [b] where\n'
+           '  d2 = concatMap show\n'
+           '-- INLINE: measured faster, said of the class.\n'
+           'class Dnote a where\n'
+           '  {-# INLINE dn #-}\n'
+           '  dn :: a -> String\n'
+           '  dn _ = ""\n')
     layer = ('-- These are INLINE throughout, their callers being INLINABLE.\n'
              'module L where\n'
              '{-# INLINE g1 #-}\n'
@@ -967,6 +1102,15 @@ def self_test_rule():
             '  R.hs Vec.vlen: none -> INLINABLE [class constraint]',
             '  R.hs Show.show: none -> INLINABLE [class constraint]',
             '  R.hs Conv.conv: INLINE -> none [no class constraint]',
+            '  R.hs Dflt.d1: none -> INLINE'
+            ' [function argument, default method]',
+            '  R.hs Dflt.d2: none -> INLINABLE'
+            ' [class constraint, default method]',
+            '  R.hs Dflt.d3: INLINE -> INLINABLE'
+            ' [class constraint, default method]',
+            '  R.hs Dflt.d9: none -> INLINE'
+            ' [function argument, default method]',
+            '  R.hs Dflt.d2: none -> INLINABLE [class constraint]',
             '== recursive and INLINE: an INLINE wrapper over a recursive'
             ' worker instead (file:line name)',
             '  R.hs f14',
@@ -985,7 +1129,7 @@ def self_test_rule():
                 fh.write(text)
         got, nbad, _ = report_rule(td)
         got = [re.sub(r'^(  \S+\.hs):\d+', r'\1', x) for x in got]
-        if got != want or nbad != 20:
+        if got != want or nbad != 25:
             bad.append(f'--rule ({nbad}):\n  ' + '\n  '.join(got))
         if main(['--rule', td]) != 1:
             bad.append('--rule with findings did not exit 1')

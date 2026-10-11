@@ -430,12 +430,12 @@ with none.
 **Recipe:**
 
 - `python3 $T/pragma-census.py --rule SRC` lists every top-level function
-  with a signature and every instance method whose pragma differs from P's rule
-  with no comment above its haddock naming one, the recursive bindings the rule
-  would make `INLINE`, the methods of classes whose method types it does
-  not know, and the bindings whose comment names F1 but which hand their list
-  to a tree binding, the innermost being the one to carry it; a class's default
-  methods it does not read.
+  with a signature, every instance method and every class default method whose
+  pragma differs from P's rule with no comment above its haddock naming one,
+  the recursive bindings the rule would make `INLINE`, the methods of classes
+  whose method types it does not know, and the bindings whose comment names F1
+  but which hand their list to a tree binding, the innermost being the one
+  to carry it.
 - `python3 $T/pragma-census.py SRC` lists only the overloaded bindings
   that carry no pragma.
 - S1's audit shows which callers still pass a dictionary at run time.
@@ -852,9 +852,10 @@ did not happen, as `pragma-calls.py --inline` does; `tools/bang-lazy-check.py`,
 without `--allow`, exits 0 whatever it printed, its candidates being
 for the reader.
 
-- `tools/pragma-census.py` lists the overloaded functions and instance methods
-  of a source tree that carry no pragma, and with `--rule` every one whose
-  pragma differs from what P's rule gives it, a forwarder's included (I4).
+- `tools/pragma-census.py` lists the overloaded functions, instance methods
+  and class default methods of a source tree that carry no pragma,
+  and with `--rule` every one whose pragma differs from what P's rule gives it,
+  a forwarder's included (I4).
 - `tools/spec-audit.py` lists the calls in optimised Core that hand a function
   an instance dictionary, by callee, and the bindings that take a dictionary
   as a lambda argument: code running unspecialised (S1).

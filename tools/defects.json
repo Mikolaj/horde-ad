@@ -3686,6 +3686,73 @@
    "expect_text": "spread over more than 1%",
    "bug_exit": 0,
    "bug_text": "instructions 57.0 [7.0..57.0]"
+  },
+  {
+   "id": "pragma-census-03",
+   "program": "pragma-census.py",
+   "name": "a class whose head spans lines was read as declaring no methods, so --rule listed every method of its instances as of a class whose method types are unknown and judged none",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "class ( Show a, a comment line inside the head ) => C a where, then a blank line and m :: a -> Int; instance Show a => C [a] where m = length",
+   "ok": "C.m judged: none -> INLINABLE, exit 1",
+   "bug": "C.m listed among the methods of unknown classes, exit 1",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-11 preparing the census of class default methods: seven of horde-ad's class heads span lines, BaseTensor's in Core/Ops.hs among them.",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\nclass ( Show a\n          -- a comment inside the head\n      )\n      => C a where\n\n  m :: a -> Int\ninstance Show a => C [a] where\n  m = length\nEOF",
+   "invoke": [
+    "--rule",
+    "{tmp}/S"
+   ],
+   "expect_exit": 1,
+   "expect_text": "M.hs:9 C.m: none -> INLINABLE",
+   "bug_exit": 1,
+   "bug_text": "(file:line class.method)\n  M.hs:9 C.m"
+  },
+  {
+   "id": "pragma-census-04",
+   "program": "pragma-census.py",
+   "name": "a signature written with no space before its ::, m:: T, was read as a definition, so an instance method was reported at its signature's line and a class's signature as a default method",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "instance Show a => C [a] where, then m:: [a] -> Int and m _ = 0",
+   "ok": "C: M.hs:6 m, the definition's line, exit 1",
+   "bug": "C: M.hs:5 m, the signature's line, exit 1",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-11 reading the class default methods of orthotope's Vector class, whose vFromListN, vSingleton and vReplicate are declared so in Data/Array/Internal.hs.",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\nclass C a where\n  m :: a -> Int\ninstance Show a => C [a] where\n  m:: [a] -> Int\n  m _ = 0\nEOF",
+   "invoke": [
+    "{tmp}/S"
+   ],
+   "expect_exit": 1,
+   "expect_text": "C: M.hs:6 m",
+   "bug_exit": 1,
+   "bug_text": "C: M.hs:5 m"
+  },
+  {
+   "id": "pragma-census-05",
+   "program": "pragma-census.py",
+   "name": "a comment at column 0 inside a class or instance body ended the body, so the methods after it went unread, their signatures and default methods with them",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "instance Show a => Show (T a) where, show with its INLINE, then a comment at column 0, then showsPrec _ _ = id",
+   "ok": "Show: M.hs:6 showsPrec listed, exit 1",
+   "bug": "nothing listed, exit 0",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-11 counting the pragmas of local bindings: BaseTensor's body in horde-ad's Core/Ops.hs was read only to the column-0 comment at its line 492, so its later methods' types were unknown and their defaults unread.",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\ninstance Show a => Show (T a) where\n  {-# INLINE show #-}\n  show _ = \"\"\n-- a comment at column 0 inside the body\n  showsPrec _ _ = id\nEOF",
+   "invoke": [
+    "{tmp}/S"
+   ],
+   "expect_exit": 1,
+   "expect_text": "Show: M.hs:6 showsPrec",
+   "bug_exit": 0,
+   "bug_text": "== overloaded instance methods without a pragma"
   }
  ]
 }
