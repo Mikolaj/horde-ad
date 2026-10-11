@@ -166,13 +166,11 @@ class LetTensor (target :: Target) where
           => SNat m -> SNat n -> SingletonTK y
           -> target (BuildTensorKind m y) -> target (BuildTensorKind n y)
           -> target (BuildTensorKind (m + n) y)
-  -- INLINE, though the method recurses through the class and so is never
-  -- inlined: its stable unfolding is what lets an importer specialise it
-  -- to a known dictionary, the BaseTensor constraint being the method's
-  -- own. Without the pragma AstRaw's tappend took 24% more instructions
-  -- (GHC 10.1.20260918, 2026-09-27), calling tpair, tproject1 and the rest
-  -- through the dictionary.
-  {-# INLINE tappend #-}
+  -- INLINABLE, the method recursing through the class: on GHC 10.1.20260918
+  -- AstRaw's tappend ran 0.98 times INLINE's instructions with it and 1.28
+  -- times without a pragma, calling tpair, tproject1 and the rest through
+  -- the dictionary (2026-10-10).
+  {-# INLINABLE tappend #-}
   tappend msnat@SNat nsnat@SNat stk a b = case stk of
     STKScalar -> tsappend a b
     STKR _ x | Dict <- lemKnownSTK x -> trappend a b
@@ -249,10 +247,11 @@ class ShareTensor (target :: Target) where
                       => SNat k -> SingletonTK y
                       -> target (BuildTensorKind k y)
                       -> [target y]
-  -- INLINE: see the note at tappend in class LetTensor. Without the pragma
-  -- AstRaw's tunravelToListShare took 4.5% more instructions and 1.2% more
-  -- allocation (GHC 10.1.20260918, 2026-10-02).
-  {-# INLINE tunravelToListShare #-}
+  -- No pragma: on GHC 10.1.20260918 AstRaw's tunravelToListShare ran 1.045
+  -- times INLINE's instructions with INLINABLE and without a pragma alike
+  -- (2026-10-10), while the prod suite's MapAccum rows, reaching Concrete's
+  -- through tmapAccumLC, matched INLINE's instructions to 0.01% there, read
+  -- under GHCRTS=-V0, and on GHC 9.14.1 (2026-10-11).
   tunravelToListShare snat@SNat stk u = case stk of
     STKScalar -> let !uShared = tshare u
                  in tstoListLinear uShared
