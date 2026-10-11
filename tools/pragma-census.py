@@ -17,9 +17,10 @@ to specialise, so a signature or an instance with only those is passed over,
 as are a `TypeError` instance, whose methods cannot be called, and a method
 defined as `undefined`.
 
-A signature may span lines, its context running to the first `=>` outside
-parentheses, a rank-2 argument's context being its own; a method may be
-defined prefix, as an operator section, `(<*>) = ...`, or infix, `x == y`,
+A signature may span lines, its `::` on the line of its names or starting
+the next, its context running to the first `=>` outside parentheses,
+a rank-2 argument's context being its own; a method may be defined prefix,
+as an operator section, `(<*>) = ...`, or infix, `x == y`,
 `` a@(T x) `compare` b `` or `T u ==. T v`, and on the instance's own line
 after its `where`;
 an instance or class head may span lines too, a comment line inside it left
@@ -88,6 +89,9 @@ PRAGMA = re.compile(r'\{-#\s*(?:INLINE|INLINABLE|INLINEABLE|NOINLINE'
 TOP_SIG = re.compile(r"^([a-z_][\w']*(?:\s*,\s*[a-z_][\w']*)*"
                      r"|\([!#$%&*+./<=>?@\\^|~:-]+\))\s*::(.*)")
 OP = r"[!#$%&*+./<=>?@\\^|~:-]+"
+NAMES = (r"(?:[a-z_][\w']*|\(" + OP + r"\))"
+         r"(?:\s*,\s*(?:[a-z_][\w']*|\(" + OP + r"\)))*")
+SPLIT = re.compile(r"^\s*(" + NAMES + r")\s*(?:--.*)?$")
 SECTION = re.compile(r'^\((' + OP + r')\)')
 INFIX_OP = re.compile(r"\s+(`[\w']+`|" + OP + r")(?=\s)")
 SIGNATURE = re.compile(r"^(?:[\w']+|\(" + OP + r"\))(?:\s*,\s*[\w']+)*"
@@ -189,15 +193,36 @@ def indent(line):
     return len(line) - len(line.lstrip())
 
 
+def split_signature(lines, n, k=None):
+    """The names of a signature at line n whose :: starts the next line,
+    indented deeper, before line k, or None."""
+    m = SPLIT.match(lines[n])
+    k = len(lines) if k is None else k
+    if m and n + 1 < k and lines[n + 1].lstrip().startswith('::') \
+            and indent(lines[n + 1]) > indent(lines[n]):
+        return m.group(1)
+    return None
+
+
+def top_signature(lines, i):
+    """TOP_SIG's match at line i, or SPLIT's where the signature's ::
+    starts the next line, or None."""
+    m = TOP_SIG.match(lines[i])
+    if m is None and lines[i][:1] not in (' ', '\t') \
+            and split_signature(lines, i) is not None:
+        m = SPLIT.match(lines[i])
+    return m
+
+
 def signature_at(lines, i, m):
-    """The signature TOP_SIG matched as m at line i, its lines joined, and
-    the line after it."""
-    sig, j = m.group(2), i + 1
+    """The signature top_signature matched as m at line i, its lines joined
+    and the leading :: of a split one dropped, and the line after it."""
+    sig, j = (m.group(2) if m.re is TOP_SIG else ''), i + 1
     while (j < len(lines) and lines[j][:1] in (' ', '\t')
            and not lines[j].strip().startswith('--')):
         sig += ' ' + lines[j]
         j += 1
-    return sig, j
+    return (sig if m.re is TOP_SIG else sig.strip()[2:]), j
 
 
 def decl_at(lines, i, kw='instance'):
@@ -235,10 +260,17 @@ def instance_body(lines, j, k, hm):
     """[(line, text)] of an instance's or a class's lines that can define
     a method: what follows its where on the head's last line, and the lines
     at the body's own indentation."""
+    return [(j, hm.group(2) or '')] + [
+        (n, b) for n, b in base_lines(lines, j, k)
+        if split_signature(lines, n, k) is None]
+
+
+def base_lines(lines, j, k):
+    """[(line, text)] of the lines after j and before k at the body's own
+    indentation."""
     rest = [(n, lines[n]) for n in range(j + 1, k) if not gap(lines[n])]
     base = min((indent(b) for _, b in rest), default=0)
-    return [(j, hm.group(2) or '')] + [
-        (n, b) for n, b in rest if indent(b) == base]
+    return [(n, b) for n, b in rest if indent(b) == base]
 
 
 def class_at(lines, i):
@@ -255,16 +287,17 @@ def class_at(lines, i):
     words = re.findall(r"[A-Za-z_][\w']*", h.split('|')[0])
     body = instance_body(lines, j, k, hm)
     sigs = {}
-    for n, b in body:
-        sm = re.match(r"^\s*((?:[a-z_][\w']*|\(" + OP + r"\))"
-                      r"(?:\s*,\s*(?:[a-z_][\w']*|\(" + OP + r"\)))*)"
-                      r"\s*::(.*)", b)
-        if sm:
-            ty, c = sm.group(2), n + 1
+    for n, b in base_lines(lines, j, k):
+        split = split_signature(lines, n, k)
+        sm = re.match(r"^\s*(" + NAMES + r")\s*::(.*)", b)
+        if split or sm:
+            names, ty = (split, '') if split else sm.groups()
+            c = n + 1
             while c < k and indent(lines[c]) > indent(b) and lines[c].strip():
                 ty += ' ' + lines[c].strip()
                 c += 1
-            for name in re.split(r'\s*,\s*', sm.group(1)):
+            ty = ty.strip()[2:] if split else ty
+            for name in re.split(r'\s*,\s*', names):
                 sigs[name.strip('() ')] = (ty, n)
     pk = {}
     for b in lines[i:k]:
@@ -305,7 +338,7 @@ def census(text):
     i = 0
     while i < len(lines):
         line = lines[i]
-        m = TOP_SIG.match(line)
+        m = top_signature(lines, i)
         if m:
             sig, j = signature_at(lines, i, m)
             ctx = context(sig)
@@ -609,7 +642,7 @@ def forwarding(texts):
         kinds = {m.group(3): m.group(1) for x in lines if x[:1] not in ' \t'
                  for m in KINDS.finditer(x)}
         for i, line in enumerate(lines):
-            m = TOP_SIG.match(line)
+            m = top_signature(lines, i)
             if not m:
                 continue
             sig, j = signature_at(lines, i, m)
@@ -706,7 +739,7 @@ def rule_check(text, classes, fwd=None):
     i = 0
     while i < len(lines):
         line = lines[i]
-        m = TOP_SIG.match(line)
+        m = top_signature(lines, i)
         if m:
             sig, j = signature_at(lines, i, m)
             for name in re.split(r'\s*,\s*', m.group(1).strip()):
@@ -931,7 +964,18 @@ def self_test():
            '  {-# INLINE g2a #-}\n'
            '  g2a = id\n'
            '-- a comment at column 0 inside the body\n'
-           '  g2b = id\n')
+           '  g2b = id\n'
+           'sp\n'
+           '  :: Num a => a -> a\n'
+           'sp = id\n'
+           'instance Ord a => SI (T a) where\n'
+           '  si\n'
+           '    :: T a -> Int\n'
+           '  si _ = 0\n'
+           'class CS a where\n'
+           '  cs1\n'
+           '    :: a -> a\n'
+           '  cs1 = id\n')
     want = ['== overloaded functions without a pragma'
             ' (file:line name [context])',
             '  M.hs:4 g [Num a]',
@@ -939,6 +983,7 @@ def self_test():
             '  M.hs:53 q1 [Num a]',
             '  M.hs:53 q2 [Num a]',
             '  M.hs:77 hr [Num a]',
+            '  M.hs:100 sp [Num a]',
             '== overloaded instance methods without a pragma'
             ' (class: file:line method)',
             '  Arbitrary: M.hs:72 arbitrary',
@@ -950,6 +995,7 @@ def self_test():
             '  K: M.hs:51 kk',
             '  L: M.hs:80 ==.',
             '  Num: M.hs:26 +',
+            '  SI: M.hs:106 si',
             '  Show: M.hs:20 show',
             '  Show: M.hs:63 showsPrec',
             '  Show: M.hs:65 show',
@@ -957,7 +1003,8 @@ def self_test():
             ' (class: file:line method)',
             '  C: M.hs:19 c',
             '  CD: M.hs:85 cd1',
-            '  CD: M.hs:92 cd4']
+            '  CD: M.hs:92 cd4',
+            '  CS: M.hs:110 cs1']
     bad = []
     with tempfile.TemporaryDirectory() as td:
         os.makedirs(os.path.join(td, 'S'))
@@ -969,7 +1016,7 @@ def self_test():
             fh.write('module N where\n{-# INLINE n #-}\n'
                      'n :: Num a => a\nn = 0\n')
         got, nbad, nfiles = report(os.path.join(td, 'S'))
-        if got != want or (nbad, nfiles) != (20, 1):
+        if got != want or (nbad, nfiles) != (23, 1):
             bad.append(f'report ({nbad}, {nfiles}):\n  ' + '\n  '.join(got))
         for d, code, why in (('S', 1, 'bindings without a pragma'),
                              ('E', 2, 'a tree without .hs files'),
@@ -1131,7 +1178,15 @@ def self_test_rule():
            's6 = sumT\n'
            '-- No pragma: I3, measured no faster with one.\n'
            's7 :: Num a => T a -> a\n'
-           's7 = sumT\n')
+           's7 = sumT\n'
+           'sf\n'
+           '  :: (a -> b) -> T a -> T b\n'
+           'sf = mapT\n'
+           'class Vec3 v where\n'
+           '  v3\n'
+           '    :: (a -> b) -> v a -> v b\n'
+           'instance Vec3 T where\n'
+           '  v3 = mapT\n')
     layer = ('-- These are INLINE throughout, their callers being INLINABLE.\n'
              'module L where\n'
              '{-# INLINE g1 #-}\n'
@@ -1262,6 +1317,8 @@ def self_test_rule():
             '  R.hs s2: INLINE -> INLINABLE [class constraint]',
             '  R.hs s3: INLINE -> INLINABLE [class constraint]',
             '  R.hs s4: INLINE -> INLINABLE [class constraint]',
+            '  R.hs sf: none -> INLINE [function argument]',
+            '  R.hs Vec3.v3: none -> INLINE [function argument]',
             '  V.hs v1: none -> INLINABLE [class constraint]',
             '  V.hs Vec2.vs: INLINE -> INLINABLE [class constraint]',
             '  V.hs Vec2.vs: none -> INLINABLE [class constraint]',
@@ -1286,7 +1343,7 @@ def self_test_rule():
                 fh.write(text)
         got, nbad, _ = report_rule(td)
         got = [re.sub(r'^(  \S+\.hs):\d+', r'\1', x) for x in got]
-        if got != want or nbad != 37:
+        if got != want or nbad != 39:
             bad.append(f'--rule ({nbad}):\n  ' + '\n  '.join(got))
         if main(['--rule', td]) != 1:
             bad.append('--rule with findings did not exit 1')

@@ -3776,6 +3776,52 @@
    "expect_text": "M.hs:9 C.c2: INLINE -> INLINABLE",
    "bug_exit": 1,
    "bug_text": "M.hs:6 C.c1: none -> INLINABLE"
+  },
+  {
+   "program": "pragma-census.py",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "id": "pragma-census-07",
+   "name": "a class method signature whose :: starts the next line was not read, so the method's type was unknown and its instances' methods were listed as of an unknown class",
+   "trigger": "class C a where, then m alone on a line and :: a -> Int on the next; instance Show a => C [a] where m = length",
+   "ok": "C.m judged: none -> INLINABLE, exit 1",
+   "bug": "C.m listed among the methods of unknown classes, exit 1",
+   "notes": "Found 2026-10-11 asking why 101 instance methods of horde-ad's BaseTensor were still of an unknown class: tgrad, tjvp and nineteen more are declared so in Core/Ops.hs.",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\nclass C a where\n  m\n    :: a -> Int\ninstance Show a => C [a] where\n  m = length\nEOF",
+   "invoke": [
+    "--rule",
+    "{tmp}/S"
+   ],
+   "expect_exit": 1,
+   "expect_text": "M.hs:6 C.m: none -> INLINABLE",
+   "bug_exit": 1,
+   "bug_text": "(file:line class.method)\n  M.hs:6 C.m"
+  },
+  {
+   "program": "pragma-census.py",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "id": "pragma-census-08",
+   "name": "a top-level signature whose :: starts the next line was not read, so the binding was passed over as one without a signature",
+   "trigger": "foldT alone on a line, then :: (a -> b -> b) -> b -> [a] -> b on the next, then foldT = foldr",
+   "ok": "foldT: none -> INLINE listed, exit 1",
+   "bug": "nothing listed, exit 0",
+   "notes": "Found 2026-10-11 sizing pragma-census-07: 193 top-level signatures in horde-ad's src are written so, and 15 in orthotope's Data, foldrT and traverseT among them.",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\nfoldT\n  :: (a -> b -> b) -> b -> [a] -> b\nfoldT = foldr\nEOF",
+   "invoke": [
+    "--rule",
+    "{tmp}/S"
+   ],
+   "expect_exit": 1,
+   "expect_text": "M.hs:2 foldT: none -> INLINE [function argument]",
+   "bug_exit": 0,
+   "bug_text": "== pragma unlike the rule and no comment above in its form"
   }
  ]
 }
