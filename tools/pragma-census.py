@@ -43,17 +43,24 @@ type; otherwise INLINABLE where it is overloaded, a class constraint in the
 signature, in the instance's context or in the class method's own type,
 and a default method always, by its class; otherwise none. A method's type
 is its class's, read from the tree's class declarations or from a table of
-the standard classes. SPECIALISE counts as INLINABLE. A top-level binding
-also wants INLINE where it forwards to one needing it: its body calls that
-binding, by its name in its own module, in one it imports unqualified
-or through a qualified alias, a module defining no such name followed
-through its unqualified imports as a facade re-exports them, and its type
-shares a list type with it. The
-INLINE bindings whose comment above them gives P's reason for it need it,
-which is how a directly fusing one is told, and so, to a fixed point, does
-each forwarder.
-A binding whose comment names F1 but whose body hands a list of its type
-to a tree binding is listed too: the innermost binding should carry it.
+the standard classes. SPECIALISE counts as INLINABLE. A binding wants INLINE
+where it is directly fusing (F1): its body names build or augment and its
+result is a list, or it takes a list and its body names foldr or another
+good consumer defined outside the tree, sum, all or map among them, lists of
+Int or Bool, a shape's, left out. A binding also wants INLINE where it
+forwards to one needing it: its body calls that binding, by its name in its
+own module, in one it imports unqualified or through a qualified alias, a
+module defining no such name followed through its unqualified imports as a
+facade re-exports them, or through a class method one of whose instances it
+is, and its type shares a list type with it, or, where the callee's INLINE
+stands on a comment giving P's reason that cites no F1, the call heads the
+right-hand side of its first equation, constructors applied to it aside. A
+directly fusing binding, and an INLINE binding whose comment above it gives
+P's reason, need it, and so, to a fixed point, does each forwarder. A
+binding whose comment names F1 but whose body hands a list of its type to a
+tree binding is listed too: the innermost binding should carry it; and so is
+a directly fusing binding whose type does not want INLINE already and whose
+comment gives no P's reason citing F1.
 It lists each binding whose pragma differs, unless a plain comment directly
 above its haddock, or for a method above the method or its instance or
 class, a default method's signature too, gives P's reason, a declaration
@@ -623,18 +630,81 @@ def lists_of(ty):
 
 
 REF = re.compile(r"(?<![\w'.])((?:[A-Z][\w']*\.)*)([a-z_][\w']*)")
+# F1's directly fusing binding: one whose body holds the build or augment of
+# its list result, or applies foldr, or a good consumer outside the tree
+# defined by it, to a list argument; lists of Int, shapes, are left out.
+PRODUCES = re.compile(r"(?<![\w'])(?:build|augment)(?![\w'])")
+CONSUMES = re.compile(
+    r"(?<![\w'])((?:[A-Z][\w']*\.)*)(foldr|foldl'?|sum|product|and|or|any|"
+    r"all|concat|concatMap|elem|notElem|length|mapM_|sequence_|zip|zipWith|"
+    r"unzip|map|filter)(?![\w'])")
 
 
-def forwarding(texts):
-    """({(module, name): callee} of the top-level bindings that forward to one
-    needing INLINE: their body calls it, by its name in their module or one
-    they import unqualified or through a qualified alias, and their type
-    shares a list type with its. The INLINE bindings a comment above them
-    explains need it, and so, to a fixed point, does each forwarder;
-    [(path, line, name, callee)] of the bindings whose comment names F1 but
-    which hand a list of their type to a tree binding). texts maps each
-    path to its text."""
-    table, info, where = {}, {}, {}
+def elements(lists):
+    """The list types but those built of Int and Bool alone, a shape's and its
+    flags."""
+    return {x for x in lists
+            if set(re.findall(r"[A-Za-z_][\w']*", x)) - {'Int', 'Bool'}}
+
+
+DEF_EQ = re.compile(r"(?<![=<>/!:|])=(?![=>])")
+HEAD_FUN = re.compile(r"(?:\s|\(|\$|\.(?![\w'])|[A-Z][\w']*(?![\w'.]))*"
+                      r"((?:[A-Z][\w']*\.)*)([a-z_][\w']*)")
+KEYWORDS = {'case', 'let', 'if', 'do', 'where', 'of', 'in', 'then', 'else'}
+
+
+def wrapped(body):
+    """The (qualifier, name) heading the right-hand side of a binding's first
+    equation, constructors applied to it and $ and . left aside, or None where
+    a guard or a keyword comes first."""
+    m = DEF_EQ.search(body)
+    if not m or '|' in body[:m.start()]:
+        return None
+    h = HEAD_FUN.match(body, m.end())
+    return None if not h or h.group(2) in KEYWORDS else (h.group(1), h.group(2))
+
+
+def element_lists(ty):
+    """The list types of ty but a shape's and its flags."""
+    return elements(lists_of(ty))
+
+
+def fusing(body, ty, outside=lambda qual, name: True):
+    """Whether a binding of type ty and this body is directly fusing, a
+    consumer counting where outside says its name is not the tree's."""
+    parts = depth0(body_type(ty).replace('ShapeL', '[Int]'), '->')
+    args = set().union(*[element_lists(a) for a in parts[:-1]]) if parts else set()
+    result = element_lists(parts[-1]) if parts else set()
+    return bool((result and PRODUCES.search(body))
+                or (args and any(outside(q, n)
+                                 for q, n in CONSUMES.findall(body))))
+
+
+def method_body(lines, n, k):
+    """The equations of the method defined at line n of a body ending
+    before line k, joined, the deeper lines continuing it."""
+    out, j = [lines[n]], n + 1
+    while j < k and (indent(lines[j]) > indent(lines[n]) or not lines[j].strip()):
+        out.append(lines[j])
+        j += 1
+    return ' '.join(re.sub(r'(^|\s)--(\s.*)?$', '', x) for x in out)
+
+
+def forwarding(texts, classes=None):
+    """({key: callee} of the bindings that forward to one needing INLINE,
+    {key} of the directly fusing ones, and [(path, line, name, callee)] of
+    the bindings whose comment names F1 but which hand a list of their type
+    to a tree binding); a key is (module, name) for a top-level binding and
+    (module, class.method, line) for an instance method. A binding needs
+    INLINE where it is directly fusing (F1) or carries INLINE under a comment
+    giving P's reason, and a forwarder calls one needing it, by its name in
+    its module or one it imports unqualified or through a qualified alias, or
+    through a class method with such an instance, and passes it a list
+    of its type, or, where the callee's reason is a measurement rather than
+    F1, calls it at all; to a fixed point. texts maps each path to its
+    text."""
+    classes = classes or {}
+    table, info, where, methods, pending = {}, {}, {}, {}, {}
     for path, text in texts.items():
         lines = text.split('\n')
         mod, aliases, opens = module_info(text)
@@ -648,11 +718,33 @@ def forwarding(texts):
             sig, j = signature_at(lines, i, m)
             for name in re.split(r'\s*,\s*', m.group(1).strip()):
                 name = name.strip('()')
-                table[(mod, name)] = (
-                    lists_of(body_type(sig)),
-                    kinds.get(name) == 'INLINE' and reasoned(lines, i, 'INLINE'),
-                    definition(lines, j, name))
+                body = definition(lines, j, name)
+                table[(mod, name)] = (lists_of(body_type(sig)), None, body)
+                pending[(mod, name)] = (lines, [i], kinds.get(name), sig)
                 where[(mod, name)] = (path, i, noted(lines, i, F1NOTE))
+        for i, line in enumerate(lines):
+            if not line.startswith('instance'):
+                continue
+            head, j, k, hm = decl_at(lines, i)
+            if not hm:
+                continue
+            cls = re.sub(r'^.*\.', '', (hm.group(1).split('=>', 1)[-1]).split()[0])
+            pk = {}
+            for b in [head] + lines[j + 1:k]:
+                for p in KINDS.finditer(b):
+                    pk[p.group(3)] = p.group(1)
+            seen = set()
+            for n, b in instance_body(lines, j, k, hm):
+                meth = method_name(b)
+                ty = classes.get(cls, {}).get(meth)
+                if not meth or meth in seen or ty is None:
+                    continue
+                seen.add(meth)
+                body = method_body(lines, n, k)
+                key = (mod, f'{cls}.{meth}', n)
+                table[key] = (lists_of(body_type(ty)), None, body)
+                pending[key] = (lines, [i, n], pk.get(meth), ty)
+                methods.setdefault(meth, set()).add(key)
 
     def defining(x, name, seen):
         """The modules defining name that module x holds, itself or through
@@ -675,39 +767,84 @@ def forwarding(texts):
         cands = set().union(*[defining(x, name, set()) for x in mods])
         return (cands.pop(), name) if len(cands) == 1 else None
 
-    need = {k for k, (_, seed, _) in table.items() if seed}
+    def callees(k, qual, name):
+        c = resolve(k[0], qual, name)
+        return [c] if c else sorted(methods.get(name, ()))
+
+    over = {k for k, (lines, notes, has, _) in pending.items()
+            if departs(lines, notes, has)}
+    for k, (lines, notes, has, ty) in pending.items():
+        lists, _, body = table[k]
+        fuses = fusing(body, ty, lambda q, n: not resolve(k[0], q, n)
+                       and n not in methods)
+        table[k] = (lists, seed_kind(lines, notes, has, fuses), body)
+
+    need = {k: seed for k, (_, seed, _) in table.items() if seed}
     fwd, grew = {}, True
     while grew:
         grew = False
         for k, (lists, _, body) in table.items():
-            if k in need:
+            if k in need or k in over:
                 continue
+            head = wrapped(body)
             for qual, name in REF.findall(body):
-                c = resolve(k[0], qual, name)
-                if c and c != k and c in need and lists & table[c][0]:
-                    need.add(k)
-                    fwd[k] = f'{c[0]}.{c[1]}'
+                hit = [c for c in callees(k, qual, name) if c != k and c in need
+                       and (lists & table[c][0] or need[c] == 'measured'
+                            and (qual, name) == head)]
+                if hit:
+                    need[k] = need[hit[0]]
+                    fwd[k] = f'{hit[0][0]}.{hit[0][1]}'
                     grew = True
                     break
+    fus = {k for k, (_, seed, _) in table.items() if seed == 'fusing'}
     shallow = []
     for k, (path, n, f1) in where.items():
-        if not f1:
+        if not f1 or not table[k][1]:
             continue
         for qual, name in REF.findall(table[k][2]):
             c = resolve(k[0], qual, name)
-            if c and c != k and table[k][0] & table[c][0]:
+            if c and c != k and elements(table[k][0] & table[c][0]):
                 shallow.append((path, n + 1, k[1], f'{c[0]}.{c[1]}'))
                 break
-    return fwd, shallow
+    return fwd, fus, shallow
 
 
-def rule_check(text, classes, fwd=None):
+def departs(lines, notes, has):
+    """Whether a comment above a binding gives P's reason for the pragma it
+    carries, one other than INLINE, which overrides what its body and its
+    callees would make it."""
+    other = {'INLINEABLE': 'INLINABLE', 'SPECIALISE': 'INLINABLE',
+             'SPECIALIZE': 'INLINABLE'}.get(has, has) or 'none'
+    return other != 'INLINE' and any(reasoned(lines, x, other) for x in notes)
+
+
+def seed_kind(lines, notes, has, fuses):
+    """How a binding needs INLINE: 'fusing' where it is directly fusing,
+    'F1' or 'measured' where it carries INLINE under a comment giving P's
+    reason, by whether the reason cites F1, and None where it needs none,
+    a departure overriding its body."""
+    if departs(lines, notes, has):
+        return None
+    if fuses:
+        return 'fusing'
+    for x in notes:
+        if has == 'INLINE' and reasoned(lines, x, 'INLINE'):
+            return 'F1' if noted(lines, x, F1NOTE) else 'measured'
+    return None
+
+
+def rule_check(text, classes, fwd=None, fus=None):
     """The bindings of a module whose pragma differs from what the rule gives
     with no comment naming a pragma above them: [(line, name, has, wants,
     reasons)]; the recursive ones the rule makes INLINE: [(line, name, has)];
     and the instance methods of unknown classes: [(line, class, method)].
-    fwd is forwarding()'s map, its top-level forwarders wanting INLINE."""
+    fwd and fus are forwarding()'s forwarders and directly fusing bindings,
+    each wanting INLINE; the directly fusing ones whose type does not want
+    INLINE already and whose comment does not give P's reason citing F1:
+    [(line, name)]."""
     lines, fwd, mod = text.split('\n'), fwd or {}, module_info(text)[0]
+    fus = fus or set()
+    unmarked = []
     kinds = {}
     for line in lines:
         for m in KINDS.finditer(line):
@@ -718,16 +855,24 @@ def rule_check(text, classes, fwd=None):
     mdecl = declared([x for x in lines[:start] if x.lstrip().startswith('--')])
     off, rec, unknown = [], [], []
 
-    def judge(n, name, has, phased, ty, over, notes, extra=(), decl=mdecl):
+    def judge(n, name, has, phased, ty, over, notes, extra=(), decl=mdecl,
+              key=None):
+        key = key or (mod, name)
         if phased:
             return
         has = {'INLINEABLE': 'INLINABLE', 'SPECIALISE': 'INLINABLE',
                'SPECIALIZE': 'INLINABLE'}.get(has, has)
+        if key in fus and not fun_arg(ty) and has != decl and not any(
+                reasoned(lines, x, has) and noted(lines, x, F1NOTE)
+                for x in notes):
+            unmarked.append((n + 1, name))
         note = any(reasoned(lines, x, has) for x in notes)
         w, why = want(ty, over)
         why = why + list(extra)
-        if w != 'INLINE' and (mod, name) in fwd:
-            w, why = 'INLINE', [f'forwards to {fwd[(mod, name)]}']
+        if w != 'INLINE' and key in fus:
+            w, why = 'INLINE', ['directly fusing (F1)']
+        if w != 'INLINE' and key in fwd:
+            w, why = 'INLINE', [f'forwards to {fwd[key]}']
         if w == 'INLINE' and recursive_here.get(name):
             if has == 'INLINE':
                 rec.append((n + 1, name, has))
@@ -789,11 +934,12 @@ def rule_check(text, classes, fwd=None):
                     has, phased = pk.get(name, ('none', False))
                     judge(n, f'{cls}.{name}', has, phased, ty, over,
                           [i, n], (),
-                          mdecl if hdecl is None else hdecl)
+                          mdecl if hdecl is None else hdecl,
+                          (mod, f'{cls}.{name}', n))
             i = k
             continue
         i += 1
-    return off, rec, unknown
+    return off, rec, unknown, unmarked
 
 
 def hs_files(src):
@@ -812,14 +958,15 @@ def report_rule(src):
         with open(path) as fh:
             texts[path] = fh.read()
         classes.update(class_methods(texts[path]))
-    fwd, shallow = forwarding(texts)
-    off, rec, unknown = [], [], []
+    fwd, fus, shallow = forwarding(texts, classes)
+    off, rec, unknown, unmarked = [], [], [], []
     for path in files:
         rel = os.path.relpath(path, src)
-        o, r, u = rule_check(texts[path], classes, fwd)
+        o, r, u, f = rule_check(texts[path], classes, fwd, fus)
         off += [(rel, *x) for x in o]
         rec += [(rel, *x) for x in r]
         unknown += [(rel, *x) for x in u]
+        unmarked += [(rel, *x) for x in f]
     out = ['== pragma unlike the rule and no comment above in its form'
            ' (file:line name: has -> wants [why])']
     out += [f'  {rel}:{n} {name}: {has} -> {w} [{", ".join(why)}]'
@@ -835,7 +982,11 @@ def report_rule(src):
                ' (file:line name -> callee)')
     out += [f'  {os.path.relpath(p, src)}:{n} {name} -> {c}'
             for p, n, name, c in sorted(shallow)]
-    return out, len(off) + len(rec) + len(unknown) + len(shallow), len(files)
+    out.append('== directly fusing (F1) with no comment giving P\'s reason'
+               ' citing F1 (file:line name)')
+    out += [f'  {rel}:{n} {name}' for rel, n, name in unmarked]
+    return out, (len(off) + len(rec) + len(unknown) + len(shallow)
+                 + len(unmarked)), len(files)
 
 
 def report(src):
@@ -1213,6 +1364,8 @@ def self_test_rule():
             '{-# INLINE n5 #-}\n'
             'n5 :: (a -> b) -> T a -> T b\n'
             'n5 = mapT\n'
+            'nfl :: [a] -> T a\n'
+            'nfl xs = T (V.fromList (filter (const True) xs))\n'
             '-- INLINE throughout: the instance a measured exception.\n'
             'instance Functor T where\n'
             '  fmap = mapT\n')
@@ -1244,6 +1397,10 @@ def self_test_rule():
            '{-# INLINE rootU #-}\n'
            'rootU :: T a -> [a]\n'
            'rootU t = build (\\c n -> foldT c n t)\n'
+           '-- INLINE: measured faster, citing nothing.\n'
+           '{-# INLINE rootV #-}\n'
+           'rootV :: T a -> Int\n'
+           'rootV = lenT\n'
            '-- INLINE: directly fusing (F1), its list built with build.\n'
            '{-# INLINE rootT #-}\n'
            'rootT :: T a -> [a]\n'
@@ -1274,7 +1431,51 @@ def self_test_rule():
            'mid6 :: A a -> [a]\n'
            'mid6 = L.rootT . unA\n'
            'mid7 :: A a -> [a]\n'
-           'mid7 = L.rootU . unA\n')
+           'mid7 = L.rootU . unA\n'
+           'mid8 :: A a -> Int\n'
+           'mid8 = L.rootV . unA\n')
+    fusw = ('module W where\n'
+            '{-# INLINE rootX #-}\n'
+            'rootX :: T a -> [a]\n'
+            'rootX t = build (\\c n -> foldT c n t)\n'
+            'tot :: Num a => T a -> a\n'
+            'tot t = sum (rootX t)\n'
+            'sz :: [Int] -> Int\n'
+            'sz = product\n'
+            'pd :: [(Int, Int)] -> Int\n'
+            'pd = sum . map fst\n'
+            'fl2 :: [Bool] -> Bool\n'
+            'fl2 = and\n'
+            '-- INLINE: on GHC HEAD (2026-10-11), measured faster than INLINABLE.\n'
+            '{-# INLINE cmpT #-}\n'
+            'cmpT :: Ord a => T a -> T a -> Ordering\n'
+            'cmpT = undefined\n'
+            '{-# INLINABLE useC #-}\n'
+            'useC :: Ord a => T a -> T a -> Bool\n'
+            'useC a b = not (cmpT a b == EQ)\n'
+            '-- INLINE: on GHC HEAD (2026-10-11), measured faster than INLINABLE.\n'
+            '{-# INLINE msd #-}\n'
+            'msd :: [a] -> T a -> ([a], [a])\n'
+            'msd xs t = (xs, rootX t)\n'
+            '-- INLINE: F1, directly fusing: it consumes its list once, by length.\n'
+            '{-# INLINE sh1 #-}\n'
+            'sh1 :: [Int] -> [a] -> Int\n'
+            'sh1 is xs = sz is + length xs\n'
+            '-- INLINABLE: F1 reads no fusion here: its list goes to sum twice.\n'
+            '{-# INLINABLE nf #-}\n'
+            'nf :: Num a => [a] -> T a -> a\n'
+            'nf xs t = sum xs * sum xs + sum (rootX t)\n'
+            '{-# INLINABLE nfc #-}\n'
+            'nfc :: Num a => [a] -> T a -> a\n'
+            'nfc xs t = nf xs t\n'
+            'instance Ord a => Ord (T a) where\n'
+            '  compare = cmpT\n'
+            'class VL v where\n'
+            '  vfl :: Int -> [a] -> v a\n'
+            'instance VL Vector where\n'
+            '  vfl _ xs = V.fromList (map id xs)\n'
+            'fl :: VL v => [a] -> v a\n'
+            'fl xs = vfl 3 xs\n')
     fac = ('module Fac(module L) where\n'
            'import Low as L\n')
     api = ('module Api where\n'
@@ -1285,9 +1486,10 @@ def self_test_rule():
             ' (file:line name: has -> wants [why])',
             '  Api.hs top: none -> INLINE [forwards to Mid.mid]',
             '  L.hs g2: none -> INLINABLE [class constraint]',
-            '  Low.hs rootU: INLINE -> none [no class constraint]',
+            '  Low.hs rootV: INLINE -> none [no class constraint]',
             '  Mid.hs mid2: INLINABLE -> INLINE [forwards to Low.rootT]',
             '  Mid.hs mid4: INLINABLE -> INLINE [forwards to Low.rootT]',
+            '  Mid.hs mid7: none -> INLINE [forwards to Low.rootU]',
             '  N.hs n3: INLINABLE -> none [no class constraint]',
             '  N.hs Functor.fmap: none -> INLINE [function argument]',
             '  R.hs f1: none -> INLINE [function argument]',
@@ -1324,6 +1526,10 @@ def self_test_rule():
             '  V.hs Vec2.vs: none -> INLINABLE [class constraint]',
             '  V.hs Dc.dc2: none -> INLINABLE'
             ' [class constraint, default method]',
+            '  W.hs tot: none -> INLINABLE [class constraint]',
+            '  W.hs Ord.compare: none -> INLINE [forwards to W.cmpT]',
+            '  W.hs VL.vfl: none -> INLINE [directly fusing (F1)]',
+            '  W.hs fl: none -> INLINE [forwards to W.VL.vfl]',
             '== recursive and INLINE: an INLINE wrapper over a recursive'
             ' worker instead (file:line name)',
             '  R.hs f14',
@@ -1333,17 +1539,22 @@ def self_test_rule():
             '== a comment naming F1 on a binding that hands its list to a'
             ' tree binding, the innermost one being the one to carry it'
             ' (file:line name -> callee)',
-            '  Mid.hs mid5 -> Low.rootT']
+            '  Mid.hs mid5 -> Low.rootT',
+            '== directly fusing (F1) with no comment giving P\'s reason'
+            ' citing F1 (file:line name)',
+            '  Low.hs rootU',
+            '  W.hs rootX',
+            '  W.hs VL.vfl']
     bad = []
     with tempfile.TemporaryDirectory() as td:
         for name, text in (('R.hs', src), ('L.hs', layer), ('Low.hs', low),
                            ('Mid.hs', mid), ('Api.hs', api), ('Fac.hs', fac),
-                           ('N.hs', nopr), ('V.hs', decl)):
+                           ('N.hs', nopr), ('V.hs', decl), ('W.hs', fusw)):
             with open(os.path.join(td, name), 'w') as fh:
                 fh.write(text)
         got, nbad, _ = report_rule(td)
         got = [re.sub(r'^(  \S+\.hs):\d+', r'\1', x) for x in got]
-        if got != want or nbad != 39:
+        if got != want or nbad != 47:
             bad.append(f'--rule ({nbad}):\n  ' + '\n  '.join(got))
         if main(['--rule', td]) != 1:
             bad.append('--rule with findings did not exit 1')

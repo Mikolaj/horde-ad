@@ -228,9 +228,12 @@ not for orthotope's fill, which had no pragma at all (S1's variant C).
   inlining alone gives it something**: its type takes an argument of function
   type, which inlining makes a known call; it is directly fusing (F1);
   or a measurement shows another of I3's gains. **A binding that forwards to one
-  needing `INLINE` needs it too**: its body calls that binding and its own type
-  carries the function or the list that makes the callee need it, so
-  that the gain reaches the caller through every link. A recursive binding takes
+  needing `INLINE` needs it too**: its body calls that binding, directly
+  or through a class method one of whose instances it is, and passes
+  it the function or the list of its own type that makes the callee need it, or,
+  where the callee's `INLINE` stands on a measured gain rather than on fusion
+  or a function argument, wraps it, the call heading its body, so that the gain
+  reaches the caller through every link. A recursive binding takes
   a non-recursive `INLINE` wrapper over it instead (I2). **Otherwise a binding
   gets `INLINABLE` where it is overloaded**, by a class constraint
   in its signature, in its instance's context or in its class method's own type,
@@ -433,17 +436,26 @@ with no comment saying why: one missing, one superfluous or one of the wrong
 kind, a forwarder's included. **Seen:** orthotope's boxed `fmap`, `foldr`
 and `traverse` forwarded a caller's function to `mapA`, `foldrA` and `traverseA`
 with no pragma, and the list instance of `Vector` took function arguments
-with none.
+with none. Acting on every finding of orthotope's tree at once, before
+its fusing bindings were marked, stripped `INLINE` from `toListT`'s wrappers
+and ran `toList` 8 to 10 times slower (2026-10-11).
 
 **Recipe:**
 
+- Mark before acting on any finding: give each binding listed as directly fusing
+  with no F1 comment its comment in P's form once F1's recipe shows the fusion
+  firing, and each `INLINE` that stands on a measured gain its comment citing
+  the measurement; then run the census again. The forwarders follow only
+  from bindings so found, so a finding acted on before the marking can strip
+  `INLINE` from a fusing binding's wrappers.
 - `python3 $T/pragma-census.py --rule SRC` lists every top-level function
   with a signature, every instance method and every class default method whose
   pragma differs from P's rule with no comment above its haddock in P's form
   and no declaration covering it, the recursive bindings the rule would make
   `INLINE`, the methods of classes whose method types it does not know,
   and the bindings whose comment names F1 but which hand their list to a tree
-  binding, the innermost being the one to carry it.
+  binding, the innermost being the one to carry it, and the directly fusing
+  bindings with no comment in P's form citing F1.
 - `python3 $T/pragma-census.py SRC` lists only the overloaded bindings
   that carry no pragma.
 - S1's audit shows which callers still pass a dictionary at run time.
@@ -465,8 +477,9 @@ case, its guard and its case on the route notwithstanding. `maximumA` folded
 by `foldr` over its producer, and `rerank` with `subArraysT` written
 as a `build`, ran faster than before. `vConcatN` fuses with a `build` producer
 and not with a recursive local function, and vector's `concat` walks its list
-twice, so it fuses with none. A fused element walk can regress a route
-it was not meant for: allocation rose 160 times on views of runs in one variant.
+twice, and its `fromList` and base's `maximum` take theirs apart by `case`,
+so none of them fuses. A fused element walk can regress a route it was not meant
+for: allocation rose 160 times on views of runs in one variant.
 
 **Recipe:**
 
@@ -486,8 +499,11 @@ beside its counterpart; one handing the list to a tree binding that does so
 is a forwarder, and one applying its `foldr` to a call's list is where
 the fusion happens and needs nothing for it. The comment P asks of a directly
 fusing binding names F1. P says what that asks of it and of the bindings
-forwarding to it. A count that falls may only have lost a duplicated consumer,
-so read it against `core-diff.py`.
+forwarding to it. `pragma-census.py --rule` lists as candidates the bindings
+whose body names `build` or `augment` and whose result is a list, or names
+a good consumer defined outside the tree and which take a list, lists of `Int`
+or `Bool` left out; this recipe confirms them. A count that falls may only have
+lost a duplicated consumer, so read it against `core-diff.py`.
 
 ### F2. Vector stream fusion, and fusion that costs without SpecConstr
 

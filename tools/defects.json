@@ -3822,6 +3822,54 @@
    "expect_text": "M.hs:2 foldT: none -> INLINE [function argument]",
    "bug_exit": 0,
    "bug_text": "== pragma unlike the rule and no comment above in its form"
+  },
+  {
+   "program": "pragma-census.py",
+   "family": "other:proxy-for-property",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "id": "pragma-census-09",
+   "name": "a binding fusing by its body counted as needing INLINE only under a comment in P's form, so the bindings forwarding its list were asked to drop theirs",
+   "trigger": "rootT t = build (\\c n -> foldT c n t) under INLINE and no comment, and wrap (B t) = rootT t, its type sharing [a], under INLINE",
+   "ok": "wrap not listed, rootT listed as directly fusing with no comment citing F1, exit 1",
+   "bug": "rootT and wrap listed as INLINE -> none, exit 1",
+   "notes": "Found 2026-10-11 after acting on every finding over orthotope's Data at once: toListT's wrappers lost INLINE and toList ran 8 to 10 times slower.",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\n{-# INLINE rootT #-}\nrootT :: T a -> [a]\nrootT t = build (\\c n -> foldT c n t)\n{-# INLINE wrap #-}\nwrap :: B a -> [a]\nwrap (B t) = rootT t\nEOF",
+   "invoke": [
+    "--rule",
+    "{tmp}/S"
+   ],
+   "expect_exit": 1,
+   "expect_text": "citing F1 (file:line name)\n  M.hs:3 rootT",
+   "expect_absent": "wrap:",
+   "bug_exit": 1,
+   "bug_text": "M.hs:6 wrap: INLINE -> none"
+  },
+  {
+   "program": "pragma-census.py",
+   "family": "other:proxy-for-property",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "id": "pragma-census-10",
+   "name": "a wrapper of a binding whose INLINE stands on a measured gain was no forwarder unless its type shared a list with it, and an instance method was none at all",
+   "trigger": "cmpT under INLINE and a comment giving a measured reason, and instance Ord (T a) with compare = cmpT under INLINE",
+   "ok": "nothing listed, exit 0",
+   "bug": "Ord.compare: INLINE -> INLINABLE listed, exit 1",
+   "notes": "Found 2026-10-11 after acting on every finding over orthotope's Data at once: its compare wrappers ran 1.2 times slower and its rnf wrappers 1.4 times.",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\n-- INLINE: on GHC HEAD (2026-10-11), measured faster than INLINABLE.\n{-# INLINE cmpT #-}\ncmpT :: Ord a => T a -> T a -> Ordering\ncmpT = undefined\ninstance Ord a => Ord (T a) where\n  {-# INLINE compare #-}\n  compare = cmpT\nEOF",
+   "invoke": [
+    "--rule",
+    "{tmp}/S"
+   ],
+   "expect_exit": 0,
+   "expect_text": "== directly fusing (F1)",
+   "expect_absent": "Ord.compare",
+   "bug_exit": 1,
+   "bug_text": "M.hs:8 Ord.compare: INLINE -> INLINABLE"
   }
  ]
 }
