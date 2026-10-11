@@ -51,16 +51,23 @@ shares a list type with it. The
 INLINE bindings a comment above them explains need it, which is how a
 directly fusing one is told, and so, to a fixed point, does each forwarder.
 A binding whose comment names F1 but whose body hands a list of its type
-to a tree binding is listed too: the innermost binding should carry it. It lists each binding whose pragma differs,
-unless a plain comment directly above its haddock, or for a method above
-the method or its instance or class, a default method's signature too,
-names a pragma (INLINE, INLINABLE, NOINLINE or
-"pragma"), a module comment saying INLINE throughout covers its top-level
-INLINEs, or the pragma has a phase; the recursive bindings the rule makes
-INLINE that carry INLINE, which want a wrapper over a worker instead, a body
-naming its own name outside string literals being recursive; and the
-methods of classes whose method types it does not know. A method defined
+to a tree binding is listed too: the innermost binding should carry it.
+It lists each binding whose pragma differs, unless a plain comment directly
+above its haddock, or for a method above the method or its instance or
+class, a default method's signature too, names a pragma (INLINE, INLINABLE,
+NOINLINE or "pragma"), a declaration covers it, or the pragma has a phase;
+the recursive bindings the rule makes INLINE that carry INLINE, which want
+a wrapper over a worker instead, a body naming its own name outside string
+literals being recursive; and the methods of classes whose method types
+it does not know. A method defined
 as `undefined` or `error ...` is passed over.
+
+A declaration is a comment saying INLINE throughout, INLINABLE (or
+INLINEABLE) throughout or No pragma throughout. In the module's header,
+above its `module` line, it covers each binding of the module carrying
+that pragma, or none; directly above an instance or class, each of its
+methods, overriding the module's there, and it is then no note for them:
+a method carrying another pragma is held to the rule and its own comment.
 
 Exit 0 when every overloaded binding carries a pragma, or with `--rule`
 when nothing differs, 1 when one does not, 2 when SRC holds no `.hs` file.
@@ -447,9 +454,9 @@ def want(ty, overloaded_too):
     return 'none', ['no class constraint']
 
 
-def noted(lines, i, pat=NOTE):
-    """Whether plain comment lines directly above line i, above the pragmas
-    and the haddock directly above it, name a pragma, or match pat."""
+def plain_lines(lines, i):
+    """The plain comment lines directly above line i, above the pragmas and
+    the haddock directly above it."""
     k = i - 1
     while k >= 0 and (lines[k].lstrip().startswith('{-#')
                       or lines[k].lstrip().startswith('--')):
@@ -463,7 +470,28 @@ def noted(lines, i, pat=NOTE):
             inside = False
         elif not inside:
             plain.append(x)
+    return plain
+
+
+def noted(lines, i, pat=NOTE):
+    """Whether the plain comment lines above line i name a pragma, or match
+    pat."""
+    plain = plain_lines(lines, i)
     return any(pat.search(x) for x in plain)
+
+
+DECL = re.compile(r'\b(INLINE|INLINABLE|INLINEABLE|[Nn]o pragma) throughout\b')
+
+
+def declared(comments):
+    """The pragma a declaration among comment lines covers, `none` for
+    No pragma throughout, or None where they make no declaration."""
+    for x in comments:
+        m = DECL.search(x)
+        if m:
+            return {'INLINEABLE': 'INLINABLE', 'No pragma': 'none',
+                    'no pragma': 'none'}.get(m.group(1), m.group(1))
+    return None
 
 
 def class_methods(text):
@@ -620,11 +648,12 @@ def rule_check(text, classes, fwd=None):
         for m in KINDS.finditer(line):
             if line[:1] not in (' ', '\t'):
                 kinds[m.group(3)] = (m.group(1), bool(m.group(2)))
-    layer = any(re.search(r'INLINE throughout', x) for x in lines
-                if x.lstrip().startswith('--'))
+    start = next((n for n, x in enumerate(lines) if re.match(r'module\b', x)),
+                 0)
+    mdecl = declared([x for x in lines[:start] if x.lstrip().startswith('--')])
     off, rec, unknown = [], [], []
 
-    def judge(n, name, has, phased, ty, over, note, extra=()):
+    def judge(n, name, has, phased, ty, over, note, extra=(), decl=mdecl):
         if phased:
             return
         has = {'INLINEABLE': 'INLINABLE', 'SPECIALISE': 'INLINABLE',
@@ -637,11 +666,10 @@ def rule_check(text, classes, fwd=None):
             if has == 'INLINE':
                 rec.append((n + 1, name, has))
             return
-        if has != w and not note and not (layer and has == 'INLINE'
-                                          and n in toplevel):
+        if has != w and not note and has != decl:
             off.append((n + 1, name, has, w, why))
 
-    recursive_here, toplevel = {}, set()
+    recursive_here = {}
     i = 0
     while i < len(lines):
         line = lines[i]
@@ -651,20 +679,20 @@ def rule_check(text, classes, fwd=None):
             for name in re.split(r'\s*,\s*', m.group(1).strip()):
                 name = name.strip('()')
                 recursive_here[name] = recursive(lines, j, name)
-                toplevel.add(i)
                 has, phased = kinds.get(name, ('none', False))
                 judge(i, name, has, phased, sig, False, noted(lines, i))
             i = j
             continue
         if re.match(r'^class\b', line):
             cls, dm, k = defaults(lines, i)
-            cls_note = noted(lines, i)
+            cdecl = declared(plain_lines(lines, i))
+            cls_note = cdecl is None and noted(lines, i)
             for n, name, sn, p in dm:
                 has, phased = p or ('none', False)
                 judge(n, f'{cls}.{name}', has, phased,
                       classes.get(cls, {}).get(name, ''), True,
                       cls_note or noted(lines, n) or noted(lines, sn),
-                      ['default method'])
+                      ['default method'], mdecl if cdecl is None else cdecl)
             i = k
             continue
         if line.startswith('instance'):
@@ -679,7 +707,8 @@ def rule_check(text, classes, fwd=None):
                 for b in [head] + lines[j + 1:k]:
                     for p in KINDS.finditer(b):
                         pk[p.group(3)] = (p.group(1), bool(p.group(2)))
-                head_note = noted(lines, i)
+                hdecl = declared(plain_lines(lines, i))
+                head_note = hdecl is None and noted(lines, i)
                 seen = set()
                 for n, b in body:
                     name = method_name(b)
@@ -695,7 +724,8 @@ def rule_check(text, classes, fwd=None):
                         continue
                     has, phased = pk.get(name, ('none', False))
                     judge(n, f'{cls}.{name}', has, phased, ty, over,
-                          head_note or noted(lines, n))
+                          head_note or noted(lines, n), (),
+                          mdecl if hdecl is None else hdecl)
             i = k
             continue
         i += 1
@@ -923,8 +953,8 @@ def self_test():
 
 
 def self_test_rule():
-    """--rule over a module of one case per mechanism and a module covered
-    by a layer comment, the findings compared without their line numbers."""
+    """--rule over a module of one case per mechanism and modules covered by
+    declarations, the findings compared without their line numbers."""
     import tempfile
     src = ('module R where\n'
            'class Vec v where\n'
@@ -1046,7 +1076,52 @@ def self_test_rule():
              'g1 :: Num a => T a -> a\n'
              'g1 = sumT\n'
              'g2 :: Num a => T a -> a\n'
-             'g2 = sumT\n')
+             'g2 = sumT\n'
+             'instance Num a => Num (T a) where\n'
+             '  {-# INLINE (+) #-}\n'
+             '  (+) = zipT (+)\n')
+    nopr = ('-- No pragma throughout: a reference implementation.\n'
+            'module N where\n'
+            'n1 :: Num a => T a -> a\n'
+            'n1 = sumT\n'
+            'n2 :: (a -> b) -> T a -> T b\n'
+            'n2 = mapT\n'
+            '{-# INLINABLE n3 #-}\n'
+            'n3 :: T a -> Int\n'
+            'n3 = lenT\n'
+            '-- INLINABLE: measured faster.\n'
+            '{-# INLINABLE n4 #-}\n'
+            'n4 :: T a -> Int\n'
+            'n4 = lenT\n'
+            '{-# INLINE n5 #-}\n'
+            'n5 :: (a -> b) -> T a -> T b\n'
+            'n5 = mapT\n'
+            '-- INLINE throughout: the instance a measured exception.\n'
+            'instance Functor T where\n'
+            '  fmap = mapT\n')
+    decl = ('module V where\n'
+            'v1 :: Num a => a -> a\n'
+            'v1 = id\n'
+            'class Vec2 v where\n'
+            '  vm :: (a -> b) -> v a -> v b\n'
+            '  vs :: Num a => v a -> a\n'
+            '-- No pragma throughout: the reference instance.\n'
+            'instance Vec2 [] where\n'
+            '  vm = map\n'
+            '  {-# INLINE vs #-}\n'
+            '  vs = sum\n'
+            '-- INLINABLE throughout: measured faster.\n'
+            'instance Vec2 T where\n'
+            '  {-# INLINABLE vm #-}\n'
+            '  vm = mapT\n'
+            '  vs = sumT\n'
+            '-- INLINEABLE throughout: each pragma measured.\n'
+            'class Dc a where\n'
+            '  dc1 :: (a -> a) -> a\n'
+            '  {-# INLINABLE dc1 #-}\n'
+            '  dc1 g = g undefined\n'
+            '  dc2 :: a -> a\n'
+            '  dc2 = id\n')
     low = ('module Low where\n'
            '-- INLINE: directly fusing (F1), its list built with build.\n'
            '{-# INLINE rootT #-}\n'
@@ -1089,6 +1164,8 @@ def self_test_rule():
             '  L.hs g2: none -> INLINABLE [class constraint]',
             '  Mid.hs mid2: INLINABLE -> INLINE [forwards to Low.rootT]',
             '  Mid.hs mid4: INLINABLE -> INLINE [forwards to Low.rootT]',
+            '  N.hs n3: INLINABLE -> none [no class constraint]',
+            '  N.hs Functor.fmap: none -> INLINE [function argument]',
             '  R.hs f1: none -> INLINE [function argument]',
             '  R.hs f3: INLINABLE -> none [no class constraint]',
             '  R.hs f4: none -> INLINABLE [class constraint]',
@@ -1111,6 +1188,11 @@ def self_test_rule():
             '  R.hs Dflt.d9: none -> INLINE'
             ' [function argument, default method]',
             '  R.hs Dflt.d2: none -> INLINABLE [class constraint]',
+            '  V.hs v1: none -> INLINABLE [class constraint]',
+            '  V.hs Vec2.vs: INLINE -> INLINABLE [class constraint]',
+            '  V.hs Vec2.vs: none -> INLINABLE [class constraint]',
+            '  V.hs Dc.dc2: none -> INLINABLE'
+            ' [class constraint, default method]',
             '== recursive and INLINE: an INLINE wrapper over a recursive'
             ' worker instead (file:line name)',
             '  R.hs f14',
@@ -1124,12 +1206,13 @@ def self_test_rule():
     bad = []
     with tempfile.TemporaryDirectory() as td:
         for name, text in (('R.hs', src), ('L.hs', layer), ('Low.hs', low),
-                           ('Mid.hs', mid), ('Api.hs', api), ('Fac.hs', fac)):
+                           ('Mid.hs', mid), ('Api.hs', api), ('Fac.hs', fac),
+                           ('N.hs', nopr), ('V.hs', decl)):
             with open(os.path.join(td, name), 'w') as fh:
                 fh.write(text)
         got, nbad, _ = report_rule(td)
         got = [re.sub(r'^(  \S+\.hs):\d+', r'\1', x) for x in got]
-        if got != want or nbad != 25:
+        if got != want or nbad != 31:
             bad.append(f'--rule ({nbad}):\n  ' + '\n  '.join(got))
         if main(['--rule', td]) != 1:
             bad.append('--rule with findings did not exit 1')

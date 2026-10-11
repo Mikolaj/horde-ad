@@ -238,10 +238,14 @@ not for orthotope's fill, which had no pragma at all (S1's variant C).
   not counting, **and otherwise no pragma**. A need for `INLINE` that the type
   does not show, and any departure from this, stands only under a plain comment
   directly above the binding's haddock that names its pragma and cites
-  the measurement or reading behind it, a commit message not counting; a module
-  comment saying a layer is INLINE throughout covers that layer's top-level
-  `INLINE`s, as I3 allows where its callers are `INLINABLE`. I4 checks a tree
-  against this.
+  the measurement or reading behind it, a commit message not counting.
+  A declaration does it in bulk: a comment saying `INLINE throughout`,
+  `INLINABLE throughout` or `No pragma throughout`, with its reason, covers each
+  binding carrying that pragma, or none, in the module whose header holds
+  it or among the methods of the instance or class it stands directly above,
+  where it overrides the module's; a binding carrying another pragma is held
+  to this rule and its own comment as before. `INLINE throughout` suits a layer
+  whose callers are `INLINABLE`, as I3 allows. I4 checks a tree against this.
 - **Where their speed is tradable,** a pragma is a trade like any other and pays
   for itself or goes, as in the half above. Opting a module out
   of `-fexpose-overloaded-unfoldings` is itself such a trade: compile time saved
@@ -431,11 +435,11 @@ with none.
 
 - `python3 $T/pragma-census.py --rule SRC` lists every top-level function
   with a signature, every instance method and every class default method whose
-  pragma differs from P's rule with no comment above its haddock naming one,
-  the recursive bindings the rule would make `INLINE`, the methods of classes
-  whose method types it does not know, and the bindings whose comment names F1
-  but which hand their list to a tree binding, the innermost being the one
-  to carry it.
+  pragma differs from P's rule with no comment above its haddock naming one
+  and no declaration covering it, the recursive bindings the rule would make
+  `INLINE`, the methods of classes whose method types it does not know,
+  and the bindings whose comment names F1 but which hand their list to a tree
+  binding, the innermost being the one to carry it.
 - `python3 $T/pragma-census.py SRC` lists only the overloaded bindings
   that carry no pragma.
 - S1's audit shows which callers still pass a dictionary at run time.
