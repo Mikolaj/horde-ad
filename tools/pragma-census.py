@@ -61,6 +61,14 @@ binding whose comment names F1 but whose body hands a list of its type to a
 tree binding is listed too: the innermost binding should carry it; and so is
 a directly fusing binding whose type does not want INLINE already and whose
 comment gives no P's reason citing F1.
+A binding wants INLINE where its type names a sum marked as never to be
+built (A3), by a plain comment directly above the type's haddock whose
+first line opens `-- Unmaterialized:`: a data type of two constructors or
+more, read across its lines without their comments, or a type synonym,
+which is taken for the sum it names; a product marked so is left
+to measurement. The binding's own comment must give P's reason naming each
+such sum it takes or returns and citing A3, or it is listed too. Its callers
+need nothing for it.
 It lists each binding whose pragma differs, unless a plain comment directly
 above its haddock, or for a method above the method or its instance or
 class, a default method's signature too, gives P's reason, a declaration
@@ -73,7 +81,7 @@ as `undefined` or `error ...` is passed over.
 
 P's reason is a comment whose first line opens with the pragma the binding
 carries, or with No pragma for none, and a colon, `-- INLINE:`, and which
-cites one of the checks I1, I2, I3, F1, S2, W3 and W4, a GHC version,
+cites one of the checks I1, I2, I3, F1, A3, S2, W3 and W4, a GHC version,
 HEAD included, with a date, or, saying see, another comment.
 
 A declaration is a comment saying INLINE throughout, INLINABLE (or
@@ -389,6 +397,9 @@ KINDS = re.compile(r'\{-#\s*(INLINE|INLINABLE|INLINEABLE|NOINLINE|SPECIALI[SZ]E)
                    r'\s*(\[~?\d+\]\s*)?\(?([^\s)#,]+)')
 NOTE = re.compile(r'\b(?:INLINE|INLINABLE|NOINLINE)\b|\bpragma\b')
 F1NOTE = re.compile(r'\bF1\b')
+A3NOTE = re.compile(r'\bA3\b')
+UNMAT = re.compile(r'--\s*Unmaterialized:')
+TYPE_DECL = re.compile(r"^(?:data|newtype|type)\s+([A-Z][\w']*)")
 # The methods of the standard classes, the class's own type spelled self.
 UN, BIN = 'self -> self', 'self -> self -> self'
 STD = {
@@ -530,7 +541,7 @@ def noted(lines, i, pat=NOTE):
 
 LEAD = re.compile(r'--\s*(INLINE(?: \[~?\d+\])?|INLINABLE|INLINEABLE|NOINLINE'
                   r'|SPECIALI[SZ]E|No pragma):')
-CITE = re.compile(r'\b(?:I[123]|F1|S2|W[34])\b|\bsee\b')
+CITE = re.compile(r'\b(?:I[123]|F1|A3|S2|W[34])\b|\bsee\b')
 VERSION = re.compile(r'\bGHC (?:\d+\.\d+[\d.]*|HEAD)\b')
 DATE = re.compile(r'\b\d{4}-\d{2}-\d{2}\b')
 
@@ -789,7 +800,8 @@ def forwarding(texts, classes=None):
             head = wrapped(body)
             for qual, name in REF.findall(body):
                 hit = [c for c in callees(k, qual, name) if c != k and c in need
-                       and (lists & table[c][0] or need[c] == 'measured'
+                       and (need[c] != 'A3' and lists & table[c][0]
+                            or need[c] == 'measured'
                             and (qual, name) == head)]
                 if hit:
                     need[k] = need[hit[0]]
@@ -820,20 +832,61 @@ def departs(lines, notes, has):
 
 def seed_kind(lines, notes, has, fuses):
     """How a binding needs INLINE: 'fusing' where it is directly fusing,
-    'F1' or 'measured' where it carries INLINE under a comment giving P's
-    reason, by whether the reason cites F1, and None where it needs none,
-    a departure overriding its body."""
+    'F1', 'A3' or 'measured' where it carries INLINE under a comment giving
+    P's reason, by whether the reason cites F1, A3 or neither, and None where
+    it needs none, a departure overriding its body."""
     if departs(lines, notes, has):
         return None
     if fuses:
         return 'fusing'
     for x in notes:
         if has == 'INLINE' and reasoned(lines, x, 'INLINE'):
-            return 'F1' if noted(lines, x, F1NOTE) else 'measured'
+            return ('F1' if noted(lines, x, F1NOTE)
+                    else 'A3' if noted(lines, x, A3NOTE) else 'measured')
     return None
 
 
-def rule_check(text, classes, fwd=None, fus=None):
+def is_sum(lines, i):
+    """Whether the declaration at line i is a sum: a data type of two
+    constructors or more, its indented lines read without their comments,
+    or a type synonym, taken for the sum it names."""
+    if lines[i].startswith('type'):
+        return True
+    if lines[i].startswith('newtype'):
+        return False
+    decl, j = [lines[i]], i + 1
+    while j < len(lines) and (not lines[j].strip() or lines[j][:1] in ' \t'):
+        decl.append(lines[j])
+        j += 1
+    text = ' '.join(re.sub(r'--.*$', '', x) for x in decl)
+    rhs = re.split(r'\bderiving\b', text)[0].partition('=')[2]
+    return len(depth0(rhs, '|')) > 1
+
+
+def marked_types(texts):
+    """The sums marked as never to be built (A3): a plain comment directly
+    above the declaration's haddock whose first line opens
+    `-- Unmaterialized:`."""
+    out = set()
+    for text in texts.values():
+        lines = text.split('\n')
+        for i, line in enumerate(lines):
+            m = TYPE_DECL.match(line)
+            plain = plain_lines(lines, i) if m else []
+            if plain and UNMAT.match(plain[0]) and is_sum(lines, i):
+                out.add(m.group(1))
+    return out
+
+
+def carried(ty, marked):
+    """The marked types a type names, qualified or not."""
+    body = body_type(ty)
+    return sorted(t for t in marked
+                  if re.search(r"(?<![\w'])" + re.escape(t) + r"(?![\w'])",
+                               body))
+
+
+def rule_check(text, classes, fwd=None, fus=None, marked=()):
     """The bindings of a module whose pragma differs from what the rule gives
     with no comment naming a pragma above them: [(line, name, has, wants,
     reasons)]; the recursive ones the rule makes INLINE: [(line, name, has)];
@@ -841,10 +894,12 @@ def rule_check(text, classes, fwd=None, fus=None):
     fwd and fus are forwarding()'s forwarders and directly fusing bindings,
     each wanting INLINE; the directly fusing ones whose type does not want
     INLINE already and whose comment does not give P's reason citing F1:
-    [(line, name)]."""
+    [(line, name)]; and the bindings whose type names one of the marked sums
+    and whose comment does not give P's reason naming each it names and
+    citing A3, a departure aside: [(line, name, sums)]."""
     lines, fwd, mod = text.split('\n'), fwd or {}, module_info(text)[0]
     fus = fus or set()
-    unmarked = []
+    unmarked, unbuilt = [], []
     kinds = {}
     for line in lines:
         for m in KINDS.finditer(line):
@@ -867,8 +922,18 @@ def rule_check(text, classes, fwd=None, fus=None):
                 for x in notes):
             unmarked.append((n + 1, name))
         note = any(reasoned(lines, x, has) for x in notes)
+        types = carried(ty, marked)
+        if types and not departs(lines, notes, has) and \
+                not any(reasoned(lines, x, has) and noted(lines, x, A3NOTE)
+                        and all(noted(lines, x, re.compile(
+                            r"(?<![\w'])" + re.escape(t) + r"(?![\w'])"))
+                            for t in types)
+                        for x in notes):
+            unbuilt.append((n + 1, name, types))
         w, why = want(ty, over)
         why = why + list(extra)
+        if w != 'INLINE' and types:
+            w, why = 'INLINE', [f'takes or returns {", ".join(types)} (A3)']
         if w != 'INLINE' and key in fus:
             w, why = 'INLINE', ['directly fusing (F1)']
         if w != 'INLINE' and key in fwd:
@@ -939,7 +1004,7 @@ def rule_check(text, classes, fwd=None, fus=None):
             i = k
             continue
         i += 1
-    return off, rec, unknown, unmarked
+    return off, rec, unknown, unmarked, unbuilt
 
 
 def hs_files(src):
@@ -959,14 +1024,16 @@ def report_rule(src):
             texts[path] = fh.read()
         classes.update(class_methods(texts[path]))
     fwd, fus, shallow = forwarding(texts, classes)
-    off, rec, unknown, unmarked = [], [], [], []
+    marked = marked_types(texts)
+    off, rec, unknown, unmarked, unbuilt = [], [], [], [], []
     for path in files:
         rel = os.path.relpath(path, src)
-        o, r, u, f = rule_check(texts[path], classes, fwd, fus)
+        o, r, u, f, b = rule_check(texts[path], classes, fwd, fus, marked)
         off += [(rel, *x) for x in o]
         rec += [(rel, *x) for x in r]
         unknown += [(rel, *x) for x in u]
         unmarked += [(rel, *x) for x in f]
+        unbuilt += [(rel, *x) for x in b]
     out = ['== pragma unlike the rule and no comment above in its form'
            ' (file:line name: has -> wants [why])']
     out += [f'  {rel}:{n} {name}: {has} -> {w} [{", ".join(why)}]'
@@ -985,8 +1052,13 @@ def report_rule(src):
     out.append('== directly fusing (F1) with no comment giving P\'s reason'
                ' citing F1 (file:line name)')
     out += [f'  {rel}:{n} {name}' for rel, n, name in unmarked]
+    out.append('== takes or returns a sum marked Unmaterialized (A3) with no'
+               ' comment giving P\'s reason naming it and citing A3'
+               ' (file:line name: sums)')
+    out += [f'  {rel}:{n} {name}: {", ".join(ts)}'
+            for rel, n, name, ts in unbuilt]
     return out, (len(off) + len(rec) + len(unknown) + len(shallow)
-                 + len(unmarked)), len(files)
+                 + len(unmarked) + len(unbuilt)), len(files)
 
 
 def report(src):
@@ -1482,6 +1554,66 @@ def self_test_rule():
            'import Mid\n'
            'top :: B a -> [a]\n'
            'top = mid . unB\n')
+    unbuilt = ('module U where\n'
+               'import qualified U as M\n'
+               '-- Unmaterialized: built where it is taken apart.\n'
+               '-- | A route.\n'
+               'data Rt = RA !Int | RB\n'
+               '-- Unmaterialized: see Rt.\n'
+               'data Rg = Rg !Int !Int | NoRg\n'
+               '-- A note.\n'
+               '-- Unmaterialized: not the first line.\n'
+               'data Late = L1 | L2\n'
+               'u1 :: Int -> Rt\n'
+               'u1 = RA\n'
+               '-- INLINE: Rt, A3: it returns the Rt its callers take apart.\n'
+               '{-# INLINE u2 #-}\n'
+               'u2 :: Int -> Rt\n'
+               'u2 = RA\n'
+               '{-# INLINE u3 #-}\n'
+               'u3 :: Rt -> Int\n'
+               'u3 (RA x) = x\n'
+               'u3 RB = 0\n'
+               '-- INLINE: A3, naming no type.\n'
+               '{-# INLINE u4 #-}\n'
+               'u4 :: Rg -> Rt\n'
+               'u4 _ = RB\n'
+               '-- INLINE: Rt and Rg, A3: both.\n'
+               '{-# INLINE u5 #-}\n'
+               'u5 :: M.Rg -> Rt\n'
+               'u5 _ = RB\n'
+               '-- No pragma: nothing to gain, on GHC HEAD (2026-10-11).\n'
+               'u6 :: Int -> Rt\n'
+               'u6 = RA\n'
+               '-- INLINE: Rt, A3: it takes apart the Rt its callers build.\n'
+               '{-# INLINE u8 #-}\n'
+               'u8 :: Rt -> Int\n'
+               'u8 (RA x) = x\n'
+               'u8 RB = 0\n'
+               'u7 :: Int -> Int\n'
+               'u7 x = u8 (RA x)\n'
+               'u9 :: Late -> Int\n'
+               'u9 _ = 0\n'
+               '-- Unmaterialized: a product, left to measurement.\n'
+               'data Ax = Ax !Int !Int\n'
+               '-- Unmaterialized: a synonym, taken for a sum.\n'
+               'type Mb = Maybe Int\n'
+               '-- Unmaterialized: a sum across lines.\n'
+               'data Ml\n'
+               '  = M1 !Int\n'
+               '      -- ^ the first\n'
+               '  | M2\n'
+               '  deriving Eq\n'
+               '-- Unmaterialized: a product whose comment holds a bar.\n'
+               'data Pc = Pc !Int  -- one | two\n'
+               'u10 :: Ax -> Int\n'
+               'u10 (Ax a b) = a + b\n'
+               'u11 :: Int -> Mb\n'
+               'u11 = Just\n'
+               'u12 :: Ml -> Int\n'
+               'u12 _ = 0\n'
+               'u13 :: Pc -> Int\n'
+               'u13 (Pc a) = a\n')
     want = ['== pragma unlike the rule and no comment above in its form'
             ' (file:line name: has -> wants [why])',
             '  Api.hs top: none -> INLINE [forwards to Mid.mid]',
@@ -1521,6 +1653,9 @@ def self_test_rule():
             '  R.hs s4: INLINE -> INLINABLE [class constraint]',
             '  R.hs sf: none -> INLINE [function argument]',
             '  R.hs Vec3.v3: none -> INLINE [function argument]',
+            '  U.hs u1: none -> INLINE [takes or returns Rt (A3)]',
+            '  U.hs u11: none -> INLINE [takes or returns Mb (A3)]',
+            '  U.hs u12: none -> INLINE [takes or returns Ml (A3)]',
             '  V.hs v1: none -> INLINABLE [class constraint]',
             '  V.hs Vec2.vs: INLINE -> INLINABLE [class constraint]',
             '  V.hs Vec2.vs: none -> INLINABLE [class constraint]',
@@ -1544,17 +1679,26 @@ def self_test_rule():
             ' citing F1 (file:line name)',
             '  Low.hs rootU',
             '  W.hs rootX',
-            '  W.hs VL.vfl']
+            '  W.hs VL.vfl',
+            '== takes or returns a sum marked Unmaterialized (A3) with no'
+            ' comment giving P\'s reason naming it and citing A3'
+            ' (file:line name: sums)',
+            '  U.hs u1: Rt',
+            '  U.hs u3: Rt',
+            '  U.hs u4: Rg, Rt',
+            '  U.hs u11: Mb',
+            '  U.hs u12: Ml']
     bad = []
     with tempfile.TemporaryDirectory() as td:
         for name, text in (('R.hs', src), ('L.hs', layer), ('Low.hs', low),
                            ('Mid.hs', mid), ('Api.hs', api), ('Fac.hs', fac),
-                           ('N.hs', nopr), ('V.hs', decl), ('W.hs', fusw)):
+                           ('N.hs', nopr), ('V.hs', decl), ('W.hs', fusw),
+                           ('U.hs', unbuilt)):
             with open(os.path.join(td, name), 'w') as fh:
                 fh.write(text)
         got, nbad, _ = report_rule(td)
         got = [re.sub(r'^(  \S+\.hs):\d+', r'\1', x) for x in got]
-        if got != want or nbad != 47:
+        if got != want or nbad != 55:
             bad.append(f'--rule ({nbad}):\n  ' + '\n  '.join(got))
         if main(['--rule', td]) != 1:
             bad.append('--rule with findings did not exit 1')

@@ -26,14 +26,14 @@ with `T=~/r/horde-ad/tools`, wherever the session's wrapper mounts
    the project's notes name another; a released GHC is built only where a check
    says so.
 2. The static checks, which build nothing: A2, I4, W1, W3, W4, and the source
-   halves of I1 and L1.
+   halves of I1, L1 and A3.
 3. The dump builds of the tip and, where a check compares, of the base (D
    below), backgrounded.
 4. The Core checks over those dumps: S1, S2, I1, I2, L1, L2 and C1, and the rule
    counts of F1 and F2.
 5. The run-time checks, which need a criterion benchmark of the operations
-   and the conditions of M: I3, F1, F2, A1 and W2, and any reading a Core check
-   raised.
+   and the conditions of M: I3, F1, F2, A1, A3 and W2, and any reading a Core
+   check raised.
 6. Report one verified line per check, naming what was run and what it found,
    or why it did not run. A check needing a GHC option the cabal file lacks
    waits for Mikolaj's approval of that option.
@@ -173,15 +173,16 @@ throughout, its own flags reaching no user's build.
   under. HEAD's measurements carry 80% of a decision, those of the released GHCs
   from 9.12 on the other 20%.
 - **What a pragma buys** is each check's rule, stated in the check: `INLINE`
-  against `INLINABLE` I3's, a fusion path F1's, a call too unsaturated to inline
-  I1's, a recursive function I2's, type-level keys in the constraints S2's,
-  a `NOINLINE` on a helper W3's, a flag W4's. One kind is no check's: a phase
-  control, `INLINE [n]`, that orders inlining against rewrite rules, or against
-  specialisation that has to happen in code that is then inlined, stays
-  for that order even where plain `INLINE` would cost less. horde-ad's
-  `tscatterZRDict` and `tscatterZSDict` carry `INLINE [1]` and an explicit
-  dictionary argument so that GHC specialises the inlined code consistently
-  at each element type, though plain `INLINE` would save 2% of the Core.
+  against `INLINABLE` I3's, a fusion path F1's, a value never to be built A3's,
+  a call too unsaturated to inline I1's, a recursive function I2's, type-level
+  keys in the constraints S2's, a `NOINLINE` on a helper W3's, a flag W4's. One
+  kind is no check's: a phase control, `INLINE [n]`, that orders inlining
+  against rewrite rules, or against specialisation that has to happen in code
+  that is then inlined, stays for that order even where plain `INLINE` would
+  cost less. horde-ad's `tscatterZRDict` and `tscatterZSDict` carry `INLINE [1]`
+  and an explicit dictionary argument so that GHC specialises the inlined code
+  consistently at each element type, though plain `INLINE` would save 2%
+  of the Core.
 - **Removing a pragma:** not one that is dead only at today's thresholds,
   an `INLINE` on a function GHC inlines anyway or a `NOINLINE` on one it would
   not inline, since the thresholds can change. Remove such a pragma only when
@@ -226,33 +227,35 @@ not for orthotope's fill, which had no pragma at all (S1's variant C).
 
 - **Where the callers' speed is protected, a binding needs `INLINE` where
   inlining alone gives it something**: its type takes an argument of function
-  type, which inlining makes a known call; it is directly fusing (F1);
-  or a measurement shows another of I3's gains. **A binding that forwards to one
-  needing `INLINE` needs it too**: its body calls that binding, directly
-  or through a class method one of whose instances it is, and passes
-  it the function or the list of its own type that makes the callee need it, or,
-  where the callee's `INLINE` stands on a measured gain rather than on fusion
-  or a function argument, wraps it, the call heading its body, so that the gain
-  reaches the caller through every link. A recursive binding takes
-  a non-recursive `INLINE` wrapper over it instead (I2). **Otherwise a binding
-  gets `INLINABLE` where it is overloaded**, by a class constraint
-  in its signature, in its instance's context or in its class method's own type,
-  `HasCallStack`, equalities, `TypeError` and type-level comparisons
-  not counting, **and otherwise no pragma**. A need for `INLINE` that the type
-  does not show, and any departure from this, stands only under a plain comment
-  directly above the binding's haddock whose first line opens with the pragma
-  the binding carries, or `No pragma`, and a colon, as in `-- INLINE:`,
-  and which cites the measurement or reading behind it: the check that took it,
-  one of I1, I2, I3, F1, S2, W3 and W4, a GHC version, HEAD included,
-  with the date it was taken, or `see` and the comment that does; a commit
-  message does not count. A declaration does it in bulk: a comment saying
-  `INLINE throughout`, `INLINABLE throughout` or `No pragma throughout`,
-  with its reason, covers each binding carrying that pragma, or none,
-  in the module whose header holds it or among the methods of the instance
-  or class it stands directly above, where it overrides the module's; a binding
-  carrying another pragma is held to this rule and its own comment as before.
-  `INLINE throughout` suits a layer whose callers are `INLINABLE`, as I3 allows.
-  I4 checks a tree against this.
+  type, which inlining makes a known call; it is directly fusing (F1); its type
+  takes or returns a sum marked as never to be built, which inlining lets
+  the caller take apart unbuilt (A3); or a measurement shows another of I3's
+  gains. **A binding that forwards to one needing `INLINE` needs it too**:
+  its body calls that binding, directly or through a class method one of whose
+  instances it is, and passes it the function or the list of its own type
+  that makes the callee need it, or, where the callee's `INLINE` stands
+  on a measured gain rather than on fusion, a marked sum or a function argument,
+  wraps it, the call heading its body, so that the gain reaches the caller
+  through every link. A recursive binding takes a non-recursive `INLINE` wrapper
+  over it instead (I2). **Otherwise a binding gets `INLINABLE` where
+  it is overloaded**, by a class constraint in its signature, in its instance's
+  context or in its class method's own type, `HasCallStack`, equalities,
+  `TypeError` and type-level comparisons not counting, **and otherwise
+  no pragma**. A need for `INLINE` that the type does not show, or shows only
+  through a marked sum, and any departure from this, stands only under a plain
+  comment directly above the binding's haddock whose first line opens
+  with the pragma the binding carries, or `No pragma`, and a colon,
+  as in `-- INLINE:`, and which cites the measurement or reading behind it:
+  the check that took it, one of I1, I2, I3, F1, A3, S2, W3 and W4, a GHC
+  version, HEAD included, with the date it was taken, or `see` and the comment
+  that does; a commit message does not count. A declaration does it in bulk:
+  a comment saying `INLINE throughout`, `INLINABLE throughout`
+  or `No pragma throughout`, with its reason, covers each binding carrying
+  that pragma, or none, in the module whose header holds it or among the methods
+  of the instance or class it stands directly above, where it overrides
+  the module's; a binding carrying another pragma is held to this rule
+  and its own comment as before. `INLINE throughout` suits a layer whose callers
+  are `INLINABLE`, as I3 allows. I4 checks a tree against this.
 - **Where their speed is tradable,** a pragma is a trade like any other and pays
   for itself or goes, as in the half above. Opting a module out
   of `-fexpose-overloaded-unfoldings` is itself such a trade: compile time saved
@@ -442,10 +445,12 @@ and ran `toList` 8 to 10 times slower (2026-10-11).
 
 **Recipe:**
 
-- Mark before acting on any finding: give each binding listed as directly fusing
-  with no F1 comment its comment in P's form once F1's recipe shows the fusion
-  firing, and each `INLINE` that stands on a measured gain its comment citing
-  the measurement; then run the census again. The forwarders follow only
+- Mark before acting on any finding: mark the types meant never to be built
+  (A3); give each binding listed as directly fusing with no F1 comment
+  its comment in P's form once F1's recipe shows the fusion firing, each binding
+  listed as taking or returning a marked sum its comment naming the sum
+  and citing A3, and each `INLINE` that stands on a measured gain its comment
+  citing the measurement; then run the census again. The forwarders follow only
   from bindings so found, so a finding acted on before the marking can strip
   `INLINE` from a fusing binding's wrappers.
 - `python3 $T/pragma-census.py --rule SRC` lists every top-level function
@@ -453,9 +458,10 @@ and ran `toList` 8 to 10 times slower (2026-10-11).
   pragma differs from P's rule with no comment above its haddock in P's form
   and no declaration covering it, the recursive bindings the rule would make
   `INLINE`, the methods of classes whose method types it does not know,
-  and the bindings whose comment names F1 but which hand their list to a tree
-  binding, the innermost being the one to carry it, and the directly fusing
-  bindings with no comment in P's form citing F1.
+  the bindings whose comment names F1 but which hand their list to a tree
+  binding, the innermost being the one to carry it, the directly fusing bindings
+  with no comment in P's form citing F1, and the bindings taking or returning
+  a marked sum with no comment in P's form naming it and citing A3.
 - `python3 $T/pragma-census.py SRC` lists only the overloaded bindings
   that carry no pragma.
 - S1's audit shows which callers still pass a dictionary at run time.
@@ -650,6 +656,46 @@ rewrites the signatures and imports, and `--list` prints the verdict.
 
 **Read:** a stack-taking function that calls itself pushes a frame at every
 level, so recurse through a local worker that takes none.
+
+### A3. Values meant never to be built
+
+**Catches** a value of a type meant never to be built, built only where
+a consumer takes it apart, built after all because a binding that returns
+or takes one is called out of line. GHC HEAD 10.1.20260918 returns no sum
+unboxed, so a sum crosses a call only as a heap object (A1), where
+worker/wrapper passes and returns a product unboxed. **Seen:** orthotope's
+`Route` and `Range`. With `unorderedRouteT` and `cellsRouteT` out of line, their
+workers returned a boxed `Route` at 18 and 45 client call sites, while
+a benchmark timing 200000-element arrays moved on none of them (2026-10-11);
+with `readRangeT`, `sameRangeT` and `range3T` out of line, they returned a boxed
+`Range` at 262 call sites in the library and the benchmark, each probe of them
+allocating as much as with the `Range` built (2026-10-12).
+
+**Recipe:**
+
+- Mark each such type: a plain comment directly above its haddock whose first
+  line opens `-- Unmaterialized:`, saying where it is built and taken apart;
+  a product too, such as orthotope's `Axes`, where it is meant to stay unboxed.
+- `python3 $T/pragma-census.py --rule SRC` makes each binding whose type takes
+  or returns a marked sum want `INLINE`, and lists those whose comment in P's
+  form does not name each such sum and cite A3,
+  as `-- INLINE: Route, A3: it returns the Route its callers take apart.` does.
+  A marked product asks no pragma of its bindings.
+- Confirm by allocation at a client, on small arrays: call each binding taking
+  or returning a marked type, product or sum, once as compiled and once
+  with the value handed to a `NOINLINE` identity, which builds it; where the two
+  allocate alike, the call built it. orthotope's specialisation benchmark
+  carries such probes, which part by the value's size where nothing is built, 24
+  bytes a `Range` or an `RSlice`, 32 an `Axes` and 64 an `RRuns` or an `RFill`
+  with its `Axes`, and its rows on [2, 2] arrays price what a call costs once.
+
+**Read:** P says what a binding taking or returning a marked sum needs;
+its callers need nothing for it. A probe of a product that reads alike both ways
+wants the binding's code or pragma changed by measurement, under a comment
+citing it. A value built once inside one binding and taken apart in several
+places, as at a join point, is built whatever the pragmas, as orthotope's
+`equalT` built a `Route` with all its callees `INLINE`, and wants the code
+changed rather than a pragma.
 
 ## W. Workarounds and their records
 
@@ -879,7 +925,8 @@ for the reader.
 - `tools/pragma-census.py` lists the overloaded functions, instance methods
   and class default methods of a source tree that carry no pragma,
   and with `--rule` every one whose pragma differs from what P's rule gives it,
-  a forwarder's included (I4).
+  a forwarder's included (I4), and each one taking or returning a sum marked
+  as never to be built that lacks its comment (A3).
 - `tools/spec-audit.py` lists the calls in optimised Core that hand a function
   an instance dictionary, by callee, and the bindings that take a dictionary
   as a lambda argument: code running unspecialised (S1).
