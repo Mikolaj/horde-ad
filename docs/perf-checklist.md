@@ -98,6 +98,15 @@ Not a check: the conditions every timing below assumes.
 - A time difference under about 10% decides nothing without instruction counts:
   an unchanged row's ratio ranged from 0.86 to 0.98 across pairs of builds.
 - `-A32m`, and `-A4m` too where a library's users may run at the default area.
+- `GHCRTS=-V0`, which stops the RTS clock, on every timed or counted process
+  of horde-ad or orthotope; `ab-time.py`, `perf-per-call.py`,
+  `cachegrind-per-call.py` and the launching scripts at the top of orthotope's
+  `micro-regime3` set it themselves. With the clock running, some processes
+  of a HEAD-built `shortProdForCI` carried 56M instructions more than the rest.
+  Set it per command or in a measuring script, never session-wide, since
+  a program linked without `-rtsopts`, stylish-haskell among them, exits 1
+  under it. Profiles are the exception: under it a cost-centre profile recorded
+  no ticks, and a `-hT` heap profile 3 samples where it took 12 without.
 - Ask for every GHC option a benchmark or probe build adds beyond the cabal
   file's and the shim (`bench/CLAUDE.md`). Never `-fno-full-laziness`
   with `-fno-cse`, which GHC
@@ -758,12 +767,11 @@ and `docs/pragmas-and-flags.md` `pragma-calls`.
 - `tools/perf-per-call.py` gives instructions and cycles per call of one
   benchmark in each of several builds, from `perf stat` runs at `--iters 2N`
   and `--iters N`, interleaved, rotated and optionally pinned, over a few
-  repetitions: the instructions from the lowest count at each `--iters`, which
-  an amount the RTS clock adds to some processes lifts only when every run
-  at that count carries it, and the cycles from the median. Where a build's
-  instruction differences spread over more than 1%, it says so and exits 1;
-  `GHCRTS=-V0` stops the clock. Its instruction counts back a wall-time ratio
-  as cachegrind's do, at native speed; its cycles carry the machine's noise.
+  repetitions: the instructions from the lowest count at each `--iters`,
+  and the cycles from the median. Where a build's instruction differences spread
+  over more than 1%, it says so and exits 1. Its instruction counts back
+  a wall-time ratio as cachegrind's do, at native speed; its cycles carry
+  the machine's noise.
 - `tools/cachegrind-per-call.py` gives instructions and estimated cycles per
   call of one benchmark, from cachegrind runs at `--iters 2N` and `--iters N`,
   for a machine where `perf stat` cannot run. It is deterministic, so it is what

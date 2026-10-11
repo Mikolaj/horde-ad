@@ -11,7 +11,8 @@ a round, ROUNDS rounds, the order rotated by one from round to round, so
 that each build goes first as often as the next where ROUNDS is a multiple
 of their number --- two builds alternate. One benchmark per process
 (`-m glob NAME`, criterion's default time limit, `--regress allocated:iters`,
-`--json` with `+RTS -T`), each pinned to CPU by `taskset -c` with `--cpu`.
+`--json` with `+RTS -T`), each under GHCRTS=-V0 (docs/perf-checklist.md, M)
+and pinned to CPU by `taskset -c` with `--cpu`.
 Reads criterion's OLS slopes of seconds and of bytes allocated per iteration
 from each run, and prints, for each BIN after the first, the median of its
 ROUNDS time ratios to A's, each ratio within one round, with their range,
@@ -41,6 +42,7 @@ import statistics
 import subprocess
 import sys
 import tempfile
+from unittest import mock
 
 # Beside this file, which a path import (a defect case's unit) leaves off
 # sys.path.
@@ -55,6 +57,13 @@ def command(binary, name, path, cpu):
                '--json', path, '+RTS', '-T'])
 
 
+def measured_env():
+    """The environment of a measured run: the caller's, with -V0 last in
+    GHCRTS."""
+    return dict(os.environ,
+                GHCRTS=(os.environ.get('GHCRTS', '') + ' -V0').strip())
+
+
 def slopes(binary, name, cpu):
     """Seconds and bytes allocated per iteration of one benchmark, from
     a fresh process."""
@@ -63,7 +72,8 @@ def slopes(binary, name, cpu):
     try:
         r = subprocess.run(command(binary, name, path, cpu),
                            stdout=subprocess.DEVNULL,
-                           stderr=subprocess.PIPE, text=True)
+                           stderr=subprocess.PIPE, text=True,
+                           env=measured_env())
         if r.returncode != 0:
             raise ValueError(f'{binary} on {name} exited {r.returncode}: '
                              + r.stderr[-500:])
@@ -106,7 +116,9 @@ def rounds(bins, n, name, cpu, log):
 
 
 FAKE = '''#!/usr/bin/env python3
-import json, sys
+import json, os, sys
+if os.environ.get('GHCRTS', '').split()[-1:] != ['-V0']:
+    sys.exit(3)
 secs = {secs!r}
 a = sys.argv
 name, out = a[a.index('-m') + 2], a[a.index('--json') + 1]
@@ -167,6 +179,9 @@ def self_test():
         nul = fake('N', [None], 100.0)
         if main([bins[0], nul, '1', 'g/x']) != 2:
             bad.append('a null slope did not exit 2')
+        with mock.patch.dict(os.environ, GHCRTS='-V1'):
+            if measured_env()['GHCRTS'] != '-V1 -V0':
+                bad.append("-V0 not after the caller's GHCRTS")
     for b in bad:
         print('FAIL', b)
     print('self-test', 'FAILED' if bad else 'passed')

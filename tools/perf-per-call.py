@@ -18,18 +18,16 @@ repetition to repetition; with `--cpu`, every run is pinned to CPU by
 the range of the repetitions' differences and, for each BIN after the
 first, its figures over A's.
 
-Instructions repeat closely but for a fixed amount the RTS clock adds to
-some processes (56M on top of 39750M in five runs of fourteen of one
-benchmark built by GHC 10.1.20260918, and in none of eight under
-GHCRTS=-V0, which stops the clock). It lifts a repetition's difference by
-that amount over N whenever one of its two runs carries it and the other
-does not. So the instructions per call are the lowest 2N count less the
-lowest N count, over N, and they are what decides --- unless every run at
-one count carries the amount, as all nine 2N runs of one build did on one
-row of that benchmark. The differences then spread by the amount unless
-no run at the other count carries it either, and where they spread over
-more than 1% of the figure the tool says so. Cycles carry the machine's
-noise: their figure is the repetitions' median, the range showing the
+Every run is under GHCRTS=-V0, which stops the RTS clock
+(docs/perf-checklist.md, M): with the clock running, a fixed amount was
+added to some processes (56M on top of 39750M in five runs of fourteen of
+one benchmark built by GHC 10.1.20260918, and in none of eight under
+-V0), lifting a repetition's difference by that amount over N. The
+instructions per call are the lowest 2N count less the lowest N count,
+over N, which an amount added to some but not all runs at each count
+does not lift, and they are what decides; where a build's differences
+spread over more than 1% of the figure, the tool says so. Cycles carry
+the machine's noise: their figure is the repetitions' median, the range showing the
 noise. This is the native counterpart of tools/cachegrind-per-call.py,
 which estimates cycles from a cache model where `perf stat` cannot run,
 at fifty times the run time or more.
@@ -46,6 +44,7 @@ import statistics
 import subprocess
 import sys
 import tempfile
+from unittest import mock
 
 EVENTS = ('instructions', 'cycles')
 
@@ -105,10 +104,17 @@ def estimate(runs, n):
     return est
 
 
+def measured_env():
+    """The environment of a measured run: the caller's, with -V0 last in
+    GHCRTS."""
+    return dict(os.environ,
+                GHCRTS=(os.environ.get('GHCRTS', '') + ' -V0').strip())
+
+
 def run(binary, name, iters, cpu, out):
     cmd = command(binary, name, iters, out, cpu)
     r = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
-                       text=True)
+                       text=True, env=measured_env())
     if r.returncode != 0:
         raise ValueError(f'{" ".join(cmd)} exited {r.returncode}:\n'
                          + r.stderr[-2000:])
@@ -128,7 +134,9 @@ def measure(bins, name, n, reps, cpu, td):
 
 
 FAKE = '''#!/usr/bin/env python3
-import sys
+import os, sys
+if os.environ.get('GHCRTS', '').split()[-1:] != ['-V0']:
+    sys.exit(3)
 a = sys.argv
 out, rest = a[a.index('-o') + 1], a[a.index('--') + 1:]
 binary, iters = rest[0], int(rest[rest.index('--iters') + 1])
@@ -203,6 +211,9 @@ def self_test():
                     bad.append(f'{what} did not exit 2')
             if main(['g/x', '10']) != 2:
                 bad.append('no build did not exit 2')
+            with mock.patch.dict(os.environ, GHCRTS='-V1'):
+                if measured_env()['GHCRTS'] != '-V1 -V0':
+                    bad.append("-V0 not after the caller's GHCRTS")
         finally:
             PERF = saved
     for b in bad:
@@ -258,8 +269,7 @@ def main(argv):
             wide.append(label)
     if wide:
         print(f'{", ".join(wide)}: instruction differences spread over more'
-              f' than {SPAN:.0%} of the figure, so an amount the RTS clock'
-              ' adds to some runs may be in it; GHCRTS=-V0 stops the clock')
+              f' than {SPAN:.0%} of the figure')
         return 1
     return 0
 

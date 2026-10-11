@@ -17,7 +17,8 @@ runs cancels the process's setup, which for `shortProdForCI` alone is some
 40 G instructions; cachegrind is deterministic up to the program's own
 nondeterminism, so N need not be large --- the measured program runs about
 50 times slower under it, the simulation slower still, so size N for well
-under a second of native work. Two builds are compared by running this on
+under a second of native work. Both runs are under GHCRTS=-V0
+(docs/perf-checklist.md, M). Two builds are compared by running this on
 each; for a banned-or-not decision about a slowdown, this is the instrument
 to back an interleaved wall-time A/B with (docs/perf-checklist.md).
 
@@ -31,9 +32,13 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from unittest import mock
 
 WEIGHTS = {'Ir': 1, 'I1mr': 10, 'D1mr': 10, 'D1mw': 10,
            'ILmr': 100, 'DLmr': 100, 'DLmw': 100}
+
+# The self-test runs a fake in its place.
+VALGRIND = ['valgrind']
 
 
 def counts(path):
@@ -65,21 +70,44 @@ def per_call(c1, c2, n):
             None if y1 is None or y2 is None else (y2 - y1) / n)
 
 
+def measured_env():
+    """The environment of a measured run: the caller's, with -V0 last in
+    GHCRTS."""
+    return dict(os.environ,
+                GHCRTS=(os.environ.get('GHCRTS', '') + ' -V0').strip())
+
+
 def run(binary, name, iters, sim, out):
-    cmd = ['valgrind', '--tool=cachegrind',
-           f'--cache-sim={"yes" if sim else "no"}',
-           f'--cachegrind-out-file={out}',
-           binary, '--iters', str(iters), '-m', 'glob', name]
+    cmd = VALGRIND + ['--tool=cachegrind',
+                      f'--cache-sim={"yes" if sim else "no"}',
+                      f'--cachegrind-out-file={out}',
+                      binary, '--iters', str(iters), '-m', 'glob', name]
     r = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
-                       text=True)
+                       text=True, env=measured_env())
     if r.returncode != 0:
         raise ValueError(f'{" ".join(cmd)} exited {r.returncode}:\n'
                          + r.stderr[-2000:])
     return counts(out)
 
 
+FAKE = '''#!/usr/bin/env python3
+import os, sys
+if os.environ.get('GHCRTS', '').split()[-1:] != ['-V0']:
+    sys.exit(3)
+a = sys.argv
+out = [x for x in a if x.startswith('--cachegrind-out-file=')][0]
+iters = int(a[a.index('--iters') + 1])
+with open(out.split('=', 1)[1], 'w') as fh:
+    fh.write('events: Ir' + chr(10) + 'summary: ' + str(1000 + 7 * iters)
+             + chr(10))
+'''
+
+
 def self_test():
-    """The file parsing and the arithmetic, on two synthetic outputs."""
+    """The file parsing and the arithmetic, on two synthetic outputs, and
+    two runs of a fake valgrind whose counts are a setup plus a fixed cost
+    per call."""
+    global VALGRIND
     bad = []
     with tempfile.TemporaryDirectory() as td:
         def write(name, ir, i1, d1r, d1w, il, dlr, dlw):
@@ -111,6 +139,24 @@ def self_test():
             bad.append('a summary shorter than its events was accepted')
         except ValueError:
             pass
+        fake = os.path.join(td, 'valgrind')
+        with open(fake, 'w') as fh:
+            fh.write(FAKE)
+        os.chmod(fake, 0o755)
+        saved, VALGRIND = VALGRIND, [fake]
+        try:
+            got = per_call(run('x', 'g/x', 10, False, os.path.join(td, 'a')),
+                           run('x', 'g/x', 20, False, os.path.join(td, 'b')),
+                           10)
+            if got != (7.0, None):
+                bad.append(f'per call from two runs: {got}')
+        except ValueError as e:
+            bad.append(f'a run failed: {e}')
+        finally:
+            VALGRIND = saved
+        with mock.patch.dict(os.environ, GHCRTS='-V1'):
+            if measured_env()['GHCRTS'] != '-V1 -V0':
+                bad.append("-V0 not after the caller's GHCRTS")
     for b in bad:
         print('FAIL', b)
     print('self-test', 'FAILED' if bad else 'passed')
@@ -126,7 +172,7 @@ def main(argv):
         print(__doc__.split('\n\n')[1], file=sys.stderr)
         return 2
     binary, name, n = argv[0], argv[1], int(argv[2])
-    if shutil.which('valgrind') is None:
+    if shutil.which(VALGRIND[0]) is None:
         print('valgrind is not on PATH; nothing measured', file=sys.stderr)
         return 2
     with tempfile.TemporaryDirectory() as td:

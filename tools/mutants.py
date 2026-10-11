@@ -510,6 +510,26 @@ MUTANTS = [
     ('perf-per-call spread of the differences unreported', 'perf-per-call.py',
      '        if hi - lo > SPAN * abs(mid):\n',
      '        if False:\n', ST),
+    # GHCRTS=-V0 on every measured run (2026-10-11), the caller's GHCRTS
+    # kept ahead of it.
+    ('perf-per-call run without GHCRTS=-V0', 'perf-per-call.py',
+     '                       text=True, env=measured_env())\n',
+     '                       text=True)\n', ST),
+    ('perf-per-call -V0 ahead of the caller\'s GHCRTS', 'perf-per-call.py',
+     "                GHCRTS=(os.environ.get('GHCRTS', '') + ' -V0').strip())\n",
+     "                GHCRTS=('-V0 ' + os.environ.get('GHCRTS', '')).strip())\n", ST),
+    ('ab-time run without GHCRTS=-V0', 'ab-time.py',
+     '                           env=measured_env())\n',
+     '                           )\n', ST),
+    ('ab-time -V0 ahead of the caller\'s GHCRTS', 'ab-time.py',
+     "                GHCRTS=(os.environ.get('GHCRTS', '') + ' -V0').strip())\n",
+     "                GHCRTS=('-V0 ' + os.environ.get('GHCRTS', '')).strip())\n", ST),
+    ('cachegrind-per-call run without GHCRTS=-V0', 'cachegrind-per-call.py',
+     '                       text=True, env=measured_env())\n',
+     '                       text=True)\n', ST),
+    ('cachegrind-per-call -V0 ahead of the caller\'s GHCRTS', 'cachegrind-per-call.py',
+     "                GHCRTS=(os.environ.get('GHCRTS', '') + ' -V0').strip())\n",
+     "                GHCRTS=('-V0 ' + os.environ.get('GHCRTS', '')).strip())\n", ST),
     # check-plan-citations-10 (2026-10-02): a link into another repository
     # resolved here and failed.
     ('check-plan-citations foreign permalink checked as this repository\'s', 'check-plan-citations.py',
