@@ -3632,6 +3632,60 @@
    "expect_text": "M.hs:6 ==.",
    "bug_exit": 0,
    "bug_text": "== overloaded instance methods without a pragma"
+  },
+  {
+   "id": "perf-per-call-01",
+   "program": "perf-per-call.py",
+   "name": "the instructions per call were the median of the repetitions' differences, which a fixed amount some processes add lifts by that amount over N in any repetition whose two runs differ in carrying it; two such repetitions of three made the median wrong",
+   "family": "other:wrong-statistic",
+   "fix_rev": "self",
+   "trigger": "a perf whose second and third runs count 500 instructions above the setup the others count, at N = 10 and three repetitions",
+   "ok": "instructions 7.0 per call, the lowest 2N count less the lowest N count, over N",
+   "bug": "instructions 57.0 per call, the median of 57, 57 and 7",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-11 reading shortProdForCI's MapAccum rows from builds by GHC 10.1.20260918: a process of one build ran either 39750M or 39806M instructions, four of eight the second, with the same GC counts, and one of six the second with address randomisation off. So single repetitions jumped by 556K per call at N = 100, and a B/A of 0.7864 was printed where B's repetitions, the jump taken out, agreed with A's to 0.4%.",
+   "plant_cmd": "mkdir shim && cat > shim/perf <<'EOF'\n#!/usr/bin/env python3\nimport os, sys\na = sys.argv\nout, iters = a[a.index('-o') + 1], int(a[a.index('--iters') + 1])\nseen = os.path.join(os.path.dirname(__file__), 'seen')\nk = os.path.getsize(seen) + 1 if os.path.exists(seen) else 1\nwith open(seen, 'a') as fh:\n    fh.write('x')\nextra = 500 if k in (2, 3) else 0\nwith open(out, 'w') as fh:\n    fh.write(str(1000 + extra + 7 * iters) + ',,instructions:u,100,100.00,,\\n')\n    fh.write(str(500 + 3 * iters) + ',,cycles:u,100,100.00,,\\n')\nEOF\nchmod +x shim/perf",
+   "env": {
+    "PATH": "{tmp}/shim:/usr/bin:/bin"
+   },
+   "invoke": [
+    "{tmp}/A",
+    "g/x",
+    "10"
+   ],
+   "expect_exit": 1,
+   "expect_text": "instructions 7.0 [",
+   "bug_exit": 0,
+   "bug_text": "instructions 57.0 ["
+  },
+  {
+   "id": "perf-per-call-02",
+   "program": "perf-per-call.py",
+   "name": "an amount the RTS clock adds to some processes, carried by every run at one count, lifted the lowest count there and so the instructions per call, printed with exit 0 though the repetitions' differences spread by the whole amount",
+   "family": "quiet-failure",
+   "fix_rev": "self",
+   "trigger": "a perf whose 2N runs, and the first N run, count 500 instructions above the setup, at N = 10 and three repetitions",
+   "ok": "the figure 57.0 printed, then a line saying the differences spread over more than 1%, exit 1",
+   "bug": "instructions 57.0 per call printed alone, exit 0",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-11 re-reading shortProdForCI's MapAccum rows from builds by GHC 10.1.20260918 at nine repetitions after perf-per-call-01's fix: on 1000/grad k all nine 2N runs of one build carried the 56M and all nine N runs of another, so B/A read 0.9507 and C/A 0.9014 for builds whose clean differences agree, each off by the amount over N. Under GHCRTS=-V0, which stops the RTS clock, eight runs of one build repeated to 150 instructions.",
+   "plant_cmd": "mkdir shim && cat > shim/perf <<'EOF'\n#!/usr/bin/env python3\nimport os, sys\na = sys.argv\nout, iters = a[a.index('-o') + 1], int(a[a.index('--iters') + 1])\nseen = os.path.join(os.path.dirname(__file__), 'seen')\nk = os.path.getsize(seen) + 1 if os.path.exists(seen) else 1\nwith open(seen, 'a') as fh:\n    fh.write('x')\nextra = 500 if iters == 20 or k == 1 else 0\nwith open(out, 'w') as fh:\n    fh.write(str(1000 + extra + 7 * iters) + ',,instructions:u,100,100.00,,\\n')\n    fh.write(str(500 + 3 * iters) + ',,cycles:u,100,100.00,,\\n')\nEOF\nchmod +x shim/perf",
+   "env": {
+    "PATH": "{tmp}/shim:/usr/bin:/bin"
+   },
+   "invoke": [
+    "{tmp}/A",
+    "g/x",
+    "10"
+   ],
+   "expect_exit": 1,
+   "expect_text": "spread over more than 1%",
+   "bug_exit": 0,
+   "bug_text": "instructions 57.0 [7.0..57.0]"
   }
  ]
 }

@@ -757,8 +757,12 @@ and `docs/pragmas-and-flags.md` `pragma-calls`.
   --- so read only the median, and only after allocation has been compared.
 - `tools/perf-per-call.py` gives instructions and cycles per call of one
   benchmark in each of several builds, from `perf stat` runs at `--iters 2N`
-  and `--iters N`, interleaved, rotated and optionally pinned, with the median
-  of a few repetitions. Its instruction counts back a wall-time ratio
+  and `--iters N`, interleaved, rotated and optionally pinned, over a few
+  repetitions: the instructions from the lowest count at each `--iters`, which
+  an amount the RTS clock adds to some processes lifts only when every run
+  at that count carries it, and the cycles from the median. Where a build's
+  instruction differences spread over more than 1%, it says so and exits 1;
+  `GHCRTS=-V0` stops the clock. Its instruction counts back a wall-time ratio
   as cachegrind's do, at native speed; its cycles carry the machine's noise.
 - `tools/cachegrind-per-call.py` gives instructions and estimated cycles per
   call of one benchmark, from cachegrind runs at `--iters 2N` and `--iters N`,

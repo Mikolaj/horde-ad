@@ -14,18 +14,30 @@ cancels the process's setup: the instructions and cycles per call. Every
 BIN runs at both counts once a repetition, R repetitions (3 by default),
 the builds' order rotated by one and the two counts' order swapped from
 repetition to repetition; with `--cpu`, every run is pinned to CPU by
-`taskset -c`. Prints, per BIN, the medians over the repetitions with their
-range and, for each BIN after the first, its medians over A's.
+`taskset -c`. Prints, per BIN, its instructions and cycles per call with
+the range of the repetitions' differences and, for each BIN after the
+first, its figures over A's.
 
-Instructions repeat closely, so their median is what decides; cycles
-carry the machine's noise, which the range shows. This is the native
-counterpart of tools/cachegrind-per-call.py, which estimates cycles from
-a cache model where `perf stat` cannot run, at fifty times the run time or
-more.
+Instructions repeat closely but for a fixed amount the RTS clock adds to
+some processes (56M on top of 39750M in five runs of fourteen of one
+benchmark built by GHC 10.1.20260918, and in none of eight under
+GHCRTS=-V0, which stops the clock). It lifts a repetition's difference by
+that amount over N whenever one of its two runs carries it and the other
+does not. So the instructions per call are the lowest 2N count less the
+lowest N count, over N, and they are what decides --- unless every run at
+one count carries the amount, as all nine 2N runs of one build did on one
+row of that benchmark. The differences then spread by the amount unless
+no run at the other count carries it either, and where they spread over
+more than 1% of the figure the tool says so. Cycles carry the machine's
+noise: their figure is the repetitions' median, the range showing the
+noise. This is the native counterpart of tools/cachegrind-per-call.py,
+which estimates cycles from a cache model where `perf stat` cannot run,
+at fifty times the run time or more.
 
-Exit 0 when the figures were printed, 2 when they could not be: perf, or
-taskset with `--cpu`, missing, a run failing, or its output without
-a counted instructions:u and cycles:u.
+Exit 0 when the figures were printed, 1 when they were and some build's
+instruction differences spread over more than 1% of its figure, 2 when
+they could not be: perf, or taskset with `--cpu`, missing, a run failing,
+or its output without a counted instructions:u and cycles:u.
 """
 
 import os
@@ -36,6 +48,10 @@ import sys
 import tempfile
 
 EVENTS = ('instructions', 'cycles')
+
+# How far a build's instruction differences may spread, as a fraction of
+# its figure, before the tool says so.
+SPAN = 0.01
 
 # The self-test runs a fake in its place.
 PERF = ['perf']
@@ -73,9 +89,20 @@ def per_call(c1, c2, n):
     return {e: (c2[e] - c1[e]) / n for e in EVENTS}
 
 
-def spread(xs):
-    """(median, lowest, highest)."""
-    return statistics.median(xs), min(xs), max(xs)
+def estimate(runs, n):
+    """Event -> (per call, lowest, highest), from one BIN's runs: the
+    instructions the lowest 2N count less the lowest N count, the cycles
+    the median of the repetitions' differences, the bounds theirs."""
+    diffs = [per_call(c1, c2, n) for c1, c2 in zip(runs[1], runs[2])]
+    est = {}
+    for e in EVENTS:
+        xs = [d[e] for d in diffs]
+        if e == 'instructions':
+            mid = (min(c[e] for c in runs[2]) - min(c[e] for c in runs[1])) / n
+        else:
+            mid = statistics.median(xs)
+        est[e] = (mid, min(xs), max(xs))
+    return est
 
 
 def run(binary, name, iters, cpu, out):
@@ -89,17 +116,14 @@ def run(binary, name, iters, cpu, out):
 
 
 def measure(bins, name, n, reps, cpu, td):
-    """Per BIN, event -> the per-call counts of the repetitions."""
-    got = [{e: [] for e in EVENTS} for _ in bins]
+    """Per BIN, k -> the counts of its runs at k * N, one a repetition."""
+    got = [{1: [], 2: []} for _ in bins]
     out = os.path.join(td, 'perf.txt')
     for r in range(reps):
         for i in range(len(bins)):
             j = (i + r) % len(bins)
-            c = {}
             for k in ((1, 2) if r % 2 == 0 else (2, 1)):
-                c[k] = run(bins[j], name, k * n, cpu, out)
-            for e, v in per_call(c[1], c[2], n).items():
-                got[j][e].append(v)
+                got[j][k].append(run(bins[j], name, k * n, cpu, out))
     return got
 
 
@@ -113,19 +137,28 @@ with open({calls!r}, 'a') as fh:
     fh.write(tag + ' ' + str(iters) + chr(10))
 if tag == 'F':
     sys.exit(1)
-ins, cyc = {{'A': (7, 3), 'B': (9, 4), 'U': (7, 3), 'M': (7, 3)}}[tag]
+ins, cyc = {{'A': (7, 3), 'B': (9, 4), 'U': (7, 3), 'M': (7, 3),
+            'Q': (7, 3), 'W': (7, 3)}}[tag]
+with open({calls!r}) as fh:
+    k = [line.split()[0] for line in fh].count(tag)
+xi, xc = {{'Q': (500 if k in (2, 3) else 0, 500 if k == 2 else 0),
+          'W': (500 if iters == 20 or k == 1 else 0, 0)}}.get(tag, (0, 0))
 with open(out, 'w') as fh:
     fh.write('# started on Mon Oct  6 12:00:00 2026' + chr(10) + chr(10))
-    fh.write(str(1000 + ins * iters) + ',,instructions:u,100,100.00,,' + chr(10))
+    fh.write(str(1000 + xi + ins * iters) + ',,instructions:u,100,100.00,,'
+             + chr(10))
     if tag != 'M':
-        fh.write(('<not counted>' if tag == 'U' else str(500 + cyc * iters))
+        fh.write(('<not counted>' if tag == 'U'
+                  else str(500 + xc + cyc * iters))
                  + ',,cycles:u,100,100.00,,' + chr(10))
 '''
 
 
 def self_test():
     """The parsing, the differencing and the order of the runs, with a fake
-    perf whose counts are a setup plus a fixed cost per call."""
+    perf whose counts are a setup plus a fixed cost per call, for build Q
+    a setup that its second and third runs add to, the second in cycles
+    too, and for build W one that its 2N runs and its first run add to."""
     global PERF
     bad = []
     with tempfile.TemporaryDirectory() as td:
@@ -137,17 +170,27 @@ def self_test():
         saved, PERF = PERF, [fake]
         try:
             a, b = os.path.join(td, 'A'), os.path.join(td, 'B')
-            got = measure([a, b], 'g/x', 10, 2, None, td)
-            if got != [{'instructions': [7.0, 7.0], 'cycles': [3.0, 3.0]},
-                       {'instructions': [9.0, 9.0], 'cycles': [4.0, 4.0]}]:
+            got = [estimate(g, 10)
+                   for g in measure([a, b], 'g/x', 10, 2, None, td)]
+            if got != [{'instructions': (7.0, 7.0, 7.0),
+                        'cycles': (3.0, 3.0, 3.0)},
+                       {'instructions': (9.0, 9.0, 9.0),
+                        'cycles': (4.0, 4.0, 4.0)}]:
                 bad.append(f'per call: {got}')
             with open(calls) as fh:
                 order = [tuple(line.split()) for line in fh]
             if order != [('A', '10'), ('A', '20'), ('B', '10'), ('B', '20'),
                          ('B', '20'), ('B', '10'), ('A', '20'), ('A', '10')]:
                 bad.append(f'not rotated and swapped: {order}')
-            if spread([3, 1, 9]) != (3, 1, 9):
-                bad.append(f'spread of 3, 1, 9: {spread([3, 1, 9])}')
+            q = os.path.join(td, 'Q')
+            got = estimate(measure([q], 'g/x', 10, 3, None, td)[0], 10)
+            if got != {'instructions': (7.0, 7.0, 57.0),
+                       'cycles': (3.0, 3.0, 53.0)}:
+                bad.append(f'a setup some runs add to: {got}')
+            if main([os.path.join(td, 'W'), 'g/x', '10']) != 1:
+                bad.append('a spread of the differences did not exit 1')
+            if main([a, b, 'g/x', '10']) != 0:
+                bad.append('a clean reading did not exit 0')
             if command('x', 'g/x', 5, 'o', '3')[:4] != ['taskset', '-c', '3',
                                                        fake]:
                 bad.append('--cpu did not pin the run')
@@ -196,17 +239,28 @@ def main(argv):
         except (ValueError, OSError) as e:
             print(e, file=sys.stderr)
             return 2
-    print(f'{name}, per call, median [lowest..highest] of {reps}:')
-    base = {e: spread(got[0][e])[0] for e in EVENTS}
-    for j, (b, g) in enumerate(zip(bins, got)):
+    print(f"{name}, per call [lowest..highest of {reps} repetitions'"
+          " differences]:")
+    est = [estimate(g, n) for g in got]
+    wide = []
+    for j, (b, g) in enumerate(zip(bins, est)):
         label = chr(ord('A') + j)
         cells = []
         for e in EVENTS:
-            med, lo, hi = spread(g[e])
-            cells.append(f'{e} {med:.1f} [{lo:.1f}..{hi:.1f}]'
-                         + (f' {label}/A {med / base[e]:.4f}'
-                            if j and base[e] else ''))
+            mid, lo, hi = g[e]
+            base = est[0][e][0]
+            cells.append(f'{e} {mid:.1f} [{lo:.1f}..{hi:.1f}]'
+                         + (f' {label}/A {mid / base:.4f}'
+                            if j and base else ''))
         print(f'{label} {"  ".join(cells)}  {b}')
+        mid, lo, hi = g['instructions']
+        if hi - lo > SPAN * abs(mid):
+            wide.append(label)
+    if wide:
+        print(f'{", ".join(wide)}: instruction differences spread over more'
+              f' than {SPAN:.0%} of the figure, so an amount the RTS clock'
+              ' adds to some runs may be in it; GHCRTS=-V0 stops the clock')
+        return 1
     return 0
 
 

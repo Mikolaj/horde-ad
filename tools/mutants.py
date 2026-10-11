@@ -498,8 +498,18 @@ MUTANTS = [
      "    return ((['taskset', '-c', cpu] if cpu is not None else []) + PERF\n",
      '    return (([] if cpu is not None else []) + PERF\n', ST),
     ('perf-per-call mean in place of the median', 'perf-per-call.py',
-     '    return statistics.median(xs), min(xs), max(xs)\n',
-     '    return statistics.mean(xs), min(xs), max(xs)\n', ST),
+     '            mid = statistics.median(xs)\n',
+     '            mid = statistics.mean(xs)\n', ST),
+    # perf-per-call-01 (2026-10-11): a fixed amount some processes add
+    # lifted the instructions' median.
+    ('perf-per-call instructions from the median', 'perf-per-call.py',
+     "        if e == 'instructions':\n",
+     '        if False:\n', ST),
+    # perf-per-call-02 (2026-10-11): every run at one count carrying it,
+    # the amount lifted the lowest count, and the spread went unreported.
+    ('perf-per-call spread of the differences unreported', 'perf-per-call.py',
+     '        if hi - lo > SPAN * abs(mid):\n',
+     '        if False:\n', ST),
     # check-plan-citations-10 (2026-10-02): a link into another repository
     # resolved here and failed.
     ('check-plan-citations foreign permalink checked as this repository\'s', 'check-plan-citations.py',
