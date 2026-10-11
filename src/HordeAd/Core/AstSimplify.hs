@@ -5359,12 +5359,14 @@ astConcrete ftk v = case ftk of
                       (\sh' -> astConvUpXFromS sh' FTKScalar)
                       (ftkToSTK ftk) v
 
--- INLINE here would bloat the binary a lot, probably negating any
--- gains from directly calling the function. Also, this is not a bottleneck.
--- It would also trigger specialization of many other functions from this
--- module, which would fail, because their unfolding is not exposed.
--- To some extend, this is even happening with no pragma (wrappers and
--- similar functions derived from this one fail to specialize in other modules).
+-- NOINLINE: on GHC HEAD 10.1.20260918 (2026-10-11), INLINE grew the library's
+-- Core 3%, AstVectorize's 16%, and no pragma AstSimplify's 2%, while the
+-- symbolic rows of shortProdForCI and longMnistBench ran the same instructions
+-- and allocation per call. INLINE would also trigger specialization of many
+-- other functions from this module, which would fail, because their unfolding
+-- is not exposed. To some extend, this is even happening with no pragma
+-- (wrappers and similar functions derived from this one fail to specialize in
+-- other modules).
 astLetFun :: forall y z s s2. (KnownSpan s, KnownSpan s2)
           => AstTensor AstMethodLet s y
           -> (AstTensor AstMethodLet s y -> AstTensor AstMethodLet s2 z)
