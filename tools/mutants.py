@@ -704,6 +704,14 @@ MUTANTS = [
     ('rewrite-fold a dry run that writes', 'rewrite-fold.py',
      '        if dry:\n',
      '        if False:\n', ST),
+    # The END of a substitution (2026-10-13), watched failing its self-test
+    # before it was written down here.
+    ('rewrite-fold a substitution applied past its END', 'rewrite-fold.py',
+     '               if j <= i < e]\n',
+     '               if j <= i]\n', ST),
+    ('rewrite-fold an END before its COMMIT accepted', 'rewrite-fold.py',
+     '            if ce not in pos or pos[ce] <= pos[cc]:\n',
+     '            if ce not in pos:\n', ST),
     ('rewrite-fold the printed check omits the commits it changed', 'rewrite-fold.py',
      "            cmd += ['--expect', c]\n",
      '            pass\n', ST),

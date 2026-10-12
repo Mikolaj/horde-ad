@@ -7,16 +7,18 @@ Usage: python3 tools/rewrite-fold.py SPEC [--dry] [-C REPO]
 
 SPEC is a Python file defining BASE and TIP, two revisions with no merge
 between them; SUBS, a list of (COMMIT, PATH, OLD, NEW), each replacing the
-text OLD by NEW in PATH from COMMIT's tree on; and REWORD, a dict from
-COMMIT to a file holding that commit's whole new message, trailers
-included. One of SUBS and REWORD may be absent. A relative message path is
-read against SPEC's directory, and the revisions are resolved in REPO, the
-working directory by default.
+text OLD by NEW in PATH from COMMIT's tree on, or, given a fifth element
+END, up to END's tree and not in it, as where END deletes the text; and
+REWORD, a dict from COMMIT to a file holding that commit's whole new
+message, trailers included. One of SUBS and REWORD may be absent.
+A relative message path is read against SPEC's directory, and the
+revisions are resolved in REPO, the working directory by default.
 
 Every commit of BASE..TIP is built again with `git commit-tree`, in order.
 Its tree is the old one with every substitution whose COMMIT it is or
-follows applied, the substitutions of one path to one copy of it in the
-order SUBS gives them, and its message is the old one or its REWORD file.
+follows, and whose END it precedes, applied, the substitutions of one path
+to one copy of it in the order SUBS gives them, and its message is the old
+one or its REWORD file.
 So no commit can conflict, a commit's diff changes only where a
 substitution falls inside it, and a commit that no substitution or reword
 reaches keeps its tree and message and gets a new hash. Authors and author
@@ -40,7 +42,8 @@ the branch by a reset guarded by the hash it expects to find.
 
 Exit 0 when it ran, 2 when it did not: wrong arguments, an unreadable SPEC
 or message file, a revision git cannot resolve, a merge in BASE..TIP or a
-BASE that is not its fork point, a COMMIT outside it, a substitution
+BASE that is not its fork point, a COMMIT outside it, an END not after
+its COMMIT, a substitution
 refused as above, or a failing git command. A refusal of the SPEC or of a
 substitution comes before anything is written; a git command failing later
 leaves objects that no ref reaches.
@@ -87,9 +90,9 @@ def load_spec(path):
             raise Refusal('%s defines no %s' % (path, k))
     subs = spec.get('SUBS', [])
     if not (isinstance(subs, (list, tuple)) and all(
-            isinstance(s, (list, tuple)) and len(s) == 4
+            isinstance(s, (list, tuple)) and len(s) in (4, 5)
             and all(isinstance(x, str) for x in s) for s in subs)):
-        raise Refusal('SUBS is not a list of (COMMIT, PATH, OLD, NEW)')
+        raise Refusal('SUBS is not a list of (COMMIT, PATH, OLD, NEW[, END])')
     reword = spec.get('REWORD', {})
     if not (isinstance(reword, dict) and all(
             isinstance(k, str) and isinstance(v, str)
@@ -121,14 +124,21 @@ def plan(repo, base_rev, tip_rev, subs, msgs):
     if resolve(repo, chain[0] + '^') != base:
         raise Refusal('%s is not where %s forks' % (base_rev, tip_rev))
     pos = {c: i for i, c in enumerate(chain)}
-    starts = []
-    for c, p, o, n in subs:
+    starts, ends = [], []
+    for c, p, o, n, *end in subs:
         cc = resolve(repo, c)
         if cc not in pos:
             raise Refusal('%s is not in %s..%s' % (c, base_rev, tip_rev))
         if not o:
             raise Refusal('a substitution in %s has an empty OLD' % p)
+        e = len(chain)
+        if end:
+            ce = resolve(repo, end[0])
+            if ce not in pos or pos[ce] <= pos[cc]:
+                raise Refusal('%s does not follow %s' % (end[0], c))
+            e = pos[ce]
         starts.append((pos[cc], p, o, n))
+        ends.append(e)
     rw = {}
     for c, m in msgs.items():
         cc = resolve(repo, c)
@@ -137,7 +147,8 @@ def plan(repo, base_rev, tip_rev, subs, msgs):
         rw[cc] = m
     files, olds = [], {}
     for i, c in enumerate(chain):
-        act = [(p, o, n) for j, p, o, n in starts if j <= i]
+        act = [(p, o, n) for (j, p, o, n), e in zip(starts, ends)
+               if j <= i < e]
         new = {}
         for p in sorted({p for p, _, _ in act}):
             try:
@@ -329,8 +340,20 @@ def self_test():
                 if r.returncode != 0:
                     bad.append('the printed check found more than the fold:\n'
                                + r.stdout + r.stderr)
+        rc, got = fold(head + "SUBS = [(%r, 'a', 'four\\n', 'FOUR\\n', %r)]\n"
+                       % (c1, c3))
+        tips = [l.split()[1] for l in got.splitlines()
+                if l.startswith('NEW_TIP ')]
+        if rc != 0 or len(tips) != 1:
+            bad.append('the fold with an END did not run: rc %s, %r'
+                       % (rc, got))
+        elif (sh('show', tips[0] + '~1:a'), sh('show', tips[0] + ':a')) != (
+                'one\ntwo\nthree\nFOUR', 'one\ntwo\nthree\nfour\nfive'):
+            bad.append('a substitution with an END did not stop at it')
         sub = head + "SUBS = [(%r, 'a', %%r, %%r)]\n" % c1
         for why, spec in [
+                ('an END not after its COMMIT', head + "SUBS = [(%r, 'a',"
+                 " 'four\\n', 'FOUR\\n', %r)]\n" % (c1, c1)),
                 ('an OLD missing from its commit',
                  sub % ('five\n', 'FIVE\n')),
                 ('an OLD found twice', sub % ('t', 'T')),
