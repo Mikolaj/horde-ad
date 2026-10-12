@@ -191,9 +191,16 @@ throughout, its own flags reaching no user's build.
   an `INLINE` on a function GHC inlines anyway or a `NOINLINE` on one it would
   not inline, since the thresholds can change. Remove such a pragma only when
   removing it changes the optimised Core and measurements show that what it did
-  buys nothing, on the GHCs that count, weighed as above: without an `INLINE`
-  that did nothing measurable on GHC 9.14.1, some benchmarks allocated up to 43%
-  more on HEAD.
+  buys nothing, on the GHCs that count, weighed as above; measure an `INLINE`'s
+  removal with `-funfolding-creation-threshold=30`
+  and `-fno-expose-overloaded-unfoldings` on the package's own modules alone,
+  a threshold fixed well below GHC's default, 750 on HEAD, so that what inlines
+  by size there does under any default: without an `INLINE` that did nothing
+  measurable on GHC 9.14.1, some benchmarks allocated up to 43% more on HEAD.
+  The census is a fixed point over the pragmas and their notes: run it
+  on the tree being changed, after every change to the pragmas kept or their
+  notes, and before measuring; an `INLINE` the rule requires, on a forwarder
+  or on a binding F1's recipe or A3 confirms, is not released on a measurement.
 - **Measuring compile time:** each build alone, in a fresh `--builddir`,
   on an otherwise idle machine, without `jobs` or `semaphore`
   in `cabal.project.local`, which skew build times; read the two per module
@@ -511,9 +518,10 @@ the fusion happens and needs nothing for it. The comment P asks of a directly
 fusing binding names F1. P says what that asks of it and of the bindings
 forwarding to it. `pragma-census.py --rule` lists as candidates the bindings
 whose body names `build` or `augment` and whose result is a list, or names
-a good consumer defined outside the tree and which take a list, lists of `Int`
-or `Bool` left out; this recipe confirms them. A count that falls may only have
-lost a duplicated consumer, so read it against `core-diff.py`.
+a good consumer defined outside the tree and which take a list each equation
+names once and no pattern takes apart, lists of `Int` or `Bool` left out;
+this recipe confirms them. A count that falls may only have lost a duplicated
+consumer, so read it against `core-diff.py`.
 
 ### F2. Vector stream fusion, and fusion that costs without SpecConstr
 
