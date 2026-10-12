@@ -868,6 +868,17 @@ MUTANTS = [
     ('pragma-calls refused cache write stops the run', 'pragma-calls.py',
      '        except OSError as e:\n',
      '        except FileNotFoundError as e:\n', ST),
+    # pragma-calls per module (2026-10-12): a name removed in several
+    # modules counted towards each by qualifier and scope, each break
+    # watched failing its self-test before it was written down here.
+    ('pragma-calls per module counts any qualified token', 'pragma-calls.py',
+     '        if q == mod:\n', '        if q == mod or q:\n', ST),
+    ('pragma-calls per module counts an importer\'s own name', 'pragma-calls.py',
+     '            return not defines(srcs[k], n) and any(map(reaches, scopes[k][1]))\n',
+     '            return any(map(reaches, scopes[k][1]))\n', ST),
+    ('pragma-calls per module takes a binder of its own for a re-exporter', 'pragma-calls.py',
+     '        return (t is not None and not defines(t, n)\n',
+     '        return (t is not None\n', ST),
     ('pragma-calls uncached run not said', 'pragma-calls.py',
      "            print(f'pragma-calls: could not cache the counts at {cache} '\n",
      "            print(f'pragma-calls: the counts at {cache} '\n", ST),

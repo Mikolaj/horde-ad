@@ -27,8 +27,16 @@ receives, or a function's unfolding without its call sites, can read DEAD
 and still move a benchmark, as the `rsize` family behind `tsize` did
 (docs/pragmas-and-flags.md). And a DEAD verdict does not make a pragma
 removable: it may be dead only at today's inliner thresholds
-(docs/perf-checklist.md, P). A name the diff removes a pragma from
-twice is marked, since its counts cover every binding of that name.
+(docs/perf-checklist.md, P). A name the diff removes a pragma from in
+several modules is counted per module, `(per module)`, in the code alone,
+the specialisation rules GHC prints after it left out: a token counts towards
+module M's binding where M qualifies it, as Core writes a worker or a copy;
+where it stands unqualified in M's own dump; where its qualifier is an alias
+the importing module's source binds to M or to a module re-exporting it, one
+that imports M and binds no such name; and where it stands unqualified in a
+module importing M, or such a re-exporter, unqualified and binding no such
+name itself. A name removed twice in one module is marked, its counts
+covering both.
 
 The token counts of each dump tree are cached beside it, in
 DUMPS.tokens.pickle, since tokenising 1.5 GB of Core takes a minute. The
@@ -173,16 +181,129 @@ def load(root, raw=False):
     return out
 
 
-def verdicts(a, b, names):
+IMPORT = re.compile(r'^import\s+(qualified\s+)?([A-Z][\w.]*)(\s+qualified)?'
+                    r'(?:\s+as\s+([A-Z][\w.]*))?(\s+hiding)?\s*(\(\s*\))?',
+                    re.M)
+# A raw Core token: its qualifier, its `$` prefixes and the rest.
+RAW = re.compile(r"((?:[A-Z][\w']*\.)*)((?:\$[a-z])*)(.*)")
+
+
+def hs_files(src):
+    """[(path, module, text)] of every .hs file under src, build directories
+    and hidden ones passed over."""
+    out = []
+    for dp, ds, fs in os.walk(src):
+        ds[:] = [d for d in ds if not d.startswith(('.', 'dist'))]
+        for f in fs:
+            if f.endswith('.hs'):
+                p = os.path.join(dp, f)
+                with open(p, errors='replace') as fh:
+                    txt = fh.read()
+                m = MODULE.search(txt)
+                out.append((p, m.group(1) if m else 'Main', txt))
+    return out
+
+
+def sources(wt):
+    """Module name -> text of every .hs file under the worktree."""
+    return {mod: txt for _, mod, txt in hs_files(wt)}
+
+
+def scope(txt):
+    """(alias -> {module}, [module imported unqualified]) of a module's text;
+    an import of () brings no names."""
+    al, unq = collections.defaultdict(set), []
+    for m in IMPORT.finditer(txt):
+        al[m.group(4) or m.group(2)].add(m.group(2))
+        if not (m.group(1) or m.group(3)) and not m.group(6):
+            unq.append(m.group(2))
+    return al, unq
+
+
+def defines(txt, n):
+    """Whether a module's text binds n at column 0, by a signature or an
+    equation, an operator's infix one included."""
+    e = re.escape(n)
+    return re.search(rf"^(?:\(?{e}\)?\s|[\w']+\s+{e}\s.*=)", txt, re.M) \
+        is not None
+
+
+def index(raw):
+    """Module key -> {base: [(qualifier, count)]} of raw token counts, a base
+    being a token without its qualifier, its `$` prefixes and, behind those,
+    the numbering of a worker or a copy."""
+    out = {}
+    for k, c in raw.items():
+        d = collections.defaultdict(list)
+        for t, v in c.items():
+            q, pre, rest = RAW.fullmatch(t).groups()
+            d[re.sub(r'[0-9]+$', '', rest) if pre else rest].append(
+                (q.rstrip('.'), v))
+        out[k] = d
+    return out
+
+
+def per_module(ia, ib, srcs, mod, n):
+    """{module key: (count in A, count in B)} of the tokens referring to
+    mod's binding of n, by the rules the docstring gives."""
+    scopes = {m: scope(t) for m, t in srcs.items()}
+
+    def reaches(x):
+        if x == mod:
+            return True
+        t = srcs.get(x)
+        return (t is not None and not defines(t, n)
+                and mod in set().union(*scopes[x][0].values()))
+
+    def refers(k, q):
+        if q == mod:
+            return True
+        if k not in srcs:
+            return False
+        if not q:
+            if k == mod:
+                return True
+            return not defines(srcs[k], n) and any(map(reaches, scopes[k][1]))
+        return any(map(reaches, scopes[k][0].get(q, ())))
+
+    def name(k):
+        parts = k.split('/')
+        return next(('.'.join(parts[i:]) for i in range(len(parts))
+                     if '.'.join(parts[i:]) in srcs), parts[-1])
+
+    out = {}
+    for k in set(ia) | set(ib):
+        km = name(k)
+        out[k] = tuple(sum(v for q, v in t.get(k, {}).get(n, ())
+                           if refers(km, q)) for t in (ia, ib))
+    return out
+
+
+def verdicts(a, b, names, per=None):
+    """One line per removed pragma; per, (raw counts of A, raw counts of B,
+    the worktree's sources, file -> module), counts a name removed in
+    several modules module by module."""
     dup = collections.Counter(n for _, n in names)
+    dupf = collections.Counter(names)
+    ia, ib = (index(per[0]), index(per[1])) if per else (None, None)
     lines = []
     for f, n in names:
         moved = []
-        for k in sorted(set(a) | set(b)):
-            ca, cb = a.get(k, {}).get(n, 0), b.get(k, {}).get(n, 0)
-            if ca != cb:
-                moved.append(f'{k.split("/")[-1]} {ca}->{cb}')
-        amb = ' (name not unique)' if dup[n] > 1 else ''
+        if per and dup[n] > dupf[(f, n)]:
+            counts = per_module(ia, ib, per[2], per[3].get(f), n)
+            for k in sorted(counts):
+                ca, cb = counts[k]
+                if ca != cb:
+                    moved.append(f'{k.split("/")[-1]} {ca}->{cb}')
+            amb = ' (per module)'
+            if dupf[(f, n)] > 1:
+                amb = ' (per module, name not unique in it)'
+        else:
+            for k in sorted(set(a) | set(b)):
+                ca, cb = a.get(k, {}).get(n, 0), b.get(k, {}).get(n, 0)
+                if ca != cb:
+                    moved.append(f'{k.split("/")[-1]} {ca}->{cb}')
+            amb = ' (name not unique)' if dup[n] > 1 else ''
         more = f' +{len(moved) - 6}' if len(moved) > 6 else ''
         lines.append(f'{f}\t{n}{amb}\t'
                      + ('DEAD' if not moved else
@@ -194,18 +315,9 @@ def inline_pragmas(src):
     """[(file, module, name)] of every INLINE pragma at column 0 of the .hs
     files under src, build directories and hidden ones passed over."""
     out = []
-    for dp, ds, fs in os.walk(src):
-        ds[:] = [d for d in ds if not d.startswith(('.', 'dist'))]
-        for f in fs:
-            if not f.endswith('.hs'):
-                continue
-            p = os.path.join(dp, f)
-            with open(p, errors='replace') as fh:
-                txt = fh.read()
-            m = MODULE.search(txt)
-            mod = m.group(1) if m else 'Main'
-            for m in INLINE_SRC.finditer(txt):
-                out.append((os.path.relpath(p, src), mod, target(m.group(1))))
+    for p, mod, txt in hs_files(src):
+        for m in INLINE_SRC.finditer(txt):
+            out.append((os.path.relpath(p, src), mod, target(m.group(1))))
     return sorted(out)
 
 
@@ -351,6 +463,58 @@ def inline_self_test(td):
     return bad
 
 
+def per_module_self_test(td, git):
+    """A name whose pragma the diff removes in two modules, M and N: a user
+    reaching M's through an alias of a module re-exporting it and N's
+    unqualified and through N's worker, each counted towards its own; and
+    two modules whose own f counts towards neither: one importing N
+    unqualified, one importing M and reached through an alias."""
+    bad = []
+    repo = os.path.join(td, 'repo2')
+    os.makedirs(repo)
+    srcs = {'M.hs': 'module M where\n{-# INLINE f #-}\nf x = x\n',
+            'N.hs': 'module N where\n{-# INLINE f #-}\nf x = x\n',
+            'R.hs': 'module R (f) where\nimport M (f)\n',
+            # A module importing M and binding f of its own, no re-exporter.
+            'S.hs': 'module S where\nimport qualified M\nf = 4\n',
+            'U.hs': 'module U where\nimport qualified R as X\nimport N\n'
+                    'import qualified S as Y\nu = X.f 1\nv = f 2\ny = Y.f\n',
+            # A module importing N unqualified and binding f of its own.
+            'W.hs': 'module W where\nimport N hiding (f)\nf = 3\nw = f\n'}
+    for name, text in srcs.items():
+        with open(os.path.join(repo, name), 'w') as fh:
+            fh.write(text)
+    g = git[:2] + [repo] + git[3:]
+    for cmd in (['init', '-q'], ['add', '.'],
+                ['commit', '-q', '-m', 'x', '--no-gpg-sign']):
+        subprocess.run(g + cmd, check=True, capture_output=True)
+    for name in ('M.hs', 'N.hs'):
+        with open(os.path.join(repo, name), 'w') as fh:
+            fh.write(srcs[name].replace('{-# INLINE f #-}\n', ''))
+    for rel, text in (('A2/build/M.dump-simpl', 'f = \\ x -> x\n'),
+                      ('A2/build/N.dump-simpl', 'f = \\ x -> x\n'),
+                      ('A2/build/U.dump-simpl', 'u = 1\nv = 2\n'),
+                      ('B2/build/M.dump-simpl', 'f = \\ x -> x\n'),
+                      ('B2/build/N.dump-simpl', 'f = \\ x -> x\n$wf = 1\n'),
+                      ('B2/build/U.dump-simpl',
+                       'u = X.f 1\nv = f 2\nw = N.$wf 3\ny = Y.f\n'),
+                      ('A2/build/W.dump-simpl', 'f = 3\nw = f\n'),
+                      ('B2/build/W.dump-simpl', 'f = 3\nw = f\nx = f\n')):
+        p = os.path.join(td, rel)
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        with open(p, 'w') as fh:
+            fh.write(text)
+    out = io.StringIO()
+    with contextlib.redirect_stdout(out):
+        code = main([os.path.join(td, 'A2'), os.path.join(td, 'B2'), repo])
+    want = ['M.hs\tf (per module)\tMOVED U 0->1',
+            'N.hs\tf (per module)\tMOVED N 1->2, U 0->2']
+    if code != 0 or out.getvalue().split('\n')[:-1] != want:
+        bad.append('per-module verdicts:\n  '
+                   + '\n  '.join(out.getvalue().split('\n')))
+    return bad
+
+
 def self_test():
     """A git repository whose diff removes two pragmas, and two dump trees
     in which one target's call sites change and the other's do not."""
@@ -449,6 +613,7 @@ def self_test():
                 or 'could not cache' not in err.getvalue()):
             bad.append('a tree whose directory refuses the write was not '
                        f'counted, or not said to be: {err.getvalue()!r}')
+        bad += per_module_self_test(td, git)
         empty = os.path.join(td, 'empty')
         os.makedirs(empty)
         if main([os.path.join(td, 'A'), empty, repo]) != 2:
@@ -501,8 +666,21 @@ def main(argv):
                   '-ddump-simpl -ddump-to-file?', file=sys.stderr)
             return 2
         trees.append(t)
-    print('\n'.join(verdicts(*trees, names)))
+    print('\n'.join(verdicts(*trees, names, per_args(argv, names))))
     return 0
+
+
+def per_args(argv, names):
+    """verdicts' per for a run over two dump trees and a worktree, or None
+    where no name is removed in more than one module."""
+    if len({n for _, n in names}) == len(set(names)):
+        return None
+    srcs, mods = sources(argv[2]), {}
+    for f, _ in names:
+        with open(os.path.join(argv[2], f), errors='replace') as fh:
+            m = MODULE.search(fh.read())
+        mods[f] = m.group(1) if m else 'Main'
+    return load(argv[0], raw=True), load(argv[1], raw=True), srcs, mods
 
 
 if __name__ == '__main__':

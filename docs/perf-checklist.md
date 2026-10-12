@@ -872,11 +872,12 @@ and `docs/pragmas-and-flags.md` `pragma-calls`.
 - `tools/pragma-calls.py` sorts the inlining pragmas a worktree's diff removes
   by whether their removal changed the Core, counting each target's name per
   module in two builds' dumps: DEAD where every count agrees, MOVED
-  with the modules that differ. It is the step between removing a whole group
-  of pragmas and bisecting it. DEAD is weaker than identical Core, and does
-  not make a pragma removable: P's rule on removing keeps it. With `--inline`
-  it reads one build instead, marking each INLINE target of a source tree
-  CALLED, COPIED or RECURSIVE (I1, I2).
+  with the modules that differ; a name removed in several modules is judged per
+  module, each counting only the tokens that name its own module's binding.
+  It is the step between removing a whole group of pragmas and bisecting it.
+  DEAD is weaker than identical Core, and does not make a pragma removable: P's
+  rule on removing keeps it. With `--inline` it reads one build instead, marking
+  each INLINE target of a source tree CALLED, COPIED or RECURSIVE (I1, I2).
 - `tools/rules-diff.py` compares which rewrite rules fired per module in two
   builds, from `-ddump-simpl-stats` dumps, the fusion rules marked,
   and with `--unfolding NAME` how often a function was inlined. It answers
