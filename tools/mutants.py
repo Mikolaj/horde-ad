@@ -1439,4 +1439,18 @@ MUTANTS = [
     ('pragma-census --write edits top-down', 'pragma-census.py',
      '            for e in sorted(edits, key=lambda e: e[1], reverse=True):\n',
      '            for e in sorted(edits, key=lambda e: e[1]):\n', ST),
+    # hpc-untaken (2026-10-13): each watched failing its self-test before
+    # it was written down here.
+    ('hpc-untaken error calls listed', 'hpc-untaken.py',
+     '            if ERR.match(e) or TRIV.fullmatch(e) or e in trivial:\n',
+     '            if TRIV.fullmatch(e) or e in trivial:\n', ST),
+    ('hpc-untaken --trivial unread', 'hpc-untaken.py',
+     '            if ERR.match(e) or TRIV.fullmatch(e) or e in trivial:\n',
+     '            if ERR.match(e) or TRIV.fullmatch(e):\n', ST),
+    ('hpc-untaken a binding never left', 'hpc-untaken.py',
+     '                inside.pop()\n',
+     '                pass\n', ST),
+    ('hpc-untaken the source line after the tick', 'hpc-untaken.py',
+     "                row += ' | ' + (text[ln - 1].strip() if ln <= len(text)\n",
+     "                row += ' | ' + (text[ln].strip() if ln <= len(text)\n", ST),
 ]

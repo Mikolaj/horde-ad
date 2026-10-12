@@ -126,6 +126,9 @@ Not a check: the conditions every timing below assumes.
   a warm-up call (the first call allocates a 32 KB stack chunk), hides O(1)
   costs: a dictionary call per call vanishes at 200000 elements. Judge O(1)
   operations per call.
+- Check by coverage that a benchmark takes every path of an operation
+  it is meant to measure: build it `-fhpc`, run it, combine its runs' tix
+  with `hpc combine` and read their `hpc draft` through `tools/hpc-untaken.py`.
 
 ## P. Pragmas and flags: the rules
 
@@ -934,11 +937,11 @@ and `docs/pragmas-and-flags.md` `pragma-calls`.
 
 The tools written for the checks of one build or one source tree,
 `tools/pragma-census.py`, `tools/spec-audit.py`, `tools/bang-drops.py`,
-`tools/lazy-reads.py`, `tools/captured-unbox.py`, `tools/workaround-cites.py`
-and `tools/hascallstack.py`, exit 0 clean, 1 with findings and 2 when the run
-did not happen, as `pragma-calls.py --inline` does; `tools/bang-lazy-check.py`,
-without `--allow`, exits 0 whatever it printed, its candidates being
-for the reader.
+`tools/lazy-reads.py`, `tools/captured-unbox.py`, `tools/workaround-cites.py`,
+`tools/hascallstack.py` and `tools/hpc-untaken.py`, exit 0 clean, 1
+with findings and 2 when the run did not happen, as `pragma-calls.py --inline`
+does; `tools/bang-lazy-check.py`, without `--allow`, exits 0 whatever
+it printed, its candidates being for the reader.
 
 - `tools/pragma-census.py` lists the overloaded functions, instance methods
   and class default methods of a source tree that carry no pragma,
@@ -964,3 +967,6 @@ for the reader.
 - `tools/hascallstack.py` checks orthotope's `HasCallStack` constraints,
   and the error wording they depend on, against the rule its docstring states,
   and rewrites the constraints to it (A2).
+- `tools/hpc-untaken.py` lists the functions and expressions a run of an `-fhpc`
+  build never entered, from its `hpc draft`, error calls and type-only
+  placeholders left out (M).

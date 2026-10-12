@@ -52,6 +52,7 @@ STEPS = [
     ('ctime-diff self-test', ['python3', '{root}/ctime-diff.py', '--self-test']),
     ('hascallstack self-test', ['python3', '{root}/hascallstack.py', '--self-test']),
     ('heading-outline self-test', ['python3', '{root}/heading-outline.py', '--self-test']),
+    ('hpc-untaken self-test', ['python3', '{root}/hpc-untaken.py', '--self-test']),
     ('lazy-reads self-test', ['python3', '{root}/lazy-reads.py', '--self-test']),
     ('one-shot self-test', ['python3', '{root}/one-shot.py', '--self-test']),
     ('perf-per-call self-test', ['python3', '{root}/perf-per-call.py', '--self-test']),
