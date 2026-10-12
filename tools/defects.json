@@ -3563,6 +3563,31 @@
    "bug_text": "M.hs\tf\tCALLED User 1, COPIED User 3"
   },
   {
+   "id": "pragma-calls-07",
+   "program": "pragma-calls.py",
+   "name": "--inline counted as a call of a module's INLINE target the module's own copy of an imported function of the same name, the right-hand side of one of its rules under Local rules for imported ids",
+   "family": "other:proxy-for-property",
+   "fix_rev": "self",
+   "trigger": "User.u calling M.$sf, M's copy of the imported G.f by its rule \"SPEC/M f @T\" forall ($dC :: C T). G.f @T $dC = M.$sf, and M.hs carrying INLINE f",
+   "ok": "M.hs f inlined",
+   "bug": "M.hs f CALLED User 1",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-13 tracing why Ranked's toVector read CALLED OpsRanked 1 on orthotope's p3 variant K0d, its dumps built on GHC HEAD 10.1.20260918: the call was Data.Array.Internal.Ranked.$stoVector, Ranked's specialisation of RankedG's toVector, passed to map in concatOuter, while Ranked's own toVector was inlined at every call.",
+   "plant_cmd": "mkdir -p src && cat > src/M.hs <<'EOF'\nmodule M where\n{-# INLINE f #-}\nf x = x\nEOF\nmkdir -p T/build/src && cat > T/build/src/M.dump-simpl <<'EOF'\nM.f = \\ x -> x\n\nM.$sf = \\ (x :: T) -> x\n\n\n------ Local rules for imported ids --------\n\"SPEC/M f @T\"\n    forall ($dC :: C T).\n      G.f @T $dC\n      = M.$sf\nEOF\nmkdir -p T/build/src && cat > T/build/src/User.dump-simpl <<'EOF'\nUser.u = \\ (y :: T) -> M.$sf y\nEOF",
+   "invoke": [
+    "--inline",
+    "{tmp}/T",
+    "{tmp}/src"
+   ],
+   "expect_exit": 0,
+   "expect_text": "M.hs\tf\tinlined",
+   "expect_absent": "CALLED",
+   "bug_exit": 1,
+   "bug_text": "M.hs\tf\tCALLED User 1"
+  },
+  {
    "id": "core-diff-04",
    "program": "core-diff.py",
    "name": "a binding GHC floated out of a function as static data, a string or a SrcLoc, takes the function's name with a number, and was counted as one more copy of it",

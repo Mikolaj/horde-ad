@@ -368,12 +368,15 @@ nothing until its INLINE copy was applied fully.
   `python3 $T/rules-diff.py dist-dump-A dist-dump-B --unfolding NAME` counts
   the inlinings of NAME per module.
 
-**Read:** each survivor is unsaturated, recursive (I2) or held back by a phase,
-and is a lead to measure rather than a defect: eta-expanding the `map toVector`
-sites, `map (\a -> toVector a) as`, gained nothing measurable, while inlining
-`rerank2`'s wrapper took Storable `rerank2` from 1.64 to 1.02 times its control,
-which needed INLINE in place of INLINABLE and its arrays moved into a lambda,
-so that its calls saturate it.
+**Read:** each survivor is unsaturated, recursive (I2), held back by a phase
+or in a boring context --- its arguments variables GHC knows nothing of
+and its result returned or stored as it is, where GHC by design inlines only
+a tiny INLINE body, as at `padT`'s `toVectorListT sh t` with no padding asked
+--- and is a lead to measure rather than a defect: eta-expanding
+the `map toVector` sites, `map (\a -> toVector a) as`, gained nothing
+measurable, while inlining `rerank2`'s wrapper took Storable `rerank2` from 1.64
+to 1.02 times its control, which needed INLINE in place of INLINABLE
+and its arrays moved into a lambda, so that its calls saturate it.
 
 ### I2. INLINE on a recursive function
 

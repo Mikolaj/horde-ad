@@ -960,7 +960,7 @@ MUTANTS = [
     ('pragma-calls --inline reads indented pragmas', 'pragma-calls.py',
      "INLINE_SRC = re.compile(r'^\\{-#", "INLINE_SRC = re.compile(r'^\\s*\\{-#", ST),
     ('pragma-calls --inline recursive groups unread', 'pragma-calls.py',
-     '        rec = any(n in rec_binders(dumps.read_text(paths[k])) for k in own)\n',
+     '        rec = any(n in rec_binders(t) for t in texts)\n',
      '        rec = False\n', ST),
     ('pragma-calls --inline a module copying its own function counted', 'pragma-calls.py',
      "            if any(t.endswith('.' + n) and t[:-len(n) - 1].rsplit('.', 1)[-1]\n"
@@ -972,6 +972,11 @@ MUTANTS = [
      "        ds[:] = [d for d in ds if not d.startswith(('.', 'dist'))]\n", '', ST),
     ('pragma-calls --inline the defining module counted', 'pragma-calls.py',
      '            if k in own:\n                continue\n', '', ST),
+    # pragma-calls-07 (2026-10-13): watched failing its self-test before it
+    # was written down here.
+    ('pragma-calls --inline a copy of an imported function counted as a call', 'pragma-calls.py',
+     "    return set(RULE_RHS.findall(rules[1])) if len(rules) == 2 else set()\n",
+     '    return set()\n', ST),
     # The one-build forms of core-diff, rules-diff and ticky-diff, and
     # bang-drops, lazy-reads and captured-unbox, the 908 detectors moved in
     # from a handoff (2026-10-07): each watched failing its self-test before

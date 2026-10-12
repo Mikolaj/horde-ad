@@ -50,14 +50,18 @@ which says so.
 `.hs` files under SRCDIR it counts, in every module's Core but the defining
 module's own, which its definition hides, two things. CALLED: the target,
 its worker or its specialisation, qualified by the defining module, called
-there. COPIED: a `$s` copy the module made itself, unqualified or qualified
-by that module, counted only where the module defines no function of that
-name. A line says `inlined` where neither is left, and RECURSIVE where the
-target is a binder of a `Rec {` group of its own module's Core. A survivor
-is a call too unsaturated to inline, the eta-expansion question of
-docs/perf-checklist.md's I1, a recursive target, or one a phase holds back;
-RECURSIVE is I2, an INLINE that on GHC HEAD blocks worker/wrapper and is
-never honoured. A name with INLINE in several modules is marked, and its
+there, a copy that module's rules name as one of an imported function
+excepted. COPIED: a `$s` copy the module made itself, unqualified or
+qualified by that module, counted only where the module defines no function
+of that name. A copy a third module made is counted for no target, so both
+are a floor. A line says `inlined` where neither is left, and RECURSIVE where
+the target is a binder of a `Rec {` group of its own module's Core.
+A survivor is a call too unsaturated to inline, the eta-expansion question
+of docs/perf-checklist.md's I1, a recursive target, one a phase holds back,
+or one in a boring context, its arguments variables GHC knows nothing of and
+its result returned or stored as it is, where GHC inlines only a tiny INLINE
+body; RECURSIVE is I2, an INLINE that on GHC HEAD blocks worker/wrapper and
+is never honoured. A name with INLINE in several modules is marked, and its
 copies, which may be any of theirs, are listed once, after the lines. A
 pragma inside an instance, a class or a `where` is passed over, its name
 being a method's or a local's. Its own token counts, unnormalised and
@@ -96,6 +100,8 @@ INLINE_SRC = re.compile(r'^\{-#\s*INLINE\s*(?:\[~?\d\])?\s*(\S+)\s*#-\}', re.M)
 MODULE = re.compile(r'^module\s+([A-Z][\w.]*)', re.M)
 # The header GHC prints above a module's specialisation rules, after its Core.
 RULES = '------ Local rules for imported ids --------'
+# The head of a rule's right-hand side, the copy the rule sends calls to.
+RULE_RHS = re.compile(r'(?:^|\s)=\s+(\S+)')
 
 
 def target(n):
@@ -335,6 +341,15 @@ def rec_binders(txt):
     return out
 
 
+def imported_copies(txt):
+    """The copies a dump's module made of imported functions, the right-hand
+    sides of the rules GHC prints after its Core: a `$s` name there is no
+    specialisation of the module's own function of that name
+    (pragma-calls-07)."""
+    rules = txt.split('\n' + RULES, 1)
+    return set(RULE_RHS.findall(rules[1])) if len(rules) == 2 else set()
+
+
 def inline_census(root, tokens, prags):
     """(lines, number of targets left behind or recursive, number whose
     module has a dump)."""
@@ -351,12 +366,15 @@ def inline_census(root, tokens, prags):
         e = re.escape(n)
         called_re = re.compile(rf"{re.escape(mod)}\.(?:\$[sw])*{e}[0-9]*")
         copy_re = re.compile(rf"((?:[A-Z][\w']*\.)*)\$s(?:\$[sw])*{e}[0-9]*")
+        texts = [dumps.read_text(paths[k]) for k in own]
+        foreign = set().union(*map(imported_copies, texts))
         called, copied = [], []
         for k in sorted(tokens):
             if k in own:
                 continue
             here, c = k.rsplit('/', 1)[-1], tokens[k]
-            ncall = sum(v for t, v in c.items() if called_re.fullmatch(t))
+            ncall = sum(v for t, v in c.items()
+                        if called_re.fullmatch(t) and t not in foreign)
             if ncall:
                 called.append(f'{here} {ncall}')
             # A module defining a function of that name copies its own.
@@ -370,7 +388,7 @@ def inline_census(root, tokens, prags):
                     ncopy += v
             if ncopy:
                 copied.append(f'{here} {ncopy}')
-        rec = any(n in rec_binders(dumps.read_text(paths[k])) for k in own)
+        rec = any(n in rec_binders(t) for t in texts)
         parts = []
         if called:
             parts.append('CALLED ' + listed(called))
@@ -397,8 +415,9 @@ def inline_self_test(td):
     """A source tree with INLINE targets called, copied, inlined and
     recursive, one name in two modules, one module without a dump, and
     pragmas that are INLINABLE, indented or in a build directory; and one
-    dump tree of it, with a copy qualified by a third module and a module
-    copying a function of its own of the same name."""
+    dump tree of it, with a copy qualified by a third module, a module
+    copying a function of its own of the same name, and a target's module
+    copying an imported function of the same name, called elsewhere."""
     bad = []
     src = os.path.join(td, 'isrc')
     os.makedirs(os.path.join(src, 'dist-newstyle'))
@@ -417,11 +436,15 @@ def inline_self_test(td):
     for rel, text in (
             ('build/src/M.dump-simpl',
              'Rec {\nM.r = \\ x -> M.r x\nend Rec }\n\nM.f = \\ x -> x\n'
-             'M.g = \\ x -> x\n'),
+             'M.g = \\ x -> x\nM.$sg1 = \\ x -> x\n\n'
+             # M's copy of an imported g, called by User (pragma-calls-07).
+             + RULES + '\n"SPEC/M g @T"\n    forall ($dC :: C T).\n'
+             '      G.g @T $dC\n      = M.$sg1\n'),
             ('build/src/N.dump-simpl', 'N.f = 1\n'),
             ('build/src/User.dump-simpl',
              'User.u = \\ y -> M.f y\nUser.$sf1 = \\ y -> y\n'
-             'User.v = N.$wf 2\nUser.w = Other.$sg 3\nUser.x = User.$sk2\n\n'
+             'User.v = N.$wf 2\nUser.w = Other.$sg 3\nUser.x = User.$sk2\n'
+             'User.z = M.$sg1 4\n\n'
              # A rule naming f and its copy, no call of either
              # (pragma-calls-06).
              + RULES + '\n"SPEC/User f"\n    forall. M.f = User.$sf1\n'),
