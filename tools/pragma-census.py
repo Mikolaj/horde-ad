@@ -3,6 +3,7 @@
 
 Usage: python3 tools/pragma-census.py SRC
        python3 tools/pragma-census.py --rule SRC
+       python3 tools/pragma-census.py --write [--release] [--keep FILE] SRC
        python3 tools/pragma-census.py --self-test
 
 For every `.hs` file under SRC, the top-level functions whose signature has
@@ -92,8 +93,22 @@ that pragma, or none; directly above an instance or class, each of its
 methods, overriding the module's there. A binding carrying another pragma
 is held to the rule and its own comment.
 
+`--write` writes into SRC the pragmas `--rule` lists as differing, round
+after round until a round has none to write, then prints what `--rule`
+still lists. It adds or strengthens a pragma, none to INLINABLE or INLINE
+and INLINABLE to INLINE, which the rule asks for whatever is measured; with
+`--release` it weakens and removes them too, building the tree on which
+P's rule on removing measures a release, not one to commit. A finding
+is left as it is where a line of the `--keep` file gives its file and name
+as `--rule` prints them, a line number there being ignored. It writes no
+comment, leaves a NOINLINE and a SPECIALISE alone, puts a new pragma
+directly above the signature, or a method's first equation, and lists what
+it left and each keep line matching no finding.
+
 Exit 0 when every overloaded binding carries a pragma, or with `--rule`
-when nothing differs, 1 when one does not, 2 when SRC holds no `.hs` file.
+or `--write` when nothing differs, 1 when one does not, 2 when SRC holds no
+`.hs` file, a keep line is not in a finding's form or a round's writes
+did not take.
 """
 
 import os
@@ -1077,8 +1092,10 @@ def hs_files(src):
     return files
 
 
-def report_rule(src):
-    """(lines, number of findings, number of .hs files read) of --rule."""
+def rule_findings(src):
+    """(the .hs files read, and --rule's findings over them: rule_check's
+    five lists, paths relative to src, and forwarding()'s shallow F1
+    comments)."""
     files, texts, classes = hs_files(src), {}, dict(STD)
     for path in files:
         with open(path) as fh:
@@ -1095,6 +1112,12 @@ def report_rule(src):
         unknown += [(rel, *x) for x in u]
         unmarked += [(rel, *x) for x in f]
         unbuilt += [(rel, *x) for x in b]
+    return files, off, rec, unknown, unmarked, unbuilt, shallow
+
+
+def report_rule(src):
+    """(lines, number of findings, number of .hs files read) of --rule."""
+    files, off, rec, unknown, unmarked, unbuilt, shallow = rule_findings(src)
     out = ['== pragma unlike the rule and no comment above in its form'
            ' (file:line name: has -> wants [why])']
     out += [f'  {rel}:{n} {name}: {has} -> {w} [{", ".join(why)}]'
@@ -1120,6 +1143,123 @@ def report_rule(src):
             for rel, n, name, ts in unbuilt]
     return out, (len(off) + len(rec) + len(unknown) + len(shallow)
                  + len(unmarked) + len(unbuilt)), len(files)
+
+
+RANK = {'none': 0, 'INLINABLE': 1, 'INLINE': 2}
+
+
+def pragma_lines(lines, i, name):
+    """[(line, kind, phased)] of the pragmas of name that the binding defined
+    at line i reads: at column 0 for a top-level one, in its instance or class
+    for a method."""
+    if lines[i][:1] not in (' ', '\t'):
+        span = [n for n, x in enumerate(lines) if x[:1] not in (' ', '\t')]
+    else:
+        h = i
+        while h > 0 and not re.match(r'(instance|class)\b', lines[h]):
+            h -= 1
+        span = range(h, decl_at(lines, h, lines[h].split()[0])[2])
+    return [(n, m.group(1), bool(m.group(2))) for n in span
+            for m in KINDS.finditer(lines[n]) if m.group(3) == name]
+
+
+def plan(lines, n, name, has, want):
+    """The edit giving the binding of a finding at line n, from 1, the pragma
+    it wants: ('insert', line, text), ('replace', line, text) or ('delete',
+    line), lines from 0; or why it is not written."""
+    i = n - 1
+    top = lines[i][:1] not in (' ', '\t')
+    base = name if top else name.split('.', 1)[1]
+    found = pragma_lines(lines, i, base)
+    if has == 'NOINLINE':
+        return 'a NOINLINE, which W3 settles'
+    if has == 'none':
+        if found:
+            return 'a pragma of its name stands'
+        spelt = f'({base})' if re.fullmatch(OP, base) else base
+        ind = re.match(r'\s*', lines[i]).group(0)
+        return ('insert', i, f'{ind}{{-# {want} {spelt} #-}}')
+    if len(found) != 1:
+        return f'{len(found)} pragmas of its name'
+    c, kind, _ = found[0]
+    if kind.startswith('SPECIALI'):
+        return 'a SPECIALISE'
+    if want == 'none':
+        if not re.fullmatch(r'\s*\{-#[^#]*#-\}\s*', lines[c]):
+            return 'its pragma shares its line'
+        return ('delete', c)
+    return ('replace', c, re.sub(r'\{-#\s*\w+', '{-# ' + want, lines[c], 1))
+
+
+def read_keep(path):
+    """The (file, name) pairs of a --keep file, each line as --rule prints
+    a finding, its line number optional; None where a line is not one."""
+    keep = set()
+    with open(path) as fh:
+        for line in fh:
+            m = re.match(r'\s*(\S+?\.hs)(?::\d+)?\s+(\S+?):?(?:\s|$)', line)
+            if m:
+                keep.add(m.groups())
+            elif line.strip() and not line.lstrip().startswith('#'):
+                return None
+    return keep
+
+
+def write_rule(src, release=False, keep=frozenset()):
+    """--write: (the lines it prints before the final --rule report, whether
+    every round's writes took)."""
+    out, used, before = [], set(), None
+    for rnd in range(1, 21):
+        files, off = rule_findings(src)[:2]
+        todo, refused = {}, []
+        for rel, n, name, has, w, why in off:
+            if (rel, name) in keep:
+                used.add((rel, name))
+            elif has == 'NOINLINE' or release or RANK[w] > RANK[has]:
+                todo.setdefault(rel, []).append((n, name, has, w, why))
+        wrote = []
+        for rel, items in todo.items():
+            path = os.path.join(src, rel)
+            with open(path) as fh:
+                lines = fh.read().split('\n')
+            edits = []
+            for n, name, has, w, why in items:
+                e = plan(lines, n, name, has, w)
+                if isinstance(e, str):
+                    refused.append(f'  {rel}:{n} {name}: {has} -> {w}: {e}')
+                else:
+                    edits.append(e)
+                    wrote.append(f'  {rel}:{n} {name}: {has} -> {w}'
+                                 f' [{", ".join(why)}]')
+            # bottom-up, so that no edit moves a line another one names
+            for e in sorted(edits, key=lambda e: e[1], reverse=True):
+                if e[0] == 'insert':
+                    lines.insert(e[1], e[2])
+                elif e[0] == 'replace':
+                    lines[e[1]] = e[2]
+                else:
+                    del lines[e[1]]
+            if edits:
+                with open(path, 'w') as fh:
+                    fh.write('\n'.join(lines))
+        if not wrote:
+            break
+        out.append(f'== round {rnd} wrote'
+                   ' (file:line name: has -> wants [why])')
+        out += wrote
+        key = [re.sub(r':\d+ ', ' ', x) for x in wrote]
+        if key == before:
+            out.append('== the census still lists what the last round wrote')
+            return out, False
+        before = key
+    else:
+        out.append('== twenty rounds and still writing')
+        return out, False
+    out.append('== not written (file:line name: has -> wants: why)')
+    out += refused
+    out.append('== keep lines matching no finding (file name)')
+    out += [f'  {rel} {name}' for rel, name in sorted(keep - used)]
+    return out, True
 
 
 def report(src):
@@ -1308,6 +1448,7 @@ def self_test():
             if main([os.path.join(td, d)]) != code:
                 bad.append(f'{why} did not exit {code}')
     bad += self_test_rule()
+    bad += self_test_write()
     for b in bad:
         print('FAIL', b)
     print('self-test', 'FAILED' if bad else 'passed')
@@ -1779,19 +1920,123 @@ def self_test_rule():
     return bad
 
 
+def self_test_write():
+    """--write over a module of one case per edit and refusal, by default
+    and with --release and a keep file, the written text compared whole;
+    the pragma k, removed above the insertions, checks their order."""
+    import contextlib
+    import io
+    import tempfile
+    src = ('module W where\n'
+           '{-# INLINE k #-}\n'
+           'class Fm f where\n'
+           '  fm :: (a -> b) -> f a -> f b\n'
+           'instance Fm T where\n'
+           '  {-# INLINABLE fm #-}\n'
+           '  fm g (T x) = T (g x)\n'
+           'f :: (a -> b) -> [a] -> [b]\n'
+           'f = map\n'
+           '(<+>) :: (a -> b) -> T a -> T b\n'
+           '(<+>) = fm\n'
+           '{-# INLINE g #-}\n'
+           'g :: Num a => a -> a\n'
+           'g = id\n'
+           'k :: Int -> Int\n'
+           'k = id\n'
+           '{-# SPECIALISE s :: (Int -> Int) -> Int -> Int #-}\n'
+           's :: Num a => (a -> a) -> a -> a\n'
+           's h = h\n'
+           '{-# NOINLINE n #-}\n'
+           'n :: (a -> a) -> a -> a\n'
+           'n h = h\n'
+           '-- INLINE: I3, GHC 9.14.1, 2026-10-12: measured.\n'
+           '{-# INLINE q #-}\n'
+           'q :: Int -> Int\n'
+           'q x = x + 1\n'
+           'p :: Int -> Int\n'
+           'p x = q x\n')
+    up = (src.replace('{-# INLINABLE fm', '{-# INLINE fm')
+          .replace('f :: ', '{-# INLINE f #-}\nf :: ')
+          .replace('(<+>) :: ', '{-# INLINE (<+>) #-}\n(<+>) :: ')
+          .replace('p :: ', '{-# INLINE p #-}\np :: '))
+    cases = (([], up, ['  W.hs:7 Fm.fm: INLINABLE -> INLINE',
+                       '  W.hs:8 f: none -> INLINE',
+                       '  W.hs:10 <+>: none -> INLINE',
+                       '  W.hs:27 p: none -> INLINE'], []),
+             (['--release', '--keep'],
+              up.replace('{-# INLINE k #-}\n', '', 1),
+              ['  W.hs:7 Fm.fm: INLINABLE -> INLINE',
+               '  W.hs:8 f: none -> INLINE',
+               '  W.hs:10 <+>: none -> INLINE',
+               '  W.hs:15 k: INLINE -> none',
+               '  W.hs:27 p: none -> INLINE'], ['  W.hs nosuch']))
+    bad = []
+    with tempfile.TemporaryDirectory() as td:
+        path, keep = os.path.join(td, 'W.hs'), os.path.join(td, 'keep')
+        with open(keep, 'w') as fh:
+            fh.write('  W.hs:13 g: INLINE -> INLINABLE [class constraint]\n'
+                     '# a comment\nW.hs nosuch\n')
+        for flags, text, wrote, stale in cases:
+            with open(path, 'w') as fh:
+                fh.write(src)
+            argv = ['--write'] + flags + ([keep] if flags else []) + [td]
+            with contextlib.redirect_stdout(io.StringIO()) as so:
+                code = main(argv)
+            got = so.getvalue().split('\n')
+            with open(path) as fh:
+                if fh.read() != text:
+                    bad.append(f'--write {flags} wrote another text')
+            r1 = [re.sub(r' \[.*', '', x)
+                  for x in got[1:got.index('== not written (file:line name:'
+                                           ' has -> wants: why)')]]
+            k = got.index('== keep lines matching no finding (file name)')
+            if code != 1 or r1 != wrote or got[k + 1:k + 1 + len(stale)] \
+                    != stale or not got[k + 1 + len(stale)].startswith('=='):
+                bad.append(f'--write {flags} ({code}):\n  ' + '\n  '.join(got))
+            with contextlib.redirect_stdout(io.StringIO()) as so:
+                main(argv)
+            if so.getvalue().startswith('== round'):
+                bad.append(f'--write {flags} wrote again over its own text')
+        with open(keep, 'w') as fh:
+            fh.write('garbage\n')
+        with contextlib.redirect_stderr(io.StringIO()):
+            if main(['--write', '--keep', keep, td]) != 2:
+                bad.append("a keep line not in a finding's form did not"
+                           ' exit 2')
+    return bad
+
+
 def main(argv):
     if argv == ['--self-test']:
         return self_test()
-    rule = argv[:1] == ['--rule']
+    write = argv[:1] == ['--write']
+    rule = write or argv[:1] == ['--rule']
     if rule:
         argv = argv[1:]
+    release, keep = False, frozenset()
+    while write and argv[:1] in (['--release'], ['--keep']):
+        if argv[0] == '--release':
+            release, argv = True, argv[1:]
+            continue
+        if len(argv) < 2 or not os.path.isfile(argv[1]):
+            argv = []
+            break
+        keep, argv = read_keep(argv[1]), argv[2:]
+        if keep is None:
+            print("a --keep line not in a finding's form", file=sys.stderr)
+            return 2
     if len(argv) != 1 or argv[0].startswith('--'):
         print(__doc__.split('\n\n')[1], file=sys.stderr)
         return 2
-    lines, nbad, nfiles = (report_rule if rule else report)(argv[0])
-    if not nfiles:
+    if not hs_files(argv[0]):
         print(f'no .hs file under {argv[0]}', file=sys.stderr)
         return 2
+    if write:
+        done, took = write_rule(argv[0], release, keep)
+        print('\n'.join(done))
+        if not took:
+            return 2
+    lines, nbad, _ = (report_rule if rule else report)(argv[0])
     print('\n'.join(lines))
     return 1 if nbad else 0
 

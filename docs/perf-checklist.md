@@ -473,6 +473,11 @@ and ran `toList` 8 to 10 times slower (2026-10-11).
   binding, the innermost being the one to carry it, the directly fusing bindings
   with no comment in P's form citing F1, and the bindings taking or returning
   a marked sum with no comment in P's form naming it and citing A3.
+- `python3 $T/pragma-census.py --write SRC` writes into a tree under P's second
+  half each pragma the rule adds or strengthens, round after round until
+  the census asks for none more; with `--release` it weakens and removes them
+  too, but for the findings a `--keep` file lists, building the tree on which
+  a removal is measured.
 - `python3 $T/pragma-census.py SRC` lists only the overloaded bindings
   that carry no pragma.
 - S1's audit shows which callers still pass a dictionary at run time.
@@ -939,7 +944,8 @@ for the reader.
   and class default methods of a source tree that carry no pragma,
   and with `--rule` every one whose pragma differs from what P's rule gives it,
   a forwarder's included (I4), and each one taking or returning a sum marked
-  as never to be built that lacks its comment (A3).
+  as never to be built that lacks its comment (A3); with `--write` it writes
+  the pragmas the rule adds or strengthens into the tree (I4).
 - `tools/spec-audit.py` lists the calls in optimised Core that hand a function
   an instance dictionary, by callee, and the bindings that take a dictionary
   as a lambda argument: code running unspecialised (S1).

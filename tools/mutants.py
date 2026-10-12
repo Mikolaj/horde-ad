@@ -1417,4 +1417,18 @@ MUTANTS = [
     ('pragma-census --rule A3 not taken for a citation', 'pragma-census.py',
      "CITE = re.compile(r'\\b(?:I[123]|F1|A3|S2|W[34])\\b|\\bsee\\b')\n",
      "CITE = re.compile(r'\\b(?:I[123]|F1|S2|W[34])\\b|\\bsee\\b')\n", ST),
+    # pragma-census --write (2026-10-13): each watched failing its
+    # self-test before it was written down here.
+    ('pragma-census --write releases without --release', 'pragma-census.py',
+     "            elif has == 'NOINLINE' or release or RANK[w] > RANK[has]:\n",
+     '            elif True:\n', ST),
+    ('pragma-census --write keep lines unread', 'pragma-census.py',
+     '            if (rel, name) in keep:\n',
+     '            if False:\n', ST),
+    ('pragma-census --write over a SPECIALISE', 'pragma-census.py',
+     "    if kind.startswith('SPECIALI'):\n",
+     '    if False:\n', ST),
+    ('pragma-census --write edits top-down', 'pragma-census.py',
+     '            for e in sorted(edits, key=lambda e: e[1], reverse=True):\n',
+     '            for e in sorted(edits, key=lambda e: e[1]):\n', ST),
 ]
