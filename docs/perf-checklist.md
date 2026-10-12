@@ -87,9 +87,13 @@ Not a check: the conditions every timing below assumes.
 - Build what is timed through `tools/align-as.py`, from a fresh build directory,
   with
   `LOOP_MAXSKIP=1 LOOP_LOOKTHROUGH=1 LOOP_DEADSPOT=1 LOOP_EXITSPAN=1 LOOP_SETTLED=1`
-  in the environment and `--ghc-options="-pgma $T/align-as.py -fforce-recomp"`.
-  The shim needs no approval. It is the remedy for code placement: Mikolaj ruled
-  reading which loops cross a cache line too simplistic a model to check by.
+  in the environment and `--ghc-options="-pgma $T/align-as.py -fforce-recomp"`,
+  and nothing else, orthotope's specialisation benchmark allocating alike
+  with and without it. It plans slowly, orthotope with its benchmark and probes
+  being the most it builds in reasonable time, so ox-arrays and horde-ad
+  are timed without it. The shim needs no approval. It is the remedy for code
+  placement: Mikolaj ruled reading which loops cross a cache line too simplistic
+  a model to check by.
 - Run `tools/machine-busy.sh` before timing. Time
   with `python3 $T/ab-time.py --cpu 3 BIN_A BIN_B ROUNDS NAME...`, reading
   allocation first. Back any time ratio that decides something
