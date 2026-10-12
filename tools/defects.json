@@ -3870,6 +3870,30 @@
    "expect_absent": "Ord.compare",
    "bug_exit": 1,
    "bug_text": "M.hs:8 Ord.compare: INLINE -> INLINABLE"
+  },
+  {
+   "program": "pragma-census.py",
+   "family": "other:proxy-for-property",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "id": "pragma-census-11",
+   "name": "a binding consuming its list argument more than once, or taking it apart by a pattern, was read as directly fusing (F1)",
+   "trigger": "outer xs | all (> 0) xs = inner xs, its list going to all and to a tree binding, under INLINE and a comment giving a measured reason that cites no F1",
+   "ok": "nothing listed, exit 0",
+   "bug": "outer listed as directly fusing with no comment citing F1, exit 1",
+   "notes": "Found 2026-10-12 bringing orthotope's pragmas to the census's fixed point: update, whose list goes to null, all and updateT, was listed there and, its comment naming F1, as a binding handing its list to a tree binding, so that no comment satisfied both; P's F1 reads a directly fusing binding as one whose foldr consumes its list argument once.",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\n-- INLINE: F1, directly fusing: it consumes its list once, by foldr.\n{-# INLINE inner #-}\ninner :: [Double] -> Double\ninner xs = foldr (+) 0 xs\n-- INLINE: on GHC HEAD (2026-10-12), measured faster than INLINABLE; no fusion\n-- here: its list goes to all and to inner.\n{-# INLINE outer #-}\nouter :: [Double] -> Double\nouter xs | all (> 0) xs = inner xs\n         | otherwise = 0\nEOF",
+   "invoke": [
+    "--rule",
+    "{tmp}/S"
+   ],
+   "expect_exit": 0,
+   "expect_text": "== directly fusing (F1)",
+   "expect_absent": "M.hs:9 outer",
+   "bug_exit": 1,
+   "bug_text": "M.hs:9 outer"
   }
  ]
 }

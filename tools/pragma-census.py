@@ -47,7 +47,8 @@ the standard classes. SPECIALISE counts as INLINABLE. A binding wants INLINE
 where it is directly fusing (F1): its body names build or augment and its
 result is a list, or it takes a list and its body names foldr or another
 good consumer defined outside the tree, sum, all or map among them, lists of
-Int or Bool, a shape's, left out. A binding also wants INLINE where it
+Int or Bool, a shape's, left out, each equation naming that list once, not
+taking it apart by a pattern. A binding also wants INLINE where it
 forwards to one needing it: its body calls that binding, by its name in its
 own module, in one it imports unqualified or through a qualified alias, a
 module defining no such name followed through its unqualified imports as a
@@ -680,15 +681,73 @@ def element_lists(ty):
     return elements(lists_of(ty))
 
 
-def fusing(body, ty, outside=lambda qual, name: True):
+def equations(lines, start, name):
+    """[(argument patterns, rest)] of the equations of name from line start:
+    each one's left side split at depth 0 into its patterns, and the guards,
+    right-hand side and where clause after them, string literals and
+    comments blanked."""
+    head = re.compile(r"\(?" + re.escape(name) + r"\)?(?![\w'])")
+    eqs, j = [], start
+    while j < len(lines):
+        line = re.sub(r'(^|\s)--(\s.*)?$', '',
+                      re.sub(r'"(?:[^"\\]|\\.)*"', '""', lines[j]))
+        if line[:1] in (' ', '\t') or not line.strip():
+            if eqs:
+                eqs[-1] += ' ' + line
+            j += 1
+            continue
+        m = head.match(line)
+        if not m:
+            break
+        eqs.append(line[m.end():])
+        j += 1
+    out = []
+    for e in eqs:
+        depth, cut = 0, len(e)
+        for i, ch in enumerate(e):
+            depth += ch in '(['
+            depth -= ch in ')]'
+            if depth == 0 and (ch == '|' and e[i:i + 2] != '||'
+                               and e[i - 1:i] != '|'
+                               or ch == '=' and e[i - 1:i] not in '=<>/'
+                               and e[i + 1:i + 2] not in '=>'):
+                cut = i
+                break
+        pats = [p for p in depth0(e[:cut].strip(), ' ') if p.strip()]
+        out.append((pats, e[cut:]))
+    return out
+
+
+def consumed_once(eqs, ty):
+    """Whether each equation binds each list argument of ty it names to
+    a variable its rest names once: not where a pattern takes the list apart
+    or leaves it unused, nor where the list goes to more than one consumer.
+    An argument an equation leaves unnamed, eta-reduced, says nothing."""
+    parts = depth0(body_type(ty).replace('ShapeL', '[Int]'), '->')
+    at = [i for i, a in enumerate(parts[:-1]) if element_lists(a)]
+    for pats, rest in eqs:
+        for i in at:
+            if i >= len(pats):
+                continue
+            m = re.fullmatch(r"[!~]?([a-z][\w']*)", pats[i].strip())
+            if not m or len(re.findall(
+                    r"(?<![\w'.])" + re.escape(m.group(1)) + r"(?![\w'])",
+                    rest)) != 1:
+                return False
+    return True
+
+
+def fusing(body, ty, outside=lambda qual, name: True, eqs=None):
     """Whether a binding of type ty and this body is directly fusing, a
-    consumer counting where outside says its name is not the tree's."""
+    consumer counting where outside says its name is not the tree's and,
+    given its equations, where each consumes its list argument once."""
     parts = depth0(body_type(ty).replace('ShapeL', '[Int]'), '->')
     args = set().union(*[element_lists(a) for a in parts[:-1]]) if parts else set()
     result = element_lists(parts[-1]) if parts else set()
     return bool((result and PRODUCES.search(body))
-                or (args and any(outside(q, n)
-                                 for q, n in CONSUMES.findall(body))))
+                or (args and (eqs is None or consumed_once(eqs, ty))
+                    and any(outside(q, n)
+                            for q, n in CONSUMES.findall(body))))
 
 
 def method_body(lines, n, k):
@@ -716,6 +775,7 @@ def forwarding(texts, classes=None):
     text."""
     classes = classes or {}
     table, info, where, methods, pending = {}, {}, {}, {}, {}
+    eqs_of = {}
     for path, text in texts.items():
         lines = text.split('\n')
         mod, aliases, opens = module_info(text)
@@ -730,6 +790,7 @@ def forwarding(texts, classes=None):
             for name in re.split(r'\s*,\s*', m.group(1).strip()):
                 name = name.strip('()')
                 body = definition(lines, j, name)
+                eqs_of[(mod, name)] = equations(lines, j, name)
                 table[(mod, name)] = (lists_of(body_type(sig)), None, body)
                 pending[(mod, name)] = (lines, [i], kinds.get(name), sig)
                 where[(mod, name)] = (path, i, noted(lines, i, F1NOTE))
@@ -787,7 +848,7 @@ def forwarding(texts, classes=None):
     for k, (lines, notes, has, ty) in pending.items():
         lists, _, body = table[k]
         fuses = fusing(body, ty, lambda q, n: not resolve(k[0], q, n)
-                       and n not in methods)
+                       and n not in methods, eqs_of.get(k))
         table[k] = (lists, seed_kind(lines, notes, has, fuses), body)
 
     need = {k: seed for k, (_, seed, _) in table.items() if seed}
@@ -1533,13 +1594,26 @@ def self_test_rule():
             '{-# INLINE sh1 #-}\n'
             'sh1 :: [Int] -> [a] -> Int\n'
             'sh1 is xs = sz is + length xs\n'
-            '-- INLINABLE: F1 reads no fusion here: its list goes to sum twice.\n'
+            # A body that fuses by its look, its list consumed once, under
+            # a departure overriding it.
+            '-- INLINABLE: F1 reads no fusion here: no caller builds its list.\n'
             '{-# INLINABLE nf #-}\n'
             'nf :: Num a => [a] -> T a -> a\n'
-            'nf xs t = sum xs * sum xs + sum (rootX t)\n'
+            'nf xs t = sum xs * 2 + sum (rootX t)\n'
             '{-# INLINABLE nfc #-}\n'
             'nfc :: Num a => [a] -> T a -> a\n'
             'nfc xs t = nf xs t\n'
+            # Consumers of their list more than once, or by a pattern: no
+            # direct fusion (pragma-census-11).
+            '-- INLINE: on GHC HEAD (2026-10-12), measured faster than INLINABLE.\n'
+            '{-# INLINE twice #-}\n'
+            'twice :: [Double] -> Double\n'
+            'twice xs = sum xs + product xs\n'
+            '-- INLINE: on GHC HEAD (2026-10-12), measured faster than INLINABLE.\n'
+            '{-# INLINE taken #-}\n'
+            'taken :: [Double] -> Double\n'
+            'taken [] = 0\n'
+            'taken (x : xs) = x + sum xs\n'
             'instance Ord a => Ord (T a) where\n'
             '  compare = cmpT\n'
             'class VL v where\n'

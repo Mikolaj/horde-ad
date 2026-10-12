@@ -1038,6 +1038,12 @@ MUTANTS = [
     ('pragma-census equalities taken for a class', 'pragma-census.py',
      "            if p.strip() and p.strip() != 'HasCallStack' and '~' not in p\n",
      "            if p.strip() and p.strip() != 'HasCallStack'\n", ST),
+    # pragma-census-11 (2026-10-12): a list consumed more than once, or
+    # taken apart by a pattern, no direct fusion; watched failing its
+    # self-test before it was written down here.
+    ('pragma-census list consumed more than once read as fusing', 'pragma-census.py',
+     '                or (args and (eqs is None or consumed_once(eqs, ty))\n',
+     '                or (args and (eqs is None or True)\n', ST),
     ('pragma-census TypeError taken for a class', 'pragma-census.py',
      "            and not p.strip().startswith('TypeError') and '<=' not in p]\n",
      "            and '<=' not in p]\n", ST),
@@ -1276,8 +1282,8 @@ MUTANTS = [
      '    return bool((result and PRODUCES.search(body))\n',
      '    return bool((False and PRODUCES.search(body))\n', ST),
     ('pragma-census --rule a fusing consumer unseen', 'pragma-census.py',
-     '                or (args and any(outside(q, n)\n',
-     '                or (False and any(outside(q, n)\n', ST),
+     '                    and any(outside(q, n)\n',
+     '                    and False and any(outside(q, n)\n', ST),
     ('pragma-census --rule shape lists taken for element lists', 'pragma-census.py',
      "            if set(re.findall(r\"[A-Za-z_][\\w']*\", x)) - {'Int', 'Bool'}}\n",
      "            if x != '[Int]'}\n", ST),
