@@ -977,6 +977,11 @@ MUTANTS = [
     ('pragma-calls --inline a copy of an imported function counted as a call', 'pragma-calls.py',
      "    return set(RULE_RHS.findall(rules[1])) if len(rules) == 2 else set()\n",
      '    return set()\n', ST),
+    # pragma-calls-08 (2026-10-13): watched failing its self-test before it
+    # was written down here.
+    ('pragma-calls per module a copy of an imported function counted towards the copier', 'pragma-calls.py',
+     '                           if refers(km, q) and not copy(km, q, u, cs))\n',
+     '                           if refers(km, q))\n', ST),
     # The one-build forms of core-diff, rules-diff and ticky-diff, and
     # bang-drops, lazy-reads and captured-unbox, the 908 detectors moved in
     # from a handoff (2026-10-07): each watched failing its self-test before

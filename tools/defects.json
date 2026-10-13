@@ -3967,6 +3967,34 @@
    "expect_absent": "C.cm",
    "bug_exit": 1,
    "bug_text": "M.hs:8 C.cm: INLINE -> none"
+  },
+  {
+   "id": "pragma-calls-08",
+   "program": "pragma-calls.py",
+   "name": "the two-build mode counted, towards a module's binding of a name removed in several modules, the module's own copy of an imported function of that name, the right-hand side of one of its rules under Local rules for imported ids",
+   "family": "other:proxy-for-property",
+   "fix_rev": "self",
+   "trigger": "pragmas on f removed from M and N, and build B's U calling M.$sf3, M's copy of N's f by its rule \"SPEC/M f @T\" forall ($dC :: C T). N.f @T $dC = M.$sf3",
+   "ok": "M.hs f (per module) DEAD",
+   "bug": "M.hs f (per module) MOVED M 1->2, U 0->1",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "generalisation",
+   "notes": "Found 2026-10-13 asking where else pragma-calls-07's shape occurs: the per-module path keyed a token by its qualifier alone. Not seen on a real tree; it could only make a removal read MOVED where nothing moved.",
+   "plant_cmd": "mkdir -p repo && printf 'module M where\\n{-# INLINE f #-}\\nf x = x\\n' > repo/M.hs && printf 'module N where\\n{-# INLINE f #-}\\nf x = x\\n' > repo/N.hs && g='git -C repo -c user.name=t -c user.email=t@t' && $g init -q && $g add . && $g commit -q -m x --no-gpg-sign && printf 'module M where\\nf x = x\\n' > repo/M.hs && printf 'module N where\\nf x = x\\n' > repo/N.hs && mkdir -p A/build B/build && printf 'f = \\\\ x -> x\\n' > A/build/M.dump-simpl && printf 'f = \\\\ x -> x\\n' > A/build/N.dump-simpl && printf 'u = 1\\n' > A/build/U.dump-simpl && printf 'f = \\\\ x -> x\\nM.$sf3 = \\\\ x -> x\\n\\n------ Local rules for imported ids --------\\n\"SPEC/M f @T\"\\n    forall ($dC :: C T).\\n      N.f @T $dC\\n      = M.$sf3\\n' > B/build/M.dump-simpl && printf 'f = \\\\ x -> x\\n' > B/build/N.dump-simpl && printf 'u = M.$sf3 5\\n' > B/build/U.dump-simpl",
+   "invoke": [
+    "{tmp}/A",
+    "{tmp}/B",
+    "{tmp}/repo"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "M.hs\tf (per module)\tDEAD",
+    "N.hs\tf (per module)\tDEAD"
+   ],
+   "bug_text": [
+    "M.hs\tf (per module)\tMOVED M 1->2, U 0->1"
+   ]
   }
  ]
 }

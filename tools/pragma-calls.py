@@ -30,13 +30,13 @@ removable: it may be dead only at today's inliner thresholds
 (docs/perf-checklist.md, P). A name the diff removes a pragma from in
 several modules is counted per module, `(per module)`, in the code alone,
 the specialisation rules GHC prints after it left out: a token counts towards
-module M's binding where M qualifies it, as Core writes a worker or a copy;
-where it stands unqualified in M's own dump; where its qualifier is an alias
-the importing module's source binds to M or to a module re-exporting it, one
-that imports M and binds no such name; and where it stands unqualified in a
-module importing M, or such a re-exporter, unqualified and binding no such
-name itself. A name removed twice in one module is marked, its counts
-covering both.
+module M's binding where M qualifies it, as Core writes a worker or a copy,
+or stands unqualified in M's own dump, a copy that M's rules name as one of
+an imported function excepted; where its qualifier is an alias the importing
+module's source binds to M or to a module re-exporting it, one that imports M
+and binds no such name; and where it stands unqualified in a module importing
+M, or such a re-exporter, unqualified and binding no such name itself. A name
+removed twice in one module is marked, its counts covering both.
 
 The token counts of each dump tree are cached beside it, in
 DUMPS.tokens.pickle, since tokenising 1.5 GB of Core takes a minute. The
@@ -77,6 +77,7 @@ is found under SRCDIR or none of their modules has a dump.
 
 import collections
 import contextlib
+import functools
 import io
 import os
 import pickle
@@ -235,23 +236,35 @@ def defines(txt, n):
 
 
 def index(raw):
-    """Module key -> {base: [(qualifier, count)]} of raw token counts, a base
-    being a token without its qualifier, its `$` prefixes and, behind those,
-    the numbering of a worker or a copy."""
+    """Module key -> {base: [(qualifier, count, unqualified token)]} of raw
+    token counts, a base being a token without its qualifier, its `$`
+    prefixes and, behind those, the numbering of a worker or a copy."""
     out = {}
     for k, c in raw.items():
         d = collections.defaultdict(list)
         for t, v in c.items():
             q, pre, rest = RAW.fullmatch(t).groups()
             d[re.sub(r'[0-9]+$', '', rest) if pre else rest].append(
-                (q.rstrip('.'), v))
+                (q.rstrip('.'), v, pre + rest))
         out[k] = d
     return out
 
 
-def per_module(ia, ib, srcs, mod, n):
+@functools.lru_cache(maxsize=None)
+def own_copies(root, mod):
+    """The copies mod's dumps under root name as ones of imported functions,
+    unqualified: no specialisation of mod's own binding (pragma-calls-08)."""
+    path = mod.replace('.', '/')
+    return frozenset(''.join(RAW.fullmatch(t).groups()[1:])
+                     for p, k in dumps.walk(root, '.dump-simpl')
+                     if k == path or k.endswith('/' + path)
+                     for t in imported_copies(dumps.read_text(p)))
+
+
+def per_module(ia, ib, srcs, mod, n, copies=(set(), set())):
     """{module key: (count in A, count in B)} of the tokens referring to
-    mod's binding of n, by the rules the docstring gives."""
+    mod's binding of n, by the rules the docstring gives; copies are those
+    of own_copies in A and in B."""
     scopes = {m: scope(t) for m, t in srcs.items()}
 
     def reaches(x):
@@ -277,18 +290,22 @@ def per_module(ia, ib, srcs, mod, n):
         return next(('.'.join(parts[i:]) for i in range(len(parts))
                      if '.'.join(parts[i:]) in srcs), parts[-1])
 
+    def copy(km, q, u, cs):
+        return u in cs and (q == mod or not q and km == mod)
+
     out = {}
     for k in set(ia) | set(ib):
         km = name(k)
-        out[k] = tuple(sum(v for q, v in t.get(k, {}).get(n, ())
-                           if refers(km, q)) for t in (ia, ib))
+        out[k] = tuple(sum(v for q, v, u in t.get(k, {}).get(n, ())
+                           if refers(km, q) and not copy(km, q, u, cs))
+                       for t, cs in zip((ia, ib), copies))
     return out
 
 
 def verdicts(a, b, names, per=None):
     """One line per removed pragma; per, (raw counts of A, raw counts of B,
-    the worktree's sources, file -> module), counts a name removed in
-    several modules module by module."""
+    the worktree's sources, file -> module, the root of A, the root of B),
+    counts a name removed in several modules module by module."""
     dup = collections.Counter(n for _, n in names)
     dupf = collections.Counter(names)
     ia, ib = (index(per[0]), index(per[1])) if per else (None, None)
@@ -296,7 +313,10 @@ def verdicts(a, b, names, per=None):
     for f, n in names:
         moved = []
         if per and dup[n] > dupf[(f, n)]:
-            counts = per_module(ia, ib, per[2], per[3].get(f), n)
+            mod = per[3].get(f)
+            counts = per_module(ia, ib, per[2], mod, n,
+                                (own_copies(per[4], mod),
+                                 own_copies(per[5], mod)))
             for k in sorted(counts):
                 ca, cb = counts[k]
                 if ca != cb:
@@ -489,9 +509,10 @@ def inline_self_test(td):
 def per_module_self_test(td, git):
     """A name whose pragma the diff removes in two modules, M and N: a user
     reaching M's through an alias of a module re-exporting it and N's
-    unqualified and through N's worker, each counted towards its own; and
-    two modules whose own f counts towards neither: one importing N
-    unqualified, one importing M and reached through an alias."""
+    unqualified and through N's worker, each counted towards its own; two
+    modules whose own f counts towards neither: one importing N
+    unqualified, one importing M and reached through an alias; and M's
+    copy of N's f, called by the user, counted towards neither."""
     bad = []
     repo = os.path.join(td, 'repo2')
     os.makedirs(repo)
@@ -517,10 +538,16 @@ def per_module_self_test(td, git):
     for rel, text in (('A2/build/M.dump-simpl', 'f = \\ x -> x\n'),
                       ('A2/build/N.dump-simpl', 'f = \\ x -> x\n'),
                       ('A2/build/U.dump-simpl', 'u = 1\nv = 2\n'),
-                      ('B2/build/M.dump-simpl', 'f = \\ x -> x\n'),
+                      # M's copy of N's f, called by U, which is no
+                      # reference to M's own (pragma-calls-08).
+                      ('B2/build/M.dump-simpl',
+                       'f = \\ x -> x\nM.$sf3 = \\ x -> x\n\n' + RULES
+                       + '\n"SPEC/M f @T"\n    forall ($dC :: C T).\n'
+                       '      N.f @T $dC\n      = M.$sf3\n'),
                       ('B2/build/N.dump-simpl', 'f = \\ x -> x\n$wf = 1\n'),
                       ('B2/build/U.dump-simpl',
-                       'u = X.f 1\nv = f 2\nw = N.$wf 3\ny = Y.f\n'),
+                       'u = X.f 1\nv = f 2\nw = N.$wf 3\ny = Y.f\n'
+                       'z = M.$sf3 5\n'),
                       ('A2/build/W.dump-simpl', 'f = 3\nw = f\n'),
                       ('B2/build/W.dump-simpl', 'f = 3\nw = f\nx = f\n')):
         p = os.path.join(td, rel)
@@ -703,7 +730,8 @@ def per_args(argv, names):
         with open(os.path.join(argv[2], f), errors='replace') as fh:
             m = MODULE.search(fh.read())
         mods[f] = m.group(1) if m else 'Main'
-    return load(argv[0], raw=True), load(argv[1], raw=True), srcs, mods
+    return (load(argv[0], raw=True), load(argv[1], raw=True), srcs, mods,
+            argv[0], argv[1])
 
 
 if __name__ == '__main__':
