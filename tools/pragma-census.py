@@ -59,6 +59,11 @@ stands on a comment giving P's reason that cites no F1, the call heads the
 right-hand side of its first equation, constructors applied to it aside. A
 directly fusing binding, and an INLINE binding whose comment above it gives
 P's reason, need it, and so, to a fixed point, does each forwarder. A
+binding wants INLINE where it is a thin wrapper too: the right-hand side
+of each of its equations, unguarded and holding no local binding,
+comprehension, case, conditional or do block, makes at most one call, its
+constructors, the fields of the tree's newtypes, `$` and `.` aside, any other
+operator, a backticked name and a range each counting as one. A
 binding whose comment names F1 but whose body hands a list of its type to a
 tree binding is listed too: the innermost binding should carry it; and so is
 a directly fusing binding whose type does not want INLINE already and whose
@@ -691,6 +696,83 @@ def wrapped(body):
     return None if not h or h.group(2) in KEYWORDS else (h.group(1), h.group(2))
 
 
+NEWTYPE_FIELD = re.compile(r"^newtype\b[^=\n]*=\s*[A-Z][\w']*\s*\{\s*"
+                           r"([a-z_][\w']*)\s*::", re.M)
+TOKEN = re.compile(r"`[^`]*`|(?:[A-Z][\w']*\.)*[A-Za-z_][\w']*|\d\w*(?:\.\d+)?"
+                   r"|'(?:[^'\\]|\\.)'|[!#$%&*+./<=>?@\\^|~:-]+|[()\[\],;{}]")
+FREE_OPS = {'$', '.', '->', '\\', '@', '~', '!'}
+
+
+def newtype_fields(texts):
+    """The fields of the tree's newtypes, whose selectors cost no call."""
+    return {m.group(1) for t in texts.values()
+            for m in NEWTYPE_FIELD.finditer(t)}
+
+
+def untyped(s):
+    """s without its type annotations, each from `::` to the end of the group
+    holding it, and its type applications, an `@` after a space, a bracket
+    or a comma."""
+    out, depth, skip, i = [], 0, None, 0
+    while i < len(s):
+        if skip is None and s.startswith('::', i):
+            skip, i = depth, i + 2
+            continue
+        if skip is None and s[i] == '@' and (i == 0 or s[i - 1] in ' ([,'):
+            i += 1 + (s[i + 1:i + 2] == "'")
+            if s[i:i + 1] in ('(', '['):
+                i = bracket_end(s, i) or len(s)
+            else:
+                while i < len(s) and (s[i].isalnum() or s[i] in "_'"):
+                    i += 1
+            continue
+        depth += s[i] in '(['
+        depth -= s[i] in ')]'
+        if skip is not None and depth < skip:
+            skip = None
+        if skip is None:
+            out.append(s[i])
+        i += 1
+    return ''.join(out)
+
+
+def thin(eqs, fields=frozenset()):
+    """Whether a binding is a thin wrapper: it has equations, and the
+    right-hand side of each, unguarded and holding no local binding,
+    comprehension, case, conditional or do block, makes at most one call, its
+    constructors, its newtype fields, `$` and `.` aside, any other operator,
+    a backticked name and a range each counting as one."""
+    if not eqs:
+        return False
+    for pats, rest in eqs:
+        if not rest.startswith('='):
+            return False
+        bound = {v for p in pats
+                 for v in re.findall(r"(?<![\w'.])[a-z_][\w']*", p)}
+        calls, lam = 0, False
+        for t in TOKEN.findall(untyped(rest[1:])):
+            if t == '\\':
+                lam = True
+            elif lam:
+                if t == '->':
+                    lam = False
+                elif re.fullmatch(r"[a-z_][\w']*", t):
+                    bound.add(t)
+            elif t in KEYWORDS or t in ('<-', '|', '=', ';'):
+                return False
+            elif t[0] == '`':
+                calls += 1
+            elif t[0].isalpha() or t[0] == '_':
+                name = t.split('.')[-1]
+                calls += not (name[0].isupper() or name == '_'
+                              or name in bound or name in fields)
+            elif t[0] in "!#$%&*+./<=>?@\\^|~:-" and t not in FREE_OPS:
+                calls += t[0] != ':'
+            if calls > 1:
+                return False
+    return True
+
+
 def element_lists(ty):
     """The list types of ty but a shape's and its flags."""
     return elements(lists_of(ty))
@@ -773,6 +855,16 @@ def method_body(lines, n, k):
         out.append(lines[j])
         j += 1
     return ' '.join(re.sub(r'(^|\s)--(\s.*)?$', '', x) for x in out)
+
+
+def method_equations(lines, n, k, name):
+    """equations() of the method defined at line n of a body ending before
+    line k, read from its lines at line n's indentation or deeper, dedented."""
+    block, j, ind = [], n, indent(lines[n])
+    while j < k and (not lines[j].strip() or indent(lines[j]) >= ind):
+        block.append(lines[j][ind:])
+        j += 1
+    return equations(block, 0, name)
 
 
 def forwarding(texts, classes=None):
@@ -962,7 +1054,8 @@ def carried(ty, marked):
                                body))
 
 
-def rule_check(text, classes, fwd=None, fus=None, marked=()):
+def rule_check(text, classes, fwd=None, fus=None, marked=(),
+               fields=frozenset()):
     """The bindings of a module whose pragma differs from what the rule gives
     with no comment naming a pragma above them: [(line, name, has, wants,
     reasons)]; the recursive ones the rule makes INLINE: [(line, name, has)];
@@ -972,7 +1065,8 @@ def rule_check(text, classes, fwd=None, fus=None, marked=()):
     INLINE already and whose comment does not give P's reason citing F1:
     [(line, name)]; and the bindings whose type names one of the marked sums
     and whose comment does not give P's reason naming each it names and
-    citing A3, a departure aside: [(line, name, sums)]."""
+    citing A3, a departure aside: [(line, name, sums)]. fields are the
+    tree's newtype fields, which thin() reads as costing no call."""
     lines, fwd, mod = text.split('\n'), fwd or {}, module_info(text)[0]
     fus = fus or set()
     unmarked, unbuilt = [], []
@@ -987,7 +1081,7 @@ def rule_check(text, classes, fwd=None, fus=None, marked=()):
     off, rec, unknown = [], [], []
 
     def judge(n, name, has, phased, ty, over, notes, extra=(), decl=mdecl,
-              key=None):
+              key=None, eqs=()):
         key = key or (mod, name)
         if phased:
             return
@@ -1014,6 +1108,8 @@ def rule_check(text, classes, fwd=None, fus=None, marked=()):
             w, why = 'INLINE', ['directly fusing (F1)']
         if w != 'INLINE' and key in fwd:
             w, why = 'INLINE', [f'forwards to {fwd[key]}']
+        if w != 'INLINE' and thin(eqs, fields):
+            w, why = 'INLINE', ['thin wrapper']
         if w == 'INLINE' and recursive_here.get(name):
             if has == 'INLINE':
                 rec.append((n + 1, name, has))
@@ -1032,7 +1128,8 @@ def rule_check(text, classes, fwd=None, fus=None, marked=()):
                 name = name.strip('()')
                 recursive_here[name] = recursive(lines, j, name)
                 has, phased = kinds.get(name, ('none', False))
-                judge(i, name, has, phased, sig, False, [i])
+                judge(i, name, has, phased, sig, False, [i],
+                      eqs=equations(lines, j, name))
             i = j
             continue
         if re.match(r'^class\b', line):
@@ -1043,7 +1140,8 @@ def rule_check(text, classes, fwd=None, fus=None, marked=()):
                 judge(n, f'{cls}.{name}', has, phased,
                       classes.get(cls, {}).get(name, ''), True,
                       [i, n, sn],
-                      ['default method'], mdecl if cdecl is None else cdecl)
+                      ['default method'], mdecl if cdecl is None else cdecl,
+                      eqs=method_equations(lines, n, k, name))
             i = k
             continue
         if line.startswith('instance'):
@@ -1076,7 +1174,8 @@ def rule_check(text, classes, fwd=None, fus=None, marked=()):
                     judge(n, f'{cls}.{name}', has, phased, ty, over,
                           [i, n], (),
                           mdecl if hdecl is None else hdecl,
-                          (mod, f'{cls}.{name}', n))
+                          (mod, f'{cls}.{name}', n),
+                          method_equations(lines, n, k, name))
             i = k
             continue
         i += 1
@@ -1102,11 +1201,12 @@ def rule_findings(src):
             texts[path] = fh.read()
         classes.update(class_methods(texts[path]))
     fwd, fus, shallow = forwarding(texts, classes)
-    marked = marked_types(texts)
+    marked, fields = marked_types(texts), newtype_fields(texts)
     off, rec, unknown, unmarked, unbuilt = [], [], [], [], []
     for path in files:
         rel = os.path.relpath(path, src)
-        o, r, u, f, b = rule_check(texts[path], classes, fwd, fus, marked)
+        o, r, u, f, b = rule_check(texts[path], classes, fwd, fus, marked,
+                                   fields)
         off += [(rel, *x) for x in o]
         rec += [(rel, *x) for x in r]
         unknown += [(rel, *x) for x in u]
@@ -1473,36 +1573,36 @@ def self_test_rule():
            'f2 = mapT\n'
            '{-# INLINABLE f3 #-}\n'
            'f3 :: T a -> [a]\n'
-           'f3 = toListT\n'
+           'f3 = toListT . id\n'
            'f4 :: Num a => T a -> a\n'
-           'f4 = sumT\n'
+           'f4 = sumT . id\n'
            '{-# INLINE f5 #-}\n'
            'f5 :: Num a => T a -> a\n'
-           'f5 = sumT\n'
+           'f5 = sumT . id\n'
            '-- INLINE: I3, measured faster.\n'
            '-- | Doc.\n'
            '{-# INLINE f6 #-}\n'
            'f6 :: Num a => T a -> a\n'
-           'f6 = sumT\n'
+           'f6 = sumT . id\n'
            '-- | Doc,\n'
            '-- INLINE: I3, its second line in the form.\n'
            '{-# INLINE f7 #-}\n'
            'f7 :: Num a => T a -> a\n'
-           'f7 = sumT\n'
+           'f7 = sumT . id\n'
            '{-# INLINABLE f8 #-}\n'
            'f8 :: HasCallStack => T a -> T a\n'
-           'f8 = id\n'
+           'f8 = id . id\n'
            '{-# INLINE f9 #-}\n'
            'f9 :: (a ~ b) => T a -> T b\n'
-           'f9 = id\n'
+           'f9 = id . id\n'
            'f10 :: T a -> Int\n'
-           'f10 = lenT\n'
+           'f10 = lenT . id\n'
            '{-# INLINE [1] f11 #-}\n'
            'f11 :: Num a => T a -> a\n'
-           'f11 = sumT\n'
+           'f11 = sumT . id\n'
            '{-# SPECIALISE f12 :: T Int -> Int #-}\n'
            'f12 :: Num a => T a -> a\n'
-           'f12 = sumT\n'
+           'f12 = sumT . id\n'
            '{-# INLINE f14 #-}\n'
            'f14 :: (a -> a) -> [a] -> [a]\n'
            'f14 g (x : xs) = g x : f14 g xs\n'
@@ -1511,7 +1611,7 @@ def self_test_rule():
            'f15 :: (a -> a) -> T a -> T a\n'
            'f15 g t | otherwise = error "f15: no"  -- f15 is not recursive\n'
            'f17 :: [Int] -> T a -> T a\n'
-           'f17 = permT\n'
+           'f17 = permT . id\n'
            'instance Functor T where\n'
            '  fmap = mapT\n'
            'instance Num a => Num (T a) where\n'
@@ -1523,21 +1623,21 @@ def self_test_rule():
            'instance Vec T where\n'
            '  type VecElem T = Show\n'
            '  vmap = mapT\n'
-           '  vlen = lenT\n'
+           '  vlen = lenT . id\n'
            'instance Show (T a) where\n'
-           '  showsPrec _ _ = id\n'
+           '  showsPrec _ _ = id . id\n'
            '    -- INLINE: I3, a comment ending the body above.\n'
            '  {-# INLINE show #-}\n'
-           '  show _ = ""\n'
+           '  show _ = id (id "")\n'
            '-- No pragma: reference semantics, on GHC 9.14.1 (2026-10-11).\n'
            'instance Functor U where\n'
            '  fmap = mapU\n'
            'instance Foo T where\n'
            '  foo = id\n'
            'instance Show a => Show (U a) where\n'
-           '  show _ = ""\n'
+           '  show _ = id (id "")\n'
            'instance (a ~ b) => Conv (T a) (U b) where\n'
-           '  conv (T x) = U x\n'
+           '  conv (T x) = U (id (id x))\n'
            '  {-# INLINE conv #-}\n'
            'class ( Show a\n'
            '        -- a comment inside the head\n'
@@ -1548,23 +1648,23 @@ def self_test_rule():
            '  d1 g = g\n'
            '  d2 :: a -> String\n'
            '  default d2 :: Show a => a -> String\n'
-           '  d2 = show\n'
+           '  d2 = show . id\n'
            '  {-# INLINE d3 #-}\n'
            '  d3 :: a -> String\n'
-           '  d3 = show\n'
+           '  d3 = show . id\n'
            '  {-# INLINABLE d4 #-}\n'
            '  d4 :: a -> String\n'
-           '  d4 = show\n'
+           '  d4 = show . id\n'
            '  d6 :: a -> a\n'
            '  d6 = undefined\n'
            '  -- INLINE: I3, measured faster.\n'
            '  {-# INLINE d7 #-}\n'
            '  d7 :: a -> String\n'
-           '  d7 = show\n'
+           '  d7 = show . id\n'
            '  d8 :: a -> String\n'
            '  -- INLINE: I3, measured faster, said above the definition.\n'
            '  {-# INLINE d8 #-}\n'
-           '  d8 = show\n'
+           '  d8 = show . id\n'
            '-- a comment at column 0 inside the class\n'
            '  d9 :: a\n'
            '     -> (a -> a) -> a\n'
@@ -1575,32 +1675,32 @@ def self_test_rule():
            'class Dnote a where\n'
            '  {-# INLINE dn #-}\n'
            '  dn :: a -> String\n'
-           '  dn _ = ""\n'
+           '  dn _ = id (id "")\n'
            '-- INLINE: measured faster, citing nothing.\n'
            '{-# INLINE s1 #-}\n'
            's1 :: Num a => T a -> a\n'
-           's1 = sumT\n'
+           's1 = sumT . id\n'
            '-- INLINABLE: I3, the lead naming another pragma.\n'
            '{-# INLINE s2 #-}\n'
            's2 :: Num a => T a -> a\n'
-           's2 = sumT\n'
+           's2 = sumT . id\n'
            '-- Measured faster, the pragma not leading:\n'
            '-- INLINE: I3.\n'
            '{-# INLINE s3 #-}\n'
            's3 :: Num a => T a -> a\n'
-           's3 = sumT\n'
+           's3 = sumT . id\n'
            '-- INLINE: on GHC 9.14.1, a version without a date.\n'
            '{-# INLINE s4 #-}\n'
            's4 :: Num a => T a -> a\n'
-           's4 = sumT\n'
+           's4 = sumT . id\n'
            '-- INLINE: on GHC HEAD (2026-10-10), 0.8 times the instructions.\n'
            '{-# INLINE s5 #-}\n'
            's5 :: Num a => T a -> a\n'
-           's5 = sumT\n'
+           's5 = sumT . id\n'
            '-- INLINE: see s5.\n'
            '{-# INLINE s6 #-}\n'
            's6 :: Num a => T a -> a\n'
-           's6 = sumT\n'
+           's6 = sumT . id\n'
            '-- No pragma: I3, measured no faster with one.\n'
            's7 :: Num a => T a -> a\n'
            's7 = sumT\n'
@@ -1618,7 +1718,7 @@ def self_test_rule():
              'g1 :: Num a => T a -> a\n'
              'g1 = sumT\n'
              'g2 :: Num a => T a -> a\n'
-             'g2 = sumT\n'
+             'g2 = sumT . id\n'
              'instance Num a => Num (T a) where\n'
              '  {-# INLINE (+) #-}\n'
              '  (+) = zipT (+)\n')
@@ -1630,7 +1730,7 @@ def self_test_rule():
             'n2 = mapT\n'
             '{-# INLINABLE n3 #-}\n'
             'n3 :: T a -> Int\n'
-            'n3 = lenT\n'
+            'n3 = lenT . id\n'
             '-- INLINABLE: I3, measured faster.\n'
             '{-# INLINABLE n4 #-}\n'
             'n4 :: T a -> Int\n'
@@ -1645,7 +1745,7 @@ def self_test_rule():
             '  fmap = mapT\n')
     decl = ('module V where\n'
             'v1 :: Num a => a -> a\n'
-            'v1 = id\n'
+            'v1 = id . id\n'
             'class Vec2 v where\n'
             '  vm :: (a -> b) -> v a -> v b\n'
             '  vs :: Num a => v a -> a\n'
@@ -1653,19 +1753,19 @@ def self_test_rule():
             'instance Vec2 [] where\n'
             '  vm = map\n'
             '  {-# INLINE vs #-}\n'
-            '  vs = sum\n'
+            '  vs = sum . id\n'
             '-- INLINABLE throughout: measured faster.\n'
             'instance Vec2 T where\n'
             '  {-# INLINABLE vm #-}\n'
             '  vm = mapT\n'
-            '  vs = sumT\n'
+            '  vs = sumT . id\n'
             '-- INLINEABLE throughout: each pragma measured.\n'
             'class Dc a where\n'
             '  dc1 :: (a -> a) -> a\n'
             '  {-# INLINABLE dc1 #-}\n'
             '  dc1 g = g undefined\n'
             '  dc2 :: a -> a\n'
-            '  dc2 = id\n')
+            '  dc2 = id . id\n')
     low = ('module Low where\n'
            '-- INLINE: built with build, citing nothing.\n'
            '{-# INLINE rootU #-}\n'
@@ -1674,7 +1774,7 @@ def self_test_rule():
            '-- INLINE: measured faster, citing nothing.\n'
            '{-# INLINE rootV #-}\n'
            'rootV :: T a -> Int\n'
-           'rootV = lenT\n'
+           'rootV = lenT . id\n'
            '-- INLINE: directly fusing (F1), its list built with build.\n'
            '{-# INLINE rootT #-}\n'
            'rootT :: T a -> [a]\n'
@@ -1715,11 +1815,11 @@ def self_test_rule():
             'tot :: Num a => T a -> a\n'
             'tot t = sum (rootX t)\n'
             'sz :: [Int] -> Int\n'
-            'sz = product\n'
+            'sz = product . id\n'
             'pd :: [(Int, Int)] -> Int\n'
             'pd = sum . map fst\n'
             'fl2 :: [Bool] -> Bool\n'
-            'fl2 = and\n'
+            'fl2 = and . id\n'
             '-- INLINE: on GHC HEAD (2026-10-11), measured faster than INLINABLE.\n'
             '{-# INLINE cmpT #-}\n'
             'cmpT :: Ord a => T a -> T a -> Ordering\n'
@@ -1743,7 +1843,7 @@ def self_test_rule():
             'nf xs t = sum xs * 2 + sum (rootX t)\n'
             '{-# INLINABLE nfc #-}\n'
             'nfc :: Num a => [a] -> T a -> a\n'
-            'nfc xs t = nf xs t\n'
+            'nfc xs t = nf xs t + 0\n'
             # Consumers of their list more than once, or by a pattern: no
             # direct fusion (pragma-census-11).
             '-- INLINE: on GHC HEAD (2026-10-12), measured faster than INLINABLE.\n'
@@ -1806,9 +1906,9 @@ def self_test_rule():
                'u8 (RA x) = x\n'
                'u8 RB = 0\n'
                'u7 :: Int -> Int\n'
-               'u7 x = u8 (RA x)\n'
+               'u7 x = u8 (RA x) + 0\n'
                'u9 :: Late -> Int\n'
-               'u9 _ = 0\n'
+               'u9 _ = id (id 0)\n'
                '-- Unmaterialized: a product, left to measurement.\n'
                'data Ax = Ax !Int !Int\n'
                '-- Unmaterialized: a synonym, taken for a sum.\n'
@@ -1822,13 +1922,57 @@ def self_test_rule():
                '-- Unmaterialized: a product whose comment holds a bar.\n'
                'data Pc = Pc !Int  -- one | two\n'
                'u10 :: Ax -> Int\n'
-               'u10 (Ax a b) = a + b\n'
+               'u10 (Ax a b) = a + b + 0\n'
                'u11 :: Int -> Mb\n'
                'u11 = Just\n'
                'u12 :: Ml -> Int\n'
                'u12 _ = 0\n'
                'u13 :: Pc -> Int\n'
-               'u13 (Pc a) = a\n')
+               'u13 (Pc a) = id (id a)\n')
+    thinw = ('module Th where\n'
+             'newtype Bx a = Bx { unBx :: T a }\n'
+             'th1 :: T a -> Int\n'
+             'th1 = lenT\n'
+             'th2 :: Bx a -> Int\n'
+             'th2 = lenT . unBx\n'
+             'th3 :: a -> T a\n'
+             'th3 = T [] 0 . single\n'
+             'th4 :: Int\n'
+             'th4 = natT @(n + 1) (Proxy :: Proxy (Take d sh))\n'
+             '{-# INLINE th5 #-}\n'
+             'th5 :: T a -> Int\n'
+             'th5 x = case x of T _ -> 0\n'
+             '{-# INLINE th6 #-}\n'
+             'th6 :: [Int] -> T a\n'
+             'th6 sh = T (tail $ strides sh) 0\n'
+             '{-# INLINE th7 #-}\n'
+             'th7 :: T a -> ()\n'
+             'th7 t = rnfT t `seq` rnfS t\n'
+             '{-# INLINE th8 #-}\n'
+             'th8 :: [Int] -> [Int]\n'
+             'th8 xs = [ x | x <- xs ]\n'
+             '{-# INLINE th9 #-}\n'
+             'th9 :: Int -> Int\n'
+             'th9 x | x > 0 = lenT x\n'
+             '      | otherwise = 0\n'
+             '{-# INLINE th10 #-}\n'
+             'th10 :: Int -> Int -> Int\n'
+             'th10 o i = o + i * 2\n'
+             'th11 :: Int -> Int -> Int\n'
+             'th11 o i = o + i\n'
+             'th12 :: T a -> T a\n'
+             'th12 = mapT (\\ x -> x)\n'
+             'th13 :: T a -> Int -> T a\n'
+             'th13 (T (s : ss)) i = T ss\n'
+             'th13 _ _ = error "th13"\n'
+             'class Sz t where\n'
+             '  szz :: t -> Int\n'
+             'instance Sz (T a) where\n'
+             '  szz = lenT\n'
+             'instance Sz [a] where\n'
+             '  {-# INLINE szz #-}\n'
+             '  szz [] = 0\n'
+             '  szz xs = length xs + 1\n')
     want = ['== pragma unlike the rule and no comment above in its form'
             ' (file:line name: has -> wants [why])',
             '  Api.hs top: none -> INLINE [forwards to Mid.mid]',
@@ -1868,6 +2012,21 @@ def self_test_rule():
             '  R.hs s4: INLINE -> INLINABLE [class constraint]',
             '  R.hs sf: none -> INLINE [function argument]',
             '  R.hs Vec3.v3: none -> INLINE [function argument]',
+            '  Th.hs th1: none -> INLINE [thin wrapper]',
+            '  Th.hs th2: none -> INLINE [thin wrapper]',
+            '  Th.hs th3: none -> INLINE [thin wrapper]',
+            '  Th.hs th4: none -> INLINE [thin wrapper]',
+            '  Th.hs th5: INLINE -> none [no class constraint]',
+            '  Th.hs th6: INLINE -> none [no class constraint]',
+            '  Th.hs th7: INLINE -> none [no class constraint]',
+            '  Th.hs th8: INLINE -> none [no class constraint]',
+            '  Th.hs th9: INLINE -> none [no class constraint]',
+            '  Th.hs th10: INLINE -> none [no class constraint]',
+            '  Th.hs th11: none -> INLINE [thin wrapper]',
+            '  Th.hs th12: none -> INLINE [thin wrapper]',
+            '  Th.hs th13: none -> INLINE [thin wrapper]',
+            '  Th.hs Sz.szz: none -> INLINE [thin wrapper]',
+            '  Th.hs Sz.szz: INLINE -> none [no class constraint]',
             '  U.hs u1: none -> INLINE [takes or returns Rt (A3)]',
             '  U.hs u11: none -> INLINE [takes or returns Mb (A3)]',
             '  U.hs u12: none -> INLINE [takes or returns Ml (A3)]',
@@ -1908,12 +2067,12 @@ def self_test_rule():
         for name, text in (('R.hs', src), ('L.hs', layer), ('Low.hs', low),
                            ('Mid.hs', mid), ('Api.hs', api), ('Fac.hs', fac),
                            ('N.hs', nopr), ('V.hs', decl), ('W.hs', fusw),
-                           ('U.hs', unbuilt)):
+                           ('U.hs', unbuilt), ('Th.hs', thinw)):
             with open(os.path.join(td, name), 'w') as fh:
                 fh.write(text)
         got, nbad, _ = report_rule(td)
         got = [re.sub(r'^(  \S+\.hs):\d+', r'\1', x) for x in got]
-        if got != want or nbad != 55:
+        if got != want or nbad != 70:
             bad.append(f'--rule ({nbad}):\n  ' + '\n  '.join(got))
         if main(['--rule', td]) != 1:
             bad.append('--rule with findings did not exit 1')
@@ -1940,9 +2099,9 @@ def self_test_write():
            '(<+>) = fm\n'
            '{-# INLINE g #-}\n'
            'g :: Num a => a -> a\n'
-           'g = id\n'
+           'g = id . id\n'
            'k :: Int -> Int\n'
-           'k = id\n'
+           'k = id . id\n'
            '{-# SPECIALISE s :: (Int -> Int) -> Int -> Int #-}\n'
            's :: Num a => (a -> a) -> a -> a\n'
            's h = h\n'

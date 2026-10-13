@@ -1444,6 +1444,26 @@ MUTANTS = [
     ('pragma-census --write edits top-down', 'pragma-census.py',
      '            for e in sorted(edits, key=lambda e: e[1], reverse=True):\n',
      '            for e in sorted(edits, key=lambda e: e[1]):\n', ST),
+    # pragma-census --rule thin wrappers (2026-10-13): each caught by its
+    # self-test when added.
+    ('pragma-census --rule a thin wrapper not wanting INLINE', 'pragma-census.py',
+     "        if w != 'INLINE' and thin(eqs, fields):\n",
+     '        if False:\n', ST),
+    ('pragma-census --rule a newtype field counted as a call', 'pragma-census.py',
+     '                              or name in bound or name in fields)\n',
+     '                              or name in bound)\n', ST),
+    ('pragma-census --rule an operator not counted as a call', 'pragma-census.py',
+     "                calls += t[0] != ':'\n",
+     '                calls += 0\n', ST),
+    ("pragma-census --rule a method's later equations unread", 'pragma-census.py',
+     '    while j < k and (not lines[j].strip() or indent(lines[j]) >= ind):\n',
+     '    while j < k and (j == n or indent(lines[j]) > ind):\n', ST),
+    ('pragma-census --rule a type annotation read as calls', 'pragma-census.py',
+     "        if skip is None and s.startswith('::', i):\n",
+     '        if False:\n', ST),
+    ("pragma-census --rule a lambda's binders read as calls", 'pragma-census.py',
+     '                lam = True\n',
+     '                lam = False\n', ST),
     # hpc-untaken (2026-10-13): each watched failing its self-test before
     # it was written down here.
     ('hpc-untaken error calls listed', 'hpc-untaken.py',

@@ -200,10 +200,13 @@ throughout, its own flags reaching no user's build.
   a threshold fixed well below GHC's default, 750 on HEAD, so that what inlines
   by size there does under any default: without an `INLINE` that did nothing
   measurable on GHC 9.14.1, some benchmarks allocated up to 43% more on HEAD.
+  Measure the removal at the benchmarks' smallest sizes too, empty included,
+  where a cost paid once a call is not lost among those paid per element.
   The census is a fixed point over the pragmas and their notes: run it
   on the tree being changed, after every change to the pragmas kept or their
-  notes, and before measuring; an `INLINE` the rule requires, on a forwarder
-  or on a binding F1's recipe or A3 confirms, is not released on a measurement.
+  notes, and before measuring; an `INLINE` the rule requires, on a forwarder,
+  a thin wrapper or on a binding F1's recipe or A3 confirms, is not released
+  on a measurement.
 - **Measuring compile time:** each build alone, in a fresh `--builddir`,
   on an otherwise idle machine, without `jobs` or `semaphore`
   in `cabal.project.local`, which skew build times; read the two per module
@@ -250,13 +253,17 @@ not for orthotope's fill, which had no pragma at all (S1's variant C).
   that makes the callee need it, or, where the callee's `INLINE` stands
   on a measured gain rather than on fusion, a marked sum or a function argument,
   wraps it, the call heading its body, so that the gain reaches the caller
-  through every link. A recursive binding takes a non-recursive `INLINE` wrapper
-  over it instead (I2). **Otherwise a binding gets `INLINABLE` where
-  it is overloaded**, by a class constraint in its signature, in its instance's
-  context or in its class method's own type, `HasCallStack`, equalities,
-  `TypeError` and type-level comparisons not counting, **and otherwise
-  no pragma**. A need for `INLINE` that the type does not show, or shows only
-  through a marked sum, and any departure from this, stands only under a plain
+  through every link. **So does a thin wrapper**, a binding whose right-hand
+  side is constructors, newtype fields, `$` and `.` around at most one call:
+  measured as the removing rule above says, some of orthotope's were left out
+  of line once released and cost up to a kilobyte a call. A recursive binding
+  takes a non-recursive `INLINE` wrapper over it instead (I2). **Otherwise
+  a binding gets `INLINABLE` where it is overloaded**, by a class constraint
+  in its signature, in its instance's context or in its class method's own type,
+  `HasCallStack`, equalities, `TypeError` and type-level comparisons
+  not counting, **and otherwise no pragma**. A need for `INLINE` that the type
+  does not show, or shows only through a marked sum, a forwarder's and a thin
+  wrapper's aside, and any departure from this, stands only under a plain
   comment directly above the binding's haddock whose first line opens
   with the pragma the binding carries, or `No pragma`, and a colon,
   as in `-- INLINE:`, and which cites the measurement or reading behind it:
@@ -453,10 +460,10 @@ so such a layer can be `INLINE` throughout. The trade is weighed by P. GHC's
 
 **Catches** a binding whose pragma differs from what P's rule gives it
 with no comment saying why: one missing, one superfluous or one of the wrong
-kind, a forwarder's included. **Seen:** orthotope's boxed `fmap`, `foldr`
-and `traverse` forwarded a caller's function to `mapA`, `foldrA` and `traverseA`
-with no pragma, and the list instance of `Vector` took function arguments
-with none. Acting on every finding of orthotope's tree at once, before
+kind, a forwarder's and a thin wrapper's included. **Seen:** orthotope's boxed
+`fmap`, `foldr` and `traverse` forwarded a caller's function to `mapA`, `foldrA`
+and `traverseA` with no pragma, and the list instance of `Vector` took function
+arguments with none. Acting on every finding of orthotope's tree at once, before
 its fusing bindings were marked, stripped `INLINE` from `toListT`'s wrappers
 and ran `toList` 8 to 10 times slower (2026-10-11).
 
@@ -949,9 +956,10 @@ it printed, its candidates being for the reader.
 - `tools/pragma-census.py` lists the overloaded functions, instance methods
   and class default methods of a source tree that carry no pragma,
   and with `--rule` every one whose pragma differs from what P's rule gives it,
-  a forwarder's included (I4), and each one taking or returning a sum marked
-  as never to be built that lacks its comment (A3); with `--write` it writes
-  the pragmas the rule adds or strengthens into the tree (I4).
+  a forwarder's and a thin wrapper's included (I4), and each one taking
+  or returning a sum marked as never to be built that lacks its comment (A3);
+  with `--write` it writes the pragmas the rule adds or strengthens
+  into the tree (I4).
 - `tools/spec-audit.py` lists the calls in optimised Core that hand a function
   an instance dictionary, by callee, and the bindings that take a dictionary
   as a lambda argument: code running unspecialised (S1).
