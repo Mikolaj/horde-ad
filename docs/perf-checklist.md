@@ -84,8 +84,11 @@ Not a check: the conditions every timing below assumes.
   is not sufficient when the compared builds change a predecessor's own
   allocation profile. Mechanism, evidence and the practical trade-offs
   are in `docs/position-effect.md`.
-- Build what is timed through `tools/align-as.py`, from a fresh build directory,
-  with
+- **The shim is off limits for now** (Mikolaj's ruling of 2026-10-13): a binary
+  of orthotope's benchmark built through it timed boxed `traverse` of a large
+  dense view at about twice the plain binary of the same source, a discrepancy
+  not yet diagnosed, so time plain builds until it is. Once it is, build what
+  is timed through `tools/align-as.py`, from a fresh build directory, with
   `LOOP_MAXSKIP=1 LOOP_LOOKTHROUGH=1 LOOP_DEADSPOT=1 LOOP_EXITSPAN=1 LOOP_SETTLED=1`
   in the environment and `--ghc-options="-pgma $T/align-as.py -fforce-recomp"`,
   and nothing else, orthotope's specialisation benchmark allocating alike
@@ -112,12 +115,11 @@ Not a check: the conditions every timing below assumes.
   under it. Profiles are the exception: under it a cost-centre profile recorded
   no ticks, and a `-hT` heap profile 3 samples where it took 12 without.
 - Ask for every GHC option a benchmark or probe build adds beyond the cabal
-  file's and the shim (`bench/CLAUDE.md`). Never `-fno-full-laziness`
-  with `-fno-cse`, which GHC
-  [#27886](https://gitlab.haskell.org/ghc/ghc/-/work_items/27886) miscompiles;
-  keep iterations from sharing work by a NOINLINE `perturb i x` instead, whose
-  result depends on `i`: one ignoring `i` let 2000 iterations share one call,
-  allocating barely more than 100 did.
+  file's (`bench/CLAUDE.md`). Never `-fno-full-laziness` with `-fno-cse`, which
+  GHC [#27886](https://gitlab.haskell.org/ghc/ghc/-/work_items/27886)
+  miscompiles; keep iterations from sharing work by a NOINLINE `perturb i x`
+  instead, whose result depends on `i`: one ignoring `i` let 2000 iterations
+  share one call, allocating barely more than 100 did.
 - Fusion and sharing can delete the work being measured: a `length` let fusion
   skip building the vector, a `take . generate` control fused, and four
   identical parts were computed once. Feed distinct inputs and consume the whole
@@ -939,6 +941,7 @@ and `docs/pragmas-and-flags.md` `pragma-calls`.
   each, and what orthotope's micro-regime3 benchmark, where it was written,
   measured of the forms they build; its cases are in `tools/defects.json`,
   and it exits with the real assembler's status, or 1 on a setting it refuses.
+  It is off limits for now, by the ruling in the timing rules above.
 - `tools/loop-offsets.py` finds a binary's copies of a hot loop structurally,
   by a backward branch and the bytes it spans, groups them by their bytes
   and reports where each lands in its cache line, so that a margin between two
