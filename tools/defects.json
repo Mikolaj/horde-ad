@@ -2334,7 +2334,7 @@
    "family": "false-comment",
    "fix_rev": "self",
    "trigger": "an existing builddir rebuilt with -fforce-recomp after a LOOP_* knob or the shim changed",
-   "ok": "the docstring asks for a fresh builddir, -fforce-recomp reaching no GHC where cabal answers Up to date",
+   "ok": "the docstring requires a fresh builddir, -fforce-recomp reaching no GHC where cabal reports Up to date",
    "bug": "it said -fforce-recomp or a fresh --builddir, and a knob change built the first way kept the old object code",
    "proved": "asserted",
    "harm": "latent",
@@ -3174,7 +3174,7 @@
   {
    "id": "delta-reads-moved-offsets-and-displacements",
    "program": "loop-offsets.py",
-   "name": "CONTROL: heads moving off their offsets, an address surviving and the displacements are read as such -- the direction the identity control cannot see, so a reader reporting preservation unconditionally passed it",
+   "name": "CONTROL: heads moving off their offsets, an address surviving and the displacements are reported as such -- the direction the identity control cannot detect, so a reader reporting preservation unconditionally passed it",
    "kind": "control",
    "invoke": [
     "--delta",

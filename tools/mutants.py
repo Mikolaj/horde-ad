@@ -200,7 +200,7 @@ MUTANTS = [
      "        elif sibling_hit(token, siblings):\n", ST),
     # check-doc-refs: "a CITE_RE blind to the range citation ... on exactly the
     # skipped-citation guard"
-    ('check-doc-refs CITE_RE blind to the range citation', 'check-doc-refs.py',
+    ('check-doc-refs CITE_RE misses the range citation', 'check-doc-refs.py',
      'CITE_RE = re.compile(r":\\d+(?:-\\d+)?(?:,\\d+(?:-\\d+)?)*$")\n',
      'CITE_RE = re.compile(r":\\d+(?:,\\d+)*$")\n', ST),
     # check-doc-refs: ".../ghc-9.12/... was read as a sibling path until the ../ test
@@ -296,7 +296,7 @@ MUTANTS = [
     # check-plan-citations: a stamp the formatter wrapped inside a blockquote
     # read as no stamp at all -- --restamp refused it and its orphan and
     # publication checks passed in silence (2026-09-04)
-    ('check-plan-citations stamp regex blind to a wrapped line', 'check-plan-citations.py',
+    ('check-plan-citations stamp regex misses a wrapped line', 'check-plan-citations.py',
      '    r"((?:`|\\*\\*)[\\s>]*\\()(\\d{4}-\\d{2}-\\d{2})(\\))")\n',
      '    r"((?:`|\\*\\*)\\s*\\()(\\d{4}-\\d{2}-\\d{2})(\\))")\n', ST),
     # check-plan-citations: "disabling the dirty-cited-file refusal"
@@ -367,8 +367,8 @@ MUTANTS = [
     ('check-doc-examples self-test dispatched before chdir_root', 'check-doc-examples.py',
      '    docs = common.chdir_root(args)\n    if "--self-test" in sys.argv[1:]:\n        return self_test()\n',
      '    if "--self-test" in sys.argv[1:]:\n        return self_test()\n    docs = common.chdir_root(args)\n', 'cd {dir} && python3 {file} --self-test'),
-    # check-plan-citations: CITE_RE blind to json and sh (check-plan-citations-07)
-    ('check-plan-citations CITE_RE blind to json and sh', 'check-plan-citations.py',
+    # check-plan-citations: CITE_RE misses json and sh (check-plan-citations-07)
+    ('check-plan-citations CITE_RE misses json and sh', 'check-plan-citations.py',
      '    r"\\.(?:hs|ts|py|c|h|cabal|mjs|html|md|txt|yaml|yml|json|sh)|Makefile)"\n',
      '    r"\\.(?:hs|ts|py|c|h|cabal|mjs|html|md|txt|yaml|yml)|Makefile)"\n', ST),
     # bench-baseline: an unreadable baseline tracebacks at exit 1 again (bench-baseline-03)

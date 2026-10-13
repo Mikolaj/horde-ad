@@ -36,7 +36,7 @@ of trust, plus one:
 
 1. Allocation per iteration on the four suites `shortProdForCI`, `convVjpBench`,
    `inlineMicroBench` and `shortMnistForCI`. Exact, and host independent ---
-   but blind to some changes, below.
+   but insensitive to some changes, below.
 2. Instructions and estimated cycles per call
    from `tools/cachegrind-per-call.py`, on eight fixed rows: `gather48`
    and `scatter48`, `cnn-6x6` and `cnn-12x12` execution, `100/cgrad k list`,
@@ -65,7 +65,7 @@ Pragmas were taken in groups, by module and role. For each group:
    or not inlined anyway, only at today's thresholds.
 3. Build the MOVED subset alone and screen its allocation. A regression above
    the margins is bisected until the pragmas carrying it are found; those stay.
-4. Measure instructions on the rows allocation cannot see.
+4. Measure instructions on the rows allocation cannot detect.
 5. Combine the survivors, repeat 3 and 4 on the combination, and time its build.
 
 Flags were each removed, or for `-O2`, `-fspec-constr` and `-fliberate-case`
@@ -173,8 +173,8 @@ than a benchmark, ran 12% slower with it: the flag exposes GHC
 the loop of the backward pass non-tail recursive, and every `unsafePerformIO`
 drawing a fresh identifier then walked the deep stack in the runtime's
 `threadPaused`. Drawing them under `unsafeDupablePerformIO` instead brought
-the flag's cost on CAFlessTest to 1%, but let two threads forcing one lambda see
-its binder and its body from different evaluations, so every draw
+the flag's cost on CAFlessTest to 1%, but let two threads forcing one lambda
+obtain its binder and its body from different evaluations, so every draw
 is under `unsafePerformIO` again (the module header of `HordeAd.Core.AstFreshId`
 has the measurements and the reasons), and the 12% is expected back, unmeasured,
 `astIsSmall` and `mkTraceRule` alone staying dupable, until the fix proposed
@@ -275,17 +275,17 @@ the figures.
 
 ## Pitfalls met
 
-- Allocation screening is blind to `-fworker-wrapper-cbv`: removing it left
-  every allocation figure but one unchanged while adding up to 3.8%
+- Allocation screening is insensitive to `-fworker-wrapper-cbv`: removing
+  it left every allocation figure but one unchanged while adding up to 3.8%
   to the instructions of the gather and `cgrad` rows. Price a flag that changes
   evaluation rather than allocation with instructions.
 - A flag's build cost is not a constant: `-fworker-wrapper-cbv` cost 17%
   of the baseline's build and nothing measurable after the pragma removals,
   which took away most of the Core it worked on.
 - A DEAD verdict from `tools/pragma-calls.py` is weaker than identical Core.
-  The `rsize` family read DEAD and still cost a micro-benchmark 78%: the `tsize`
-  default method calls it through a dictionary, and what changed
-  was the unfolding the default carried, not any call site the count sees.
+  The `rsize` family was reported DEAD and still cost a micro-benchmark 78%:
+  the `tsize` default method calls it through a dictionary, and what changed
+  was the unfolding the default carried, not any call site the count covers.
 - A name filter over `OpsConcrete`'s pragmas, meant to keep the gather family,
   missed `contFromTKAllNum` and `contFromTypeable`, which specialise
   it under other names; only the benchmark showed it.

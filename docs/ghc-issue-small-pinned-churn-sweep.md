@@ -4,7 +4,7 @@ The evidence behind GHC [#27719](https://gitlab.haskell.org/ghc/ghc/-/work_items
 
 ## Sweep 1: titles, descriptions, full threads, user-facing docs
 
-Method: the GitLab REST API (`api/v4/projects/1/issues?search=` and the `merge_requests` sibling; `search` covers title+description only), the frontend discussions-JSON endpoints for complete comment threads (the `/notes` API answers 401 unauthenticated on gitlab.haskell.org), and direct reads of the user's guide and haddocks. Anubis blocks only HTML routes and never had to be dealt with.
+Method: the GitLab REST API (`api/v4/projects/1/issues?search=` and the `merge_requests` sibling; `search` covers title+description only), the frontend discussions-JSON endpoints for complete comment threads (the `/notes` API returns 401 unauthenticated on gitlab.haskell.org), and direct reads of the user's guide and haddocks. Anubis blocks only HTML routes and never had to be dealt with.
 
 Read in full (threads included): #7257, #7831, #19171, #23221, #19481, #19248, #21483, #19175, #22768, #24246, #13630, #19357, and MRs !5175 and !10524. Every one frames pinned/block fragmentation as a memory/RSS cost.
 

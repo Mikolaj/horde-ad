@@ -40,7 +40,7 @@ with `T=~/r/horde-ad/tools`, wherever the session's wrapper mounts
 
 **D. The dump build.** One build feeds `spec-audit`, `pragma-calls`,
 `core-diff`, `rules-diff`, `captured-unbox` and `ctime-diff`, each in a fresh
-build directory, since cabal answers "Up to date" when only `-ddump-*` flags
+build directory, since cabal reports "Up to date" when only `-ddump-*` flags
 change:
 
     cabal build all --enable-tests --enable-benchmarks -w GHC \
@@ -168,7 +168,7 @@ throughout, its own flags reaching no user's build.
   on a wide benchmark, an end-to-end suite or a test suite of fixed inputs,
   never one of QuickCheck properties, whose arguments change from run to run,
   and above 10% on a narrow one, a micro-benchmark of one function, or
-  on a noisy reading, one that cannot tell 10% from nothing, as wall time
+  on a noisy reading, one that cannot distinguish 10% from nothing, as wall time
   and estimated cycles are on a busy machine or in the cloud, though not
   on a lightly loaded one here. Allocation, exact within one build, moved up
   to 1.5% between builds under unrelated edits. It is screened first,
@@ -234,10 +234,10 @@ the module's own optimisation rather than the optimised one, which escaped GHC
 
 A caller specialises an overloaded function of such a module only
 if the function is `INLINE` or `INLINABLE`, or small enough for GHC to expose
-its unfolding unasked; otherwise each call hands it the dictionaries at run
-time. Exposing a module's overloaded unfoldings stands in for the pragma
-at callers built `-fspecialise-aggressively`, which a library cannot know
-of its users. At callers built without it, exposure did for a function GHC
+its unfolding automatically; otherwise each call passes it the dictionaries
+at run time. Exposing a module's overloaded unfoldings stands in for the pragma
+at callers built `-fspecialise-aggressively`, which a library cannot detect
+in its users. At callers built without it, exposure did for a function GHC
 derived from an `INLINABLE` one, the partial specialisation of GHC
 [#23050](https://gitlab.haskell.org/ghc/ghc/-/work_items/23050), and
 not for orthotope's fill, which had no pragma at all (S1's variant C).
@@ -317,7 +317,7 @@ into a wrapper and a worker with no unfolding, which no client could specialise.
   boxed modules ran up to 8 times slower on 9.12.4 without it.
 
 **Read:** set aside dictionaries that feed `Show`, error messages and the test
-harness. Every other callee wants what P asks of its module, a pragma where
+harness. Every other callee needs what P requires of its module, a pragma where
 the callers cannot specialise without one: the polymorphic worker ran 6 to 44
 times slower in the fill's variant C. Library code is the scope: a user's own
 unspecialised call is the user's to fix in their Core.
@@ -334,7 +334,7 @@ in one test module, INLINABLE one per rank pair, because the specialiser keys
 on every type its constraints mention, `KnownNat` ranks included. Too few came
 of the rules that `Dynamic`, `DynamicS` and `DynamicU` export for their own
 `rotate`: they sent the boxed, Storable and Unboxed calls to three library
-copies polymorphic in the element, where eight specialised copies were wanted
+copies polymorphic in the element, where eight specialised copies were needed
 (GHC [#27873](https://gitlab.haskell.org/ghc/ghc/-/work_items/27873)).
 A specialised worker with no unfolding cannot be specialised further, which
 is what a partial specialisation of an INLINABLE function leaves (GHC
@@ -376,10 +376,10 @@ nothing until its INLINE copy was applied fully.
   the inlinings of NAME per module.
 
 **Read:** each survivor is unsaturated, recursive (I2), held back by a phase
-or in a boring context --- its arguments variables GHC knows nothing of
-and its result returned or stored as it is, where GHC by design inlines only
-a tiny INLINE body, as at `padT`'s `toVectorListT sh t` with no padding asked
---- and is a lead to measure rather than a defect: eta-expanding
+or in a boring context --- its arguments variables GHC has no information
+on and its result returned or stored as it is, where GHC by design inlines only
+a tiny INLINE body, as at `padT`'s `toVectorListT sh t` with no padding
+requested --- and is a lead to measure rather than a defect: eta-expanding
 the `map toVector` sites, `map (\a -> toVector a) as`, gained nothing
 measurable, while inlining `rerank2`'s wrapper took Storable `rerank2` from 1.64
 to 1.02 times its control, which needed INLINE in place of INLINABLE
@@ -421,7 +421,7 @@ module's final Core. What only inlining gives, as met there:
 
 - list fusion: `toListT` meets its consumer only when inlined (F1), so INLINABLE
   would lose it;
-- vector's inplace rule, which needs the consumer to see the fill's `new`,
+- vector's inplace rule, which needs the fill's `new` visible to the consumer,
   though no orthotope call site gave it the chance;
 - known function arguments: INLINABLE `reduce`, `rerank`, `rerank2`
   and `traverseA` were specialised but not inlined, leaving a thunk an element
@@ -450,7 +450,7 @@ For a group of pragmas removed at once,
 and MOVED before any bisection.
 
 **Read:** `INLINE` only for what inlining alone gives, the list above; otherwise
-the pragma P's half asks for, `INLINABLE` where a caller needs one to specialise
+the pragma P's half requires, `INLINABLE` where a caller needs one to specialise
 and none where it does not. An `INLINE` body whose callers are all `INLINABLE`
 is copied once per type, into their specialised copies, not at every call site,
 so such a layer can be `INLINE` throughout. The trade is weighed by P. GHC's
@@ -481,14 +481,14 @@ and ran `toList` 8 to 10 times slower (2026-10-11).
   with a signature, every instance method and every class default method whose
   pragma differs from P's rule with no comment above its haddock in P's form
   and no declaration covering it, the recursive bindings the rule would make
-  `INLINE`, the methods of classes whose method types it does not know,
-  the bindings whose comment names F1 but which hand their list to a tree
+  `INLINE`, the methods of classes whose method types it cannot determine,
+  the bindings whose comment names F1 but which pass their list to a tree
   binding, the innermost being the one to carry it, the directly fusing bindings
   with no comment in P's form citing F1, and the bindings taking or returning
   a marked sum with no comment in P's form naming it and citing A3.
 - `python3 $T/pragma-census.py --write SRC` writes into a tree under P's second
   half each pragma the rule adds or strengthens, round after round until
-  the census asks for none more; with `--release` it weakens and removes them
+  the census requires none more; with `--release` it weakens and removes them
   too, but for the findings a `--keep` file lists, building the tree on which
   a removal is measured.
 - `python3 $T/pragma-census.py SRC` lists only the overloaded bindings
@@ -496,7 +496,7 @@ and ran `toList` 8 to 10 times slower (2026-10-11).
 - S1's audit shows which callers still pass a dictionary at run time.
 
 **Read:** by P: settle each finding by changing its pragma, an existing one
-as P's rule on removing pragmas says, or by writing the comment P asks for.
+as P's rule on removing pragmas says, or by writing the comment P requires.
 The rule binds only a module under P's second half, where its callers' speed
 is protected; elsewhere a finding is a candidate, a pragma there paying
 for itself or going.
@@ -530,16 +530,16 @@ for: allocation rose 160 times on views of runs in one variant.
 or `augment` of its list result, or the `foldr` that consumes its list argument
 once, written there or inside a function outside the tree defined by it, such
 as `all` or `sum`, and the recipe shows `fold/build` firing where it is inlined
-beside its counterpart; one handing the list to a tree binding that does so
+beside its counterpart; one passing the list to a tree binding that does so
 is a forwarder, and one applying its `foldr` to a call's list is where
-the fusion happens and needs nothing for it. The comment P asks of a directly
-fusing binding names F1. P says what that asks of it and of the bindings
-forwarding to it. `pragma-census.py --rule` lists as candidates the bindings
-whose body names `build` or `augment` and whose result is a list, or names
-a good consumer defined outside the tree and which take a list each equation
-names once and no pattern takes apart, lists of `Int` or `Bool` left out;
-this recipe confirms them. A count that falls may only have lost a duplicated
-consumer, so read it against `core-diff.py`.
+the fusion happens and needs nothing for it. The comment P requires
+of a directly fusing binding names F1. P says what that requires of it
+and of the bindings forwarding to it. `pragma-census.py --rule` lists
+as candidates the bindings whose body names `build` or `augment` and whose
+result is a list, or names a good consumer defined outside the tree and which
+take a list each equation names once and no pattern takes apart, lists of `Int`
+or `Bool` left out; this recipe confirms them. A count that falls may only have
+lost a duplicated consumer, so read it against `core-diff.py`.
 
 ### F2. Vector stream fusion, and fusion that costs without SpecConstr
 
@@ -569,7 +569,7 @@ consumer, so read it against `core-diff.py`.
   by `ab-time.py`, allocation first. What `-fspec-constr` removes
   is SpecConstr's cost, not a bug.
 
-**Read:** where the project builds at `-O1`, a costly chain wants a form
+**Read:** where the project builds at `-O1`, a costly chain needs a form
 that does not lean on SpecConstr. One such form is a `generate` over indices,
 as in orthotope's Storable and Unboxed `vMap` and zips, marked as standing
 in for SpecConstr (W1); if it gives up fusion, its comment says so or says why
@@ -707,13 +707,13 @@ allocating as much as with the `Range` built (2026-10-12).
   line opens `-- Unmaterialized:`, saying where it is built and taken apart;
   a product too, such as orthotope's `Axes`, where it is meant to stay unboxed.
 - `python3 $T/pragma-census.py --rule SRC` makes each binding whose type takes
-  or returns a marked sum want `INLINE`, and lists those whose comment in P's
+  or returns a marked sum require `INLINE`, and lists those whose comment in P's
   form does not name each such sum and cite A3,
   as `-- INLINE: Route, A3: it returns the Route its callers take apart.` does.
-  A marked product asks no pragma of its bindings.
+  A marked product requires no pragma of its bindings.
 - Confirm by allocation at a client, on small arrays: call each binding taking
   or returning a marked type, product or sum, once as compiled and once
-  with the value handed to a `NOINLINE` identity, which builds it; where the two
+  with the value passed to a `NOINLINE` identity, which builds it; where the two
   allocate alike, the call built it. orthotope's specialisation benchmark
   carries such probes, which part by the value's size where nothing is built, 24
   bytes a `Range` or an `RSlice`, 32 an `Axes` and 64 an `RRuns` or an `RFill`
@@ -721,10 +721,10 @@ allocating as much as with the `Range` built (2026-10-12).
 
 **Read:** P says what a binding taking or returning a marked sum needs;
 its callers need nothing for it. A probe of a product that reads alike both ways
-wants the binding's code or pragma changed by measurement, under a comment
+requires the binding's code or pragma changed by measurement, under a comment
 citing it. A value built once inside one binding and taken apart in several
 places, as at a join point, is built whatever the pragmas, as orthotope's
-`equalT` built a `Route` with all its callees `INLINE`, and wants the code
+`equalT` built a `Route` with all its callees `INLINE`, and requires the code
 changed rather than a pragma.
 
 ## W. Workarounds and their records
@@ -742,14 +742,14 @@ The accepted forms:
   and none is filed (Mikolaj's ruling of 2026-10-06).
 
 Where a workaround gives something up by design, its comment says what,
-as orthotope's instances say that no fusion is given up. **Seen:** a survey
-of orthotope's comment blocks found blocks citing an issue, blocks standing
-in for a flag, design notes, and a few hidden ones. One hidden block matched GHC
-[#27737](https://gitlab.haskell.org/ghc/ghc/-/work_items/27737), filed
-from that same loop, and now cites it.
+as orthotope's instance comments say that no fusion is given up. **Seen:**
+a survey of orthotope's comment blocks found blocks citing an issue, blocks
+standing in for a flag, design notes, and a few hidden ones. One hidden block
+matched GHC [#27737](https://gitlab.haskell.org/ghc/ghc/-/work_items/27737),
+filed from that same loop, and now cites it.
 
 **Recipe:** `python3 $T/workaround-cites.py SRC`, both directions at once:
-the comment blocks that speak of a workaround and name no cause, each read whole
+the comment blocks that mention a workaround and name no cause, each read whole
 and set against the issue files of `docs/`; and each filed issue with the files
 citing it, W2 finding the sites that hit an issue and cite nothing.
 
@@ -766,10 +766,10 @@ function allocated less. Every moved row landed on Unboxed's figure.
 - Build the benchmark against the stock and the fixed dependency, the fix being
   a patched copy named by `packages:` in a project file, each at `-O1`
   and at `-O1 -fspec-constr` (ask).
-- `python3 $T/ab-time.py --cpu 3 STOCK FIXED STOCK_SC FIXED_SC 2 NAME...` reads
-  allocation per benchmark. The rows that move with the fix are the issue's
-  sites. The probe must be a criterion benchmark, which is what `ab-time.py`
-  runs.
+- `python3 $T/ab-time.py --cpu 3 STOCK FIXED STOCK_SC FIXED_SC 2 NAME...`
+  reports allocation per benchmark. The rows that move with the fix
+  are the issue's sites. The probe must be a criterion benchmark, which is what
+  `ab-time.py` runs.
 - For a GHC issue with a local fix, build with the patched compiler.
   `python3 $T/core-diff.py dist-STOCK dist-FIXED --verdicts` names the modules
   it reaches.
@@ -789,17 +789,17 @@ not count.
 - a bang's placement, a wrapper and worker split, or a route recognised again
   deep inside a fill.
 
-Each wants a comment giving its measurement and its cause, or W1's
-"unidentified". Orthotope's `genericFillStrided` says it re-derives `RRuns`,
-a hack that lets each vector kind be tuned, in a system where some layouts
-are routes and others are recognised deeper down.
+Each needs a comment giving its measurement and its cause, or W1's
+"unidentified". Orthotope's comment on `genericFillStrided` says it re-derives
+`RRuns`, a hack that lets each vector kind be tuned, in a system where some
+layouts are routes and others are recognised deeper down.
 
 **Recipe:**
 
 - `git diff BASE -- '*.hs' | command grep -nE '^\+.*(GHC\.Exts|#\)|\blazy\b|oneShot|\binline\b|NOINLINE|unsafeIndexM|generate|unsafeWrite)'`.
 - Then read every function the diff rewrote against its natural form. Code
-  with no comment at all is what W1's tool cannot reach, and no tool tells
-  a tweak from a design.
+  with no comment at all is what W1's tool cannot reach, and no tool
+  distinguishes a tweak from a design.
 
 ### W4. Flags added
 
@@ -812,7 +812,7 @@ Mikolaj's approval, or without a comment saying why and for which GHCs.
 **Read:** never `-fno-full-laziness` with `-fno-cse` (#27886). Take `-O2`'s
 constituents, never the bundle: where it helps, bisect the flags it enables
 beyond `-O` and take only those that carry the effect. The trade is weighed
-by P. An A/B of a flag wants fresh build directories rather than a rebuild:
+by P. An A/B of a flag needs fresh build directories rather than a rebuild:
 `ghc --make` does not recompile a module when only `-fkeep-auto-rules`
 or `-fpolymorphic-specialisation` changes, though both change what it exports.
 
@@ -849,9 +849,9 @@ the body's terms.
 Scripts under `tools/` measure a difference between two builds and take
 it from "something moved" to the function or module that moved it, and the last
 two of its list concern where loops happen to land: `align-as.py` keeps it out
-of that difference and `loop-offsets.py` reads it off a binary. Each
+of that difference and `loop-offsets.py` determines it from a binary. Each
 of the others has a `--self-test` and exits 2 rather than 0 when its run did
-not happen, so that a build made without the needed flags cannot read as one
+not happen, so that a build made without the needed flags cannot look like one
 where nothing changed. `docs/overloaded-unfoldings.md` shows `ab-time`,
 `cachegrind-per-call`, `ticky-diff` and `core-diff` in use,
 and `docs/pragmas-and-flags.md` `pragma-calls`.
@@ -869,7 +869,7 @@ and `docs/pragmas-and-flags.md` `pragma-calls`.
   and `--iters N`, interleaved, rotated and optionally pinned, over a few
   repetitions: the instructions from the lowest count at each `--iters`,
   and the cycles from the median. Where a build's instruction differences spread
-  over more than 1%, it says so and exits 1. Its instruction counts back
+  over more than 1%, it reports that and exits 1. Its instruction counts back
   a wall-time ratio as cachegrind's do, at native speed; its cycles carry
   the machine's noise.
 - `tools/cachegrind-per-call.py` gives instructions and estimated cycles per
@@ -902,11 +902,12 @@ and `docs/pragmas-and-flags.md` `pragma-calls`.
   module, each counting only the tokens that name its own module's binding.
   It is the step between removing a whole group of pragmas and bisecting it.
   DEAD is weaker than identical Core, and does not make a pragma removable: P's
-  rule on removing keeps it. With `--inline` it reads one build instead, marking
-  each INLINE target of a source tree CALLED, COPIED or RECURSIVE (I1, I2).
+  rule on removing keeps it. With `--inline` it processes one build instead,
+  marking each INLINE target of a source tree CALLED, COPIED or RECURSIVE (I1,
+  I2).
 - `tools/rules-diff.py` compares which rewrite rules fired per module in two
   builds, from `-ddump-simpl-stats` dumps, the fusion rules marked,
-  and with `--unfolding NAME` how often a function was inlined. It answers
+  and with `--unfolding NAME` how often a function was inlined. It reports
   whether what fused still fuses; a fusion count can fall only because
   a duplicated consumer went, so read a drop against `core-diff`. Given one
   build, it lists the fusion rules that fired (F1, F2).
@@ -937,11 +938,11 @@ and `docs/pragmas-and-flags.md` `pragma-calls`.
   and it exits with the real assembler's status, or 1 on a setting it refuses.
 - `tools/loop-offsets.py` finds a binary's copies of a hot loop structurally,
   by a backward branch and the bytes it spans, groups them by their bytes
-  and says where each lands in its cache line, so that a margin between two
+  and reports where each lands in its cache line, so that a margin between two
   builds can be checked for being one of them placing a loop astride a line
   where the other did not: on micro-regime3 a straddled copy of one 28-byte loop
   was priced at 1.19 against a resident one. `--survey` counts every loop up
-  to a line long and the straddlers among them, `--delta` reads how far
+  to a line long and the straddlers among them, `--delta` reports how far
   a rebuild moved the tracked loops, and `--match` names a binary's straddlers
   off its `-g3` twins; its cases are in `tools/defects.json`.
 
@@ -972,9 +973,9 @@ it printed, its candidates being for the reader.
   or a per-element combinator reads (L1, L2).
 - `tools/captured-unbox.py` finds the loops that unbox, on every iteration,
   a value captured from outside them (L2).
-- `tools/workaround-cites.py` lists the comment blocks that speak
-  of a workaround and name no cause, and each filed issue of `docs/`
-  with the files citing it (W1).
+- `tools/workaround-cites.py` lists the comment blocks that mention a workaround
+  and name no cause, and each filed issue of `docs/` with the files citing
+  it (W1).
 - `tools/hascallstack.py` checks orthotope's `HasCallStack` constraints,
   and the error wording they depend on, against the rule its docstring states,
   and rewrites the constraints to it (A2).

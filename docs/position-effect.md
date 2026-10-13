@@ -200,7 +200,7 @@ processes wanders over a 2% range --- two arms sharing a process ride the same
 lottery draw and their ratio cancels it.  The suite's one-process,
 ratio-to-`list` design was the right call in both eras.
 
-That `micro-regime3` sees none of this because its allocations
+That `micro-regime3` is affected by none of this because its allocations
 are coarse-grained --- this document's reading until 2026-08-18 --- is falsified
 twice over: two of its shapes' per-iteration results are sub-3276-byte pinned
 vectors (2304 and 2592 B), and its corrected order-asserted scans put every one

@@ -183,7 +183,7 @@ meaning their full shape is stated in their type and so can't differ for two
 the tensor operations, where runtime checks can really fail, are available
 in the horde-ad API and can be mixed and matched freely.
 
-The artifact is not simplified, however. `vjpArtifact` hands back the raw one,
+The artifact is not simplified, however. `vjpArtifact` returns the raw one,
 as printed above; simplifying it is the job of `simplifyArtifactRev`.
 A shorthand that creates a symbolic gradient program, simplifies
 it and interprets it with a given input on the default CPU backend is called

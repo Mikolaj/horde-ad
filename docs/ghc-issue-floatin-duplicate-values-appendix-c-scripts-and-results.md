@@ -502,7 +502,7 @@ print(f'{len(rows)} benchmarks, geomean {g:.4f}, min {min(rows)[0]:.4f}, max {ma
 
 ### horde-ad
 
-hbG2.sh builds the whole package with one compiler, timed, runs the three allocation-checked benchmark suites and compares their allocation with GD's by alloc-cmp.py (whose summary line still says `nocbv/cbv` from an earlier use; the ratio is the build's over GD's); hbTests.sh runs `minimalTest` and `CAFlessTest`.
+hbG2.sh builds the whole package with one compiler, timed, runs the three allocation-checked benchmark suites and compares their allocation with GD's by alloc-cmp.py (whose summary line still contains `nocbv/cbv` from an earlier use; the ratio is the build's over GD's); hbTests.sh runs `minimalTest` and `CAFlessTest`.
 
 #### hbG2.sh
 

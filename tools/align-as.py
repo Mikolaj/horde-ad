@@ -17,7 +17,7 @@ backwards to.
 
     cabal build micro --ghc-options="-pgma /path/to/align-as.py -fforce-recomp"
 
-A fresh `--builddir` is not optional: cabal answers "Up to date" for a change
+A fresh `--builddir` is not optional: cabal reports "Up to date" for a change
 of `-pgma`, of the LOOP_* environment or of this file, so an existing build
 keeps the old object code and reports nothing, `-fforce-recomp` reaching no GHC
 (README.md's run chapter). Where cabal does re-invoke GHC, GHC does not count

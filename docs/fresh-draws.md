@@ -401,5 +401,5 @@ main = do
   of `noDuplicate#` lengthens with it. The fix proposed in that issue restores
   the tail call in GHC. `OPAQUE`, which suppresses worker/wrapper, might restore
   it from horde-ad's side, the issue arising in the worker that late
-  worker/wrapper splits off; untried, it owes CAFlessTest's time
+  worker/wrapper splits off; untried, it needs CAFlessTest's time
   with `-flate-dmd-anal`, with and without the pragma.

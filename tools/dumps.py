@@ -14,7 +14,7 @@ module (core-diff-02, pragma-calls-03).
 walk lists a tree's dumps of one kind, gzipped ones included, and read_text
 reads one. core_digests reduces a Core dump to the two fingerprints an
 identity verdict compares: one exact but for the timestamp lines GHC writes
-under each dump's header, and one blind to unboxed numeric literals as well,
+under each dump's header, and one ignoring unboxed numeric literals as well,
 which is what an edit elsewhere moves --- a call stack carries its source line
 as such a literal, so a module that inlined an `error` call from a file
 since grown by a line above it differs from its other build by that alone.
