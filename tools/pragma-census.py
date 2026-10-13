@@ -322,6 +322,18 @@ def class_at(lines, i):
     h = h[len(ctx) + 2:] if ctx is not None else h
     words = re.findall(r"[A-Za-z_][\w']*", h.split('|')[0])
     body = instance_body(lines, j, k, hm)
+    sigs = body_signatures(lines, j, k)
+    pk = {}
+    for b in lines[i:k]:
+        for p in KINDS.finditer(b):
+            pk[p.group(3)] = (p.group(1), bool(p.group(2)))
+    return (words[0] if words else None), sigs, body, pk, k
+
+
+def body_signatures(lines, j, k):
+    """{method: (type, its signature's line)} of the signatures in the body
+    of a class or an instance whose head ends at line j and whose body ends
+    before line k."""
     sigs = {}
     for n, b in base_lines(lines, j, k):
         split = split_signature(lines, n, k)
@@ -335,11 +347,7 @@ def class_at(lines, i):
             ty = ty.strip()[2:] if split else ty
             for name in re.split(r'\s*,\s*', names):
                 sigs[name.strip('() ')] = (ty, n)
-    pk = {}
-    for b in lines[i:k]:
-        for p in KINDS.finditer(b):
-            pk[p.group(3)] = (p.group(1), bool(p.group(2)))
-    return (words[0] if words else None), sigs, body, pk, k
+    return sigs
 
 
 def stub(b):
@@ -778,6 +786,21 @@ def element_lists(ty):
     return elements(lists_of(ty))
 
 
+def own_start(lines, start, name, names):
+    """The line from start at which name's equations begin, past those of
+    the other names its signature declares, names, which may come first."""
+    others = [re.compile(r"\(?" + re.escape(o) + r"\)?(?![\w'])")
+              for o in names if o != name]
+    j = start
+    while j < len(lines):
+        line = lines[j]
+        if line[:1] not in (' ', '\t') and line.strip() and \
+                not any(o.match(line) for o in others):
+            return j
+        j += 1
+    return start
+
+
 def equations(lines, start, name):
     """[(argument patterns, rest)] of the equations of name from line start:
     each one's left side split at depth 0 into its patterns, and the guards,
@@ -894,10 +917,12 @@ def forwarding(texts, classes=None):
             if not m:
                 continue
             sig, j = signature_at(lines, i, m)
-            for name in re.split(r'\s*,\s*', m.group(1).strip()):
-                name = name.strip('()')
-                body = definition(lines, j, name)
-                eqs_of[(mod, name)] = equations(lines, j, name)
+            names = [x.strip('()')
+                     for x in re.split(r'\s*,\s*', m.group(1).strip())]
+            for name in names:
+                k = own_start(lines, j, name, names)
+                body = definition(lines, k, name)
+                eqs_of[(mod, name)] = equations(lines, k, name)
                 table[(mod, name)] = (lists_of(body_type(sig)), None, body)
                 pending[(mod, name)] = (lines, [i], kinds.get(name), sig)
                 where[(mod, name)] = (path, i, noted(lines, i, F1NOTE))
@@ -1124,12 +1149,14 @@ def rule_check(text, classes, fwd=None, fus=None, marked=(),
         m = top_signature(lines, i)
         if m:
             sig, j = signature_at(lines, i, m)
-            for name in re.split(r'\s*,\s*', m.group(1).strip()):
-                name = name.strip('()')
-                recursive_here[name] = recursive(lines, j, name)
+            names = [x.strip('()')
+                     for x in re.split(r'\s*,\s*', m.group(1).strip())]
+            for name in names:
+                k = own_start(lines, j, name, names)
+                recursive_here[name] = recursive(lines, k, name)
                 has, phased = kinds.get(name, ('none', False))
                 judge(i, name, has, phased, sig, False, [i],
-                      eqs=equations(lines, j, name))
+                      eqs=equations(lines, k, name))
             i = j
             continue
         if re.match(r'^class\b', line):
@@ -1157,6 +1184,7 @@ def rule_check(text, classes, fwd=None, fus=None, marked=(),
                     for p in KINDS.finditer(b):
                         pk[p.group(3)] = (p.group(1), bool(p.group(2)))
                 hdecl = declared(plain_lines(lines, i))
+                isigs = body_signatures(lines, j, k)
                 seen = set()
                 for n, b in body:
                     name = method_name(b)
@@ -1172,7 +1200,8 @@ def rule_check(text, classes, fwd=None, fus=None, marked=(),
                         continue
                     has, phased = pk.get(name, ('none', False))
                     judge(n, f'{cls}.{name}', has, phased, ty, over,
-                          [i, n], (),
+                          [i, n] + ([isigs[name][1]] if name in isigs
+                                    else []), (),
                           mdecl if hdecl is None else hdecl,
                           (mod, f'{cls}.{name}', n),
                           method_equations(lines, n, k, name))
@@ -1868,7 +1897,10 @@ def self_test_rule():
     api = ('module Api where\n'
            'import Mid\n'
            'top :: B a -> [a]\n'
-           'top = mid . unB\n')
+           'top = mid . unB\n'
+           'top3, top4 :: B a -> [a]\n'
+           'top3 = mid . unB\n'
+           'top4 = mid . unB\n')
     unbuilt = ('module U where\n'
                'import qualified U as M\n'
                '-- Unmaterialized: built where it is taken apart.\n'
@@ -1965,6 +1997,9 @@ def self_test_rule():
              'th13 :: T a -> Int -> T a\n'
              'th13 (T (s : ss)) i = T ss\n'
              'th13 _ _ = error "th13"\n'
+             'th14, th15 :: T a -> Int\n'
+             'th14 = lenT\n'
+             'th15 = lenT\n'
              'class Sz t where\n'
              '  szz :: t -> Int\n'
              'instance Sz (T a) where\n'
@@ -1972,10 +2007,17 @@ def self_test_rule():
              'instance Sz [a] where\n'
              '  {-# INLINE szz #-}\n'
              '  szz [] = 0\n'
-             '  szz xs = length xs + 1\n')
+             '  szz xs = length xs + 1\n'
+             'instance Sz Int where\n'
+             '  -- INLINE: GHC HEAD 10.1.20260918, 2026-10-13: measured.\n'
+             '  {-# INLINE szz #-}\n'
+             '  szz :: Int -> Int\n'
+             '  szz x = x + x * 2\n')
     want = ['== pragma unlike the rule and no comment above in its form'
             ' (file:line name: has -> wants [why])',
             '  Api.hs top: none -> INLINE [forwards to Mid.mid]',
+            '  Api.hs top3: none -> INLINE [forwards to Mid.mid]',
+            '  Api.hs top4: none -> INLINE [forwards to Mid.mid]',
             '  L.hs g2: none -> INLINABLE [class constraint]',
             '  Low.hs rootV: INLINE -> none [no class constraint]',
             '  Mid.hs mid2: INLINABLE -> INLINE [forwards to Low.rootT]',
@@ -2025,6 +2067,8 @@ def self_test_rule():
             '  Th.hs th11: none -> INLINE [thin wrapper]',
             '  Th.hs th12: none -> INLINE [thin wrapper]',
             '  Th.hs th13: none -> INLINE [thin wrapper]',
+            '  Th.hs th14: none -> INLINE [thin wrapper]',
+            '  Th.hs th15: none -> INLINE [thin wrapper]',
             '  Th.hs Sz.szz: none -> INLINE [thin wrapper]',
             '  Th.hs Sz.szz: INLINE -> none [no class constraint]',
             '  U.hs u1: none -> INLINE [takes or returns Rt (A3)]',
@@ -2072,7 +2116,7 @@ def self_test_rule():
                 fh.write(text)
         got, nbad, _ = report_rule(td)
         got = [re.sub(r'^(  \S+\.hs):\d+', r'\1', x) for x in got]
-        if got != want or nbad != 70:
+        if got != want or nbad != 74:
             bad.append(f'--rule ({nbad}):\n  ' + '\n  '.join(got))
         if main(['--rule', td]) != 1:
             bad.append('--rule with findings did not exit 1')

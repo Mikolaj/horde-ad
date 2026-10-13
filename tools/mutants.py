@@ -1149,8 +1149,8 @@ MUTANTS = [
      '    return any(pat.search(x) for x in plain)\n',
      '    return False\n', ST),
     ('pragma-census --rule a note above an instance unread', 'pragma-census.py',
-     '                          [i, n], (),\n',
-     '                          [n], (),\n', ST),
+     '                          [i, n] + ([isigs[name][1]] if name in isigs\n',
+     '                          [n] + ([isigs[name][1]] if name in isigs\n', ST),
     ('pragma-census --rule a module declaration unread', 'pragma-census.py',
      "    mdecl = declared([x for x in lines[:start] if x.lstrip().startswith('--')])\n",
      '    mdecl = None\n', ST),
@@ -1161,7 +1161,7 @@ MUTANTS = [
      "        has = {'INLINEABLE': 'INLINABLE', 'SPECIALISE': 'INLINABLE',\n",
      "        has = {'INLINEABLE': 'INLINABLE',\n", ST),
     ('pragma-census --rule recursion unseen', 'pragma-census.py',
-     '                recursive_here[name] = recursive(lines, j, name)\n',
+     '                recursive_here[name] = recursive(lines, k, name)\n',
      '                recursive_here[name] = False\n', ST),
     ('pragma-census --rule a name in a string taken for recursion', 'pragma-census.py',
      '        line = re.sub(r\'"(?:[^"\\\\]|\\\\.)*"\', \'""\', line)\n',
@@ -1464,6 +1464,25 @@ MUTANTS = [
     ("pragma-census --rule a lambda's binders read as calls", 'pragma-census.py',
      '                lam = True\n',
      '                lam = False\n', ST),
+    # pragma-census-12 (2026-10-13): each caught by its self-test when added.
+    ("pragma-census --rule equations after another name's unread",
+     'pragma-census.py',
+     '                k = own_start(lines, j, name, names)\n'
+     '                recursive_here[name] = recursive(lines, k, name)\n',
+     '                k = j\n'
+     '                recursive_here[name] = recursive(lines, k, name)\n', ST),
+    ("pragma-census --rule equations after another name's unread to forward",
+     'pragma-census.py',
+     '                k = own_start(lines, j, name, names)\n'
+     '                body = definition(lines, k, name)\n',
+     '                k = j\n'
+     '                body = definition(lines, k, name)\n', ST),
+    # pragma-census-13 (2026-10-13): caught by its self-test when added.
+    ("pragma-census --rule an instance method's signature's note unread",
+     'pragma-census.py',
+     '                          [i, n] + ([isigs[name][1]] if name in isigs\n'
+     '                                    else []), (),\n',
+     '                          [i, n], (),\n', ST),
     # hpc-untaken (2026-10-13): each watched failing its self-test before
     # it was written down here.
     ('hpc-untaken error calls listed', 'hpc-untaken.py',

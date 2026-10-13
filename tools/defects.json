@@ -3919,6 +3919,54 @@
    "expect_absent": "M.hs:9 outer",
    "bug_exit": 1,
    "bug_text": "M.hs:9 outer"
+  },
+  {
+   "program": "pragma-census.py",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "review",
+   "id": "pragma-census-12",
+   "name": "the equations of a name sharing a signature with another, a, b :: T, were read from the line after the signature and stopped at the other's, so a name whose equations came second had none: it was never a thin wrapper nor recursive, and forwarded nothing",
+   "trigger": "wrapA, wrapB :: Int -> Maybe Int over wrapA = Just and wrapB = Just, both INLINE",
+   "ok": "nothing listed, exit 0",
+   "bug": "wrapB listed as wanting no pragma, exit 1",
+   "notes": "Found 2026-10-13 by a blind reader of orthotope's pragma pass: of runLo, runHi, runFar :: Int, only runLo had been made INLINE as a thin wrapper.",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\n-- Two constructors' wrappers, one signature.\n{-# INLINE wrapA #-}\n{-# INLINE wrapB #-}\nwrapA, wrapB :: Int -> Maybe Int\nwrapA = Just\nwrapB = Just\nEOF",
+   "invoke": [
+    "--rule",
+    "{tmp}/S"
+   ],
+   "expect_exit": 0,
+   "expect_text": "== directly fusing (F1)",
+   "expect_absent": "wrapB",
+   "bug_exit": 1,
+   "bug_text": "M.hs:5 wrapB: INLINE -> none"
+  },
+  {
+   "program": "pragma-census.py",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "review",
+   "id": "pragma-census-13",
+   "name": "the comment above an instance method's own signature was not read, its note being looked for above the method's first equation alone, so a method with an instance signature stood unexcused unless its note sat between the signature and the equation",
+   "trigger": "an instance method with INLINE, an instance signature, and a dated note above its pragma, its type wanting no pragma",
+   "ok": "nothing listed, exit 0",
+   "bug": "C.cm listed as INLINE -> none, exit 1",
+   "notes": "Found 2026-10-13 moving a note in orthotope's DynamicS above vUnsafeFillStrided's pragma, where a blind reader had found it placed between the method's signature and its equation to satisfy the census.",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\nclass C a where\n  cm :: a -> Int\ninstance C Int where\n  -- INLINE: GHC HEAD 10.1.20260918, 2026-10-13: measured faster.\n  {-# INLINE cm #-}\n  cm :: Int -> Int\n  cm x = x + x * 2\nEOF",
+   "invoke": [
+    "--rule",
+    "{tmp}/S"
+   ],
+   "expect_exit": 0,
+   "expect_text": "== directly fusing (F1)",
+   "expect_absent": "C.cm",
+   "bug_exit": 1,
+   "bug_text": "M.hs:8 C.cm: INLINE -> none"
   }
  ]
 }
