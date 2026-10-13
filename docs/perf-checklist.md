@@ -194,16 +194,12 @@ throughout, its own flags reaching no user's build.
   an `INLINE` on a function GHC inlines anyway or a `NOINLINE` on one it would
   not inline, since the thresholds can change. Remove such a pragma only when
   removing it changes the optimised Core and measurements show that what it did
-  buys nothing, on the GHCs that count, weighed as above; measure an `INLINE`'s
-  removal with `-funfolding-creation-threshold=30`
-  and `-fno-expose-overloaded-unfoldings` on the package's own modules alone,
-  a threshold fixed well below GHC's default, 750 on HEAD, so that what inlines
-  by size there does under any default: without an `INLINE` that did nothing
-  measurable on GHC 9.14.1, some benchmarks allocated up to 43% more on HEAD.
-  Measure the removal at the benchmarks' smallest sizes too, empty included,
-  where a cost paid once a call is not lost among those paid per element.
-  The census is a fixed point over the pragmas and their notes: run it
-  on the tree being changed, after every change to the pragmas kept or their
+  buys nothing, on the GHCs that count, weighed as above: without an `INLINE`
+  that did nothing measurable on GHC 9.14.1, some benchmarks allocated up to 43%
+  more on HEAD. Measure the removal at the benchmarks' smallest sizes too, empty
+  included, where a cost paid once a call is not lost among those paid per
+  element. The census is a fixed point over the pragmas and their notes: run
+  it on the tree being changed, after every change to the pragmas kept or their
   notes, and before measuring; an `INLINE` the rule requires, on a forwarder,
   a thin wrapper or on a binding F1's recipe or A3 confirms, is not released
   on a measurement.
@@ -255,28 +251,35 @@ not for orthotope's fill, which had no pragma at all (S1's variant C).
   wraps it, the call heading its body, so that the gain reaches the caller
   through every link. **So does a thin wrapper**, a binding whose right-hand
   side is constructors, newtype fields, `$` and `.` around at most one call:
-  measured as the removing rule above says, some of orthotope's were left out
-  of line once released and cost up to a kilobyte a call. A recursive binding
-  takes a non-recursive `INLINE` wrapper over it instead (I2). **Otherwise
-  a binding gets `INLINABLE` where it is overloaded**, by a class constraint
-  in its signature, in its instance's context or in its class method's own type,
-  `HasCallStack`, equalities, `TypeError` and type-level comparisons
-  not counting, **and otherwise no pragma**. A need for `INLINE` that the type
-  does not show, or shows only through a marked sum, a forwarder's and a thin
-  wrapper's aside, and any departure from this, stands only under a plain
-  comment directly above the binding's haddock whose first line opens
-  with the pragma the binding carries, or `No pragma`, and a colon,
-  as in `-- INLINE:`, and which cites the measurement or reading behind it:
-  the check that took it, one of I1, I2, I3, F1, A3, S2, W3 and W4, a GHC
-  version, HEAD included, with the date it was taken, or `see` and the comment
-  that does; a commit message does not count. A declaration does it in bulk:
-  a comment saying `INLINE throughout`, `INLINABLE throughout`
-  or `No pragma throughout`, with its reason, covers each binding carrying
-  that pragma, or none, in the module whose header holds it or among the methods
-  of the instance or class it stands directly above, where it overrides
-  the module's; a binding carrying another pragma is held to this rule
-  and its own comment as before. `INLINE throughout` suits a layer whose callers
-  are `INLINABLE`, as I3 allows. I4 checks a tree against this.
+  the thin wrappers whose release cost nothing at GHC's default thresholds
+  were mostly ones GHC inlined anyway, and with the package's own modules built
+  `-funfolding-creation-threshold=30`, where it no longer does, some
+  of orthotope's were left out of line and cost up to a kilobyte a call.
+  That threshold is not to be used for benchmarking again (Mikolaj's ruling
+  of 2026-10-13): it also stops base's functions, `all` among them, from being
+  inlined into the `INLINE` unfoldings a module stores, inhibiting their
+  simplification, so a build at 30 is a different program even where every
+  `INLINE` is kept. A recursive binding takes a non-recursive `INLINE` wrapper
+  over it instead (I2). **Otherwise a binding gets `INLINABLE` where
+  it is overloaded**, by a class constraint in its signature, in its instance's
+  context or in its class method's own type, `HasCallStack`, equalities,
+  `TypeError` and type-level comparisons not counting, **and otherwise
+  no pragma**. A need for `INLINE` that the type does not show, or shows only
+  through a marked sum, a forwarder's and a thin wrapper's aside, and any
+  departure from this, stands only under a plain comment directly above
+  the binding's haddock whose first line opens with the pragma the binding
+  carries, or `No pragma`, and a colon, as in `-- INLINE:`, and which cites
+  the measurement or reading behind it: the check that took it, one of I1, I2,
+  I3, F1, A3, S2, W3 and W4, a GHC version, HEAD included, with the date
+  it was taken, or `see` and the comment that does; a commit message does
+  not count. A declaration does it in bulk: a comment saying
+  `INLINE throughout`, `INLINABLE throughout` or `No pragma throughout`,
+  with its reason, covers each binding carrying that pragma, or none,
+  in the module whose header holds it or among the methods of the instance
+  or class it stands directly above, where it overrides the module's; a binding
+  carrying another pragma is held to this rule and its own comment as before.
+  `INLINE throughout` suits a layer whose callers are `INLINABLE`, as I3 allows.
+  I4 checks a tree against this.
 - **Where their speed is tradable,** a pragma is a trade like any other and pays
   for itself or goes, as in the half above. Opting a module out
   of `-fexpose-overloaded-unfoldings` is itself such a trade: compile time saved
