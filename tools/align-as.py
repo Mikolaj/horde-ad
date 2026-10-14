@@ -1,12 +1,6 @@
 #!/usr/bin/env python3
 """A stand-in assembler for GHC's -pgma that aligns loop heads to a cache line.
 
-Off limits for now (Mikolaj's ruling of 2026-10-13): a binary of orthotope's
-specialisation benchmark built through this timed boxed traverse of a large
-dense view at about twice the plain binary of the same source, a discrepancy
-not yet diagnosed, so time plain builds until it is (docs/perf-checklist.md,
-the timing rules).
-
 Written for orthotope's micro-regime3 benchmark and kept there until
 2026-10-06, so the README.md, Main.hs, `micro` binary, Runs and scripts
 named below are that directory's, at

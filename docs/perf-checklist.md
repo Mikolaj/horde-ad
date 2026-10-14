@@ -84,19 +84,15 @@ Not a check: the conditions every timing below assumes.
   is not sufficient when the compared builds change a predecessor's own
   allocation profile. Mechanism, evidence and the practical trade-offs
   are in `docs/position-effect.md`.
-- **The shim is off limits for now** (Mikolaj's ruling of 2026-10-13): a binary
-  of orthotope's benchmark built through it timed boxed `traverse` of a large
-  dense view at about twice the plain binary of the same source, a discrepancy
-  not yet diagnosed, so time plain builds until it is. Once it is, build what
-  is timed through `tools/align-as.py`, from a fresh build directory, with
+- Build what is timed through `tools/align-as.py`, from a fresh build directory,
+  with
   `LOOP_MAXSKIP=1 LOOP_LOOKTHROUGH=1 LOOP_DEADSPOT=1 LOOP_EXITSPAN=1 LOOP_SETTLED=1`
   in the environment and `--ghc-options="-pgma $T/align-as.py -fforce-recomp"`,
   and nothing else, orthotope's specialisation benchmark allocating alike
   with and without it. It plans slowly, orthotope with its benchmark and probes
   being the most it builds in reasonable time, so ox-arrays and horde-ad
-  are timed without it. The shim needs no approval. It is the remedy for code
-  placement: Mikolaj ruled reading which loops cross a cache line too simplistic
-  a model to check by.
+  are timed without it. It is the remedy for code placement: Mikolaj ruled
+  reading which loops cross a cache line too simplistic a model to check by.
 - Run `tools/machine-busy.sh` before timing. Time
   with `python3 $T/ab-time.py --cpu 3 BIN_A BIN_B ROUNDS NAME...`, reading
   allocation first. Back any time ratio that decides something
@@ -941,7 +937,6 @@ and `docs/pragmas-and-flags.md` `pragma-calls`.
   each, and what orthotope's micro-regime3 benchmark, where it was written,
   measured of the forms they build; its cases are in `tools/defects.json`,
   and it exits with the real assembler's status, or 1 on a setting it refuses.
-  It is off limits for now, by the ruling in the timing rules above.
 - `tools/loop-offsets.py` finds a binary's copies of a hot loop structurally,
   by a backward branch and the bytes it spans, groups them by their bytes
   and reports where each lands in its cache line, so that a margin between two
