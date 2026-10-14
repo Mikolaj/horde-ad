@@ -589,6 +589,11 @@ MUTANTS = [
     ('pragma-calls operator target kept in its parentheses', 'pragma-calls.py',
      "    return n[1:-1] if n.startswith('(') and n.endswith(')') else n\n",
      "    return n\n", ST),
+    # pragma-calls-09 (2026-10-14): --inline reading a calling module's
+    # aliases.
+    ('pragma-calls --inline blind to an alias', 'pragma-calls.py',
+     "                if m and t not in foreign and refers(km, m.group(1)[:-1]):\n",
+     "                if m and t not in foreign and m.group(1)[:-1] == mod:\n", ST),
     # core-diff-02, -03 and pragma-calls-03, -04 (2026-10-05): the dump
     # keying and selection now shared in dumps.py, judged by the self-tests
     # of the tools importing it, and the identity verdict's two digests.

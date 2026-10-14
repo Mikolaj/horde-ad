@@ -49,9 +49,10 @@ which says so.
 `--inline` reads one build. For every INLINE pragma at column 0 of the
 `.hs` files under SRCDIR it counts, in every module's Core but the defining
 module's own, which its definition hides, two things. CALLED: the target,
-its worker or its specialisation, qualified by the defining module, called
-there, a copy that module's rules name as one of an imported function
-excepted. COPIED: a `$s` copy the module made itself, unqualified or
+its worker or its specialisation, qualified by the defining module,
+or by an alias under which the calling module, its source under SRCDIR,
+imports that module or one re-exporting it, called there, a copy that
+module's rules name as one of an imported function excepted. COPIED: a `$s` copy the module made itself, unqualified or
 qualified by that module, counted only where the module defines no function
 of that name. A copy a third module made is counted for no target, so both
 are a floor. A line says `inlined` where neither is left, and RECURSIVE where
@@ -261,12 +262,10 @@ def own_copies(root, mod):
                      for t in imported_copies(dumps.read_text(p)))
 
 
-def per_module(ia, ib, srcs, mod, n, copies=(set(), set())):
-    """{module key: (count in A, count in B)} of the tokens referring to
-    mod's binding of n, by the rules the docstring gives; copies are those
-    of own_copies in A and in B."""
-    scopes = {m: scope(t) for m, t in srcs.items()}
-
+def referrer(srcs, scopes, mod, n):
+    """refers(module, qualifier): whether a token so qualified in that
+    module's Core refers to mod's binding of n, by the rules the docstring
+    gives; scopes are scope() of srcs."""
     def reaches(x):
         if x == mod:
             return True
@@ -285,17 +284,28 @@ def per_module(ia, ib, srcs, mod, n, copies=(set(), set())):
             return not defines(srcs[k], n) and any(map(reaches, scopes[k][1]))
         return any(map(reaches, scopes[k][0].get(q, ())))
 
-    def name(k):
-        parts = k.split('/')
-        return next(('.'.join(parts[i:]) for i in range(len(parts))
-                     if '.'.join(parts[i:]) in srcs), parts[-1])
+    return refers
+
+
+def module_name(k, srcs):
+    """The module of srcs a dump's key names, or its last component."""
+    parts = k.split('/')
+    return next(('.'.join(parts[i:]) for i in range(len(parts))
+                 if '.'.join(parts[i:]) in srcs), parts[-1])
+
+
+def per_module(ia, ib, srcs, mod, n, copies=(set(), set())):
+    """{module key: (count in A, count in B)} of the tokens referring to
+    mod's binding of n, by the rules the docstring gives; copies are those
+    of own_copies in A and in B."""
+    refers = referrer(srcs, {m: scope(t) for m, t in srcs.items()}, mod, n)
 
     def copy(km, q, u, cs):
         return u in cs and (q == mod or not q and km == mod)
 
     out = {}
     for k in set(ia) | set(ib):
-        km = name(k)
+        km = module_name(k, srcs)
         out[k] = tuple(sum(v for q, v, u in t.get(k, {}).get(n, ())
                            if refers(km, q) and not copy(km, q, u, cs))
                        for t, cs in zip((ia, ib), copies))
@@ -370,9 +380,12 @@ def imported_copies(txt):
     return set(RULE_RHS.findall(rules[1])) if len(rules) == 2 else set()
 
 
-def inline_census(root, tokens, prags):
+def inline_census(root, tokens, prags, srcs=None):
     """(lines, number of targets left behind or recursive, number whose
-    module has a dump)."""
+    module has a dump); srcs, module name -> text, resolve the aliases
+    a calling module imports under (pragma-calls-09)."""
+    srcs = srcs or {}
+    scopes = {m: scope(t) for m, t in srcs.items()}
     paths = dict((k, p) for p, k in dumps.walk(root, '.dump-simpl'))
     dup = collections.Counter(n for _, _, n in prags)
     lines, shared, flagged, seen = [], {}, 0, 0
@@ -384,7 +397,8 @@ def inline_census(root, tokens, prags):
             continue
         seen += 1
         e = re.escape(n)
-        called_re = re.compile(rf"{re.escape(mod)}\.(?:\$[sw])*{e}[0-9]*")
+        refers = referrer(srcs, scopes, mod, n)
+        called_re = re.compile(rf"((?:[A-Z][\w']*\.)+)(?:\$[sw])*{e}[0-9]*")
         copy_re = re.compile(rf"((?:[A-Z][\w']*\.)*)\$s(?:\$[sw])*{e}[0-9]*")
         texts = [dumps.read_text(paths[k]) for k in own]
         foreign = set().union(*map(imported_copies, texts))
@@ -393,8 +407,12 @@ def inline_census(root, tokens, prags):
             if k in own:
                 continue
             here, c = k.rsplit('/', 1)[-1], tokens[k]
-            ncall = sum(v for t, v in c.items()
-                        if called_re.fullmatch(t) and t not in foreign)
+            km = module_name(k, srcs)
+            ncall = 0
+            for t, v in c.items():
+                m = called_re.fullmatch(t)
+                if m and t not in foreign and refers(km, m.group(1)[:-1]):
+                    ncall += v
             if ncall:
                 called.append(f'{here} {ncall}')
             # A module defining a function of that name copies its own.
@@ -436,8 +454,10 @@ def inline_self_test(td):
     recursive, one name in two modules, one module without a dump, and
     pragmas that are INLINABLE, indented or in a build directory; and one
     dump tree of it, with a copy qualified by a third module, a module
-    copying a function of its own of the same name, and a target's module
-    copying an imported function of the same name, called elsewhere."""
+    copying a function of its own of the same name, a target's module
+    copying an imported function of the same name, called elsewhere,
+    and calls under two aliases, one of the target's module and one
+    of a module binding the name itself."""
     bad = []
     src = os.path.join(td, 'isrc')
     os.makedirs(os.path.join(src, 'dist-newstyle'))
@@ -449,6 +469,9 @@ def inline_self_test(td):
                      'instance C T where\n  {-# INLINE m #-}\n  m = id\n'),
             ('N.hs', '-- a module\nmodule N (f) where\n{-# INLINE f #-}\nf = 1\n'),
             ('P.hs', 'module P where\n{-# INLINE p #-}\np = 1\n'),
+            ('User2.hs', 'module User2 where\nimport M\ng x = x\n'),
+            ('User3.hs', 'module User3 where\nimport qualified M as Q\n'
+                         'import qualified User2 as Q2\n'),
             ('dist-newstyle/Q.hs', 'module Q where\n{-# INLINE q #-}\nq = 1\n')):
         with open(os.path.join(src, name), 'w') as fh:
             fh.write(text)
@@ -469,7 +492,11 @@ def inline_self_test(td):
              # (pragma-calls-06).
              + RULES + '\n"SPEC/User f"\n    forall. M.f = User.$sf1\n'),
             ('build/src/User2.dump-simpl',
-             'User2.g = \\ x -> x\nUser2.$sg1 = User2.g 1\n')):
+             'User2.g = \\ x -> x\nUser2.$sg1 = User2.g 1\n'),
+            # M's g called under an alias, and User2's own g under another
+            # (pragma-calls-09).
+            ('build/src/User3.dump-simpl',
+             'User3.y = \\ z -> Q.g z\nUser3.w = \\ z -> Q2.g z\n')):
         p = os.path.join(tree, rel)
         os.makedirs(os.path.dirname(p), exist_ok=True)
         with open(p, 'w') as fh:
@@ -484,15 +511,16 @@ def inline_self_test(td):
     with open(tree + '.rawtokens.pickle', 'wb') as fh:
         pickle.dump((signature(tree), {'src/User': collections.Counter(
             {'M.f': 9})}), fh)
-    got, flagged, seen = inline_census(tree, load(tree, raw=True), prags)
+    got, flagged, seen = inline_census(tree, load(tree, raw=True), prags,
+                                       sources(src))
     want = ['M.hs\tf (name not unique)\tCALLED User 1',
-            'M.hs\tg\tinlined', 'M.hs\tk\tCOPIED User 1',
+            'M.hs\tg\tCALLED User3 1', 'M.hs\tk\tCOPIED User 1',
             'M.hs\tr\tRECURSIVE',
             'N.hs\tf (name not unique)\tCALLED User 1',
             'P.hs\tp\tNO DUMP of P',
             '== copies of names with INLINE in several modules',
             'f\tCOPIED User 1']
-    if got != want or flagged != 4 or seen != 5:
+    if got != want or flagged != 5 or seen != 5:
         bad.append(f'census ({flagged} flagged, {seen} seen):\n  '
                    + '\n  '.join(got))
     if main(['--inline', tree, src]) != 1:
@@ -691,7 +719,8 @@ def main(argv):
             print(f'no INLINE pragma at column 0 of a .hs file under '
                   f'{argv[2]}', file=sys.stderr)
             return 2
-        lines, flagged, seen = inline_census(argv[1], tokens, prags)
+        lines, flagged, seen = inline_census(argv[1], tokens, prags,
+                                             sources(argv[2]))
         if not seen:
             print(f'no module of an INLINE pragma under {argv[2]} has a '
                   f'dump under {argv[1]}', file=sys.stderr)

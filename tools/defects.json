@@ -3995,6 +3995,34 @@
    "bug_text": [
     "M.hs\tf (per module)\tMOVED M 1->2, U 0->1"
    ]
+  },
+  {
+   "id": "pragma-calls-09",
+   "program": "pragma-calls.py",
+   "name": "--inline counted a call of an INLINE target only under its defining module's full name, so a call the dump prints under the importing module's alias read as inlined",
+   "family": "two-spellings",
+   "fix_rev": "self",
+   "trigger": "User importing M qualified as Q, its dump calling Q.f, f INLINE in M; and a call Q2.f of R's own f, R imported as Q2, which must not count",
+   "ok": "M.hs f CALLED User 1",
+   "bug": "M.hs f inlined",
+   "proved": "ran",
+   "harm": "fired",
+   "harm_count": 1,
+   "discovery": "in-use",
+   "notes": "Found 2026-10-14 on an orthotope build eta-expanding Dynamic's reduce: its benchmark's Core held lvl297 = IB.reduce @Double plusDouble f, a partly applied call, while the census said reduce was inlined. The two-build mode resolved aliases already; --inline now uses the same rule, for clients whose source is under SRCDIR.",
+   "plant_cmd": "mkdir -p src I/build/src && printf 'module M where\\n{-# INLINE f #-}\\nf x = x\\n' > src/M.hs && printf 'module R where\\nimport M ()\\nf x = x\\n' > src/R.hs && printf 'module User where\\nimport qualified M as Q\\nimport qualified R as Q2\\n' > src/User.hs && printf 'M.f = \\\\ x -> x\\n' > I/build/src/M.dump-simpl && printf 'R.f = \\\\ x -> x\\n' > I/build/src/R.dump-simpl && printf 'User.u = \\\\ y -> Q.f y\\nUser.v = \\\\ y -> Q2.f y\\n' > I/build/src/User.dump-simpl",
+   "invoke": [
+    "--inline",
+    "{tmp}/I",
+    "{tmp}/src"
+   ],
+   "expect_exit": 1,
+   "expect_text": [
+    "M.hs\tf\tCALLED User 1"
+   ],
+   "bug_text": [
+    "M.hs\tf\tinlined"
+   ]
   }
  ]
 }
