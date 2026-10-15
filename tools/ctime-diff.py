@@ -12,7 +12,9 @@ For each module it sums the `time=` and `alloc=` of every pass GHC reports,
 the `.dyn` dump of `-dynamic-too`'s second code generation included, and
 prints both builds' milliseconds and gigabytes, the time ratio B/A and the
 module's Core verdict from tools/core-diff.py: `same`, `literals` or
-`differs`. Then the pooled ratios --- summed B over summed A --- of the
+`differs`. A module whose `.dump-timings` holds no compiler pass, as the
+`.inc`-including benchmark modules' held only `systool:hs-cpp` on GHC HEAD
+10.1.20260918, is named as untimed and left out of what follows. Then the pooled ratios --- summed B over summed A --- of the
 controls, the modules whose Core is the same in both builds, of the modules
 whose Core differs, and of all; and the controls' per-module time ratios,
 over those taking at least MS milliseconds in A (default 1000).
@@ -55,6 +57,7 @@ def timings(root):
     for p, key in dumps.walk(root, '.dump-timings'):
         if key.endswith('.dyn'):
             key = key[:-len('.dyn')]
+        out[key]  # a module with no pass timed stays, [0.0, 0]
         for line in dumps.read_text(p).split('\n'):
             m = PASS.match(line)
             if m:
@@ -68,7 +71,11 @@ def ratio(b, a):
 
 
 def report(ta, tb, vs, min_ms):
-    keys = sorted(set(ta) & set(tb), key=lambda k: (-ta[k][0], k))
+    untimed = {k: ' and '.join(n for n, t in (('A', ta), ('B', tb))
+                               if t[k] == [0.0, 0])
+               for k in set(ta) & set(tb) if [0.0, 0] in (ta[k], tb[k])}
+    keys = sorted(set(ta) & set(tb) - set(untimed),
+                  key=lambda k: (-ta[k][0], k))
     lines = [f'{"module":56s} {"ms A":>9s} {"ms B":>9s}  B/A  '
              f'{"GB A":>7s} {"GB B":>7s}  verdict']
     pools = collections.defaultdict(lambda: [0.0, 0.0, 0, 0])
@@ -87,6 +94,8 @@ def report(ta, tb, vs, min_ms):
             spread.append(mb / ma)
     for k in sorted(set(ta) ^ set(tb)):
         lines.append(f'{k:56s} in {"A" if k in ta else "B"} only')
+    for k in sorted(untimed):
+        lines.append(f'{k:56s} no compiler pass timed in {untimed[k]}')
     for g in ('controls', 'changed', 'all'):
         n = sum(1 for k in keys if g == 'all' or
                 (g == 'controls') == (vs.get(k) in ('same', 'literals'))
@@ -141,6 +150,11 @@ def self_test():
             'B/build/M/Tiny.dump-simpl': core(1, '1#'),
             'B/build/M/Tiny.dump-timings': tim('M.Tiny', 20, 10**6),
             'B/build/non-module.dump-timings': tim('/x/y.hi', 50, 10**6),
+            # Timed in neither tree: named, and kept out of the pools.
+            'A/build/M/Cpp.dump-simpl': core(5, '1#'),
+            'A/build/M/Cpp.dump-timings': 'systool:hs-cpp: alloc=1 time=1\n',
+            'B/build/M/Cpp.dump-simpl': core(5, '1#'),
+            'B/build/M/Cpp.dump-timings': 'systool:hs-cpp: alloc=1 time=1\n',
         }
         for rel, text in tree.items():
             p = os.path.join(td, rel)
@@ -173,6 +187,8 @@ def self_test():
                 'non-module': 'Core', 'M/Tiny': 'same'}
         if rows != want:
             bad.append(f'rows and their verdicts: {rows}')
+        if f'{"M/Cpp":56s} no compiler pass timed in A and B' not in got:
+            bad.append('the untimed M/Cpp is not named')
         empty = os.path.join(td, 'empty')
         os.makedirs(empty)
         nocore = os.path.join(td, 'nocore')

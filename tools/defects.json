@@ -4023,6 +4023,32 @@
    "bug_text": [
     "M.hs\tf\tinlined"
    ]
+  },
+  {
+   "id": "ctime-diff-01",
+   "program": "ctime-diff.py",
+   "name": "a module whose .dump-timings held no compiler pass, only a systool line, was left out of the table and the totals without a word",
+   "family": "quiet-failure",
+   "fix_rev": "self",
+   "trigger": "M/Cpp.dump-timings holding only `systool:hs-cpp: alloc=278112 time=0.267` in both trees, beside its .dump-simpl",
+   "ok": "a line names M/Cpp as having no compiler pass timed in A and B; the totals are over the timed modules",
+   "bug": "no line names M/Cpp, and the totals leave it out unannounced",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-16 comparing orthotope's PR tip 6a7c5175 with the pragma run's 29a3bc19, dumps built on GHC HEAD 10.1.20260918: the specialisation benchmark's OpsDynamic, OpsRanked and OpsShaped, which include .inc files through CPP and are the build's largest modules, kept only the hs-cpp line in their .dump-timings, and the table's totals left them out.",
+   "plant_cmd": "mkdir -p A/build/M && printf '\\nResult size of Tidy Core\\n  = {terms: 100, types: 1}\\n\\nf\\n  = I# 1#\\n' > A/build/M/Big.dump-simpl && printf 'Simplifier [M.Big]: alloc=1000000000 time=2000\\nCodeGen [M.Big]: alloc=1000000000 time=2000\\n' > A/build/M/Big.dump-timings && printf '\\nResult size of Tidy Core\\n  = {terms: 50, types: 1}\\n\\nf\\n  = I# 1#\\n' > A/build/M/Cpp.dump-simpl && printf 'systool:hs-cpp: alloc=278112 time=0.267\\n' > A/build/M/Cpp.dump-timings && mkdir -p B/build/M && printf '\\nResult size of Tidy Core\\n  = {terms: 100, types: 1}\\n\\nf\\n  = I# 1#\\n' > B/build/M/Big.dump-simpl && printf 'Simplifier [M.Big]: alloc=1000000000 time=2000\\nCodeGen [M.Big]: alloc=1000000000 time=2000\\n' > B/build/M/Big.dump-timings && printf '\\nResult size of Tidy Core\\n  = {terms: 50, types: 1}\\n\\nf\\n  = I# 1#\\n' > B/build/M/Cpp.dump-simpl && printf 'systool:hs-cpp: alloc=278112 time=0.267\\n' > B/build/M/Cpp.dump-timings",
+   "invoke": [
+    "{tmp}/A",
+    "{tmp}/B"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "M/Cpp",
+    "no compiler pass timed in A and B"
+   ],
+   "bug_exit": 0,
+   "bug_absent": "M/Cpp"
   }
  ]
 }
