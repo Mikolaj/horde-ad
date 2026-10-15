@@ -179,6 +179,9 @@ throughout, its own flags reaching no user's build.
   benchmark does under `--summed`, the two readings have equal standing in every
   decision, and a tie between them that cannot be broken goes to the consumed
   one.
+- **Which representation counts most** (Mikolaj's ruling of 2026-10-15): a tie
+  between the figures of Storable, Unboxed and boxed arrays that cannot
+  be broken goes to Storable, then to Unboxed.
 - **Which GHCs count** (Mikolaj's rulings of 2026-10-11): a GHC older than 9.12
   decides nothing, neither by a measurement nor by the half its modules fall
   under. HEAD's measurements carry 80% of a decision, those of the released GHCs
