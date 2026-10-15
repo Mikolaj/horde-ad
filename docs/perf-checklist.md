@@ -173,6 +173,12 @@ throughout, its own flags reaching no user's build.
   but a change in evaluation rather than allocation is priced in instructions:
   removing `-fworker-wrapper-cbv` left every allocation figure but one unchanged
   and cost up to 3.8% in instructions.
+- **A call's result forced and consumed** (Mikolaj's ruling of 2026-10-15):
+  where a benchmark reads a call both with its result forced to normal form
+  and with it consumed as a client would, as orthotope's specialisation
+  benchmark does under `--summed`, the two readings have equal standing in every
+  decision, and a tie between them that cannot be broken goes to the consumed
+  one.
 - **Which GHCs count** (Mikolaj's rulings of 2026-10-11): a GHC older than 9.12
   decides nothing, neither by a measurement nor by the half its modules fall
   under. HEAD's measurements carry 80% of a decision, those of the released GHCs
