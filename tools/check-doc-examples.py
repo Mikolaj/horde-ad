@@ -26,16 +26,20 @@ Two shapes of that claim are mechanical:
            distinctive in this much source, it would match by coincidence
            -- so a short output rests on the reading alone.
 
-A fenced block that declares `module Main` is skipped by the types branch: it
-is a self-contained program (an issue reproducer, say) whose names resolve
-against its own imports rather than this repo's sources. The self-test carries
-a control for the skip. A reproducer that needs no `main` names some other
-module instead, and that name is a declaration rather than a reference, so
-`local_names` takes it: its own control is a block declaring a module and using
-nothing. A block quoting another repository's code -- GHC's, say -- is skipped
-and listed too, its names resolving there: one whose preceding line pins
-a permalink, inline or through a reference definition, to a commit this
-repository does not hold (check-doc-examples-07). A permalink into this
+A fenced block that declares a module is skipped by the types branch: it
+is a self-contained program (an issue reproducer, or a catalogue's repro)
+whose names resolve against its own imports rather than this repo's sources,
+a reproducer that needs no `main` naming some other module as readily as
+`Main`. What it declares still counts as the document's own, for the other
+blocks that use it. The self-test carries a control for each: a `Main`
+block, another module's block, and a type such a block declares and another
+block uses. Until Mikolaj's ruling of 2026-10-15 a block declaring another
+module was checked, its own name excepted, which failed the repros of
+`docs/inlining-catalogue.md` on base names and CPP symbols this repo's sources
+never mention. A block quoting another repository's code -- GHC's, say --
+is skipped and listed too, its names resolving there: one whose preceding
+line pins a permalink, inline or through a reference definition, to a commit
+this repository does not hold (check-doc-examples-07). A permalink into this
 repository's own history leaves the block checked, and the self-test carries
 both controls.
 
@@ -191,16 +195,8 @@ def strip_comments(code):
 
 
 def local_names(code):
-    """Names the document defines itself, so cannot be drift.
-
-    A block's own `module` header is one of them: the name there is a
-    declaration and not a reference, so a self-contained block that is not
-    `module Main` -- an issue reproducer that needs no `main` -- must not be
-    failed for naming itself. The self-test's control is such a block.
-    """
+    """Names the document defines itself, so cannot be drift."""
     out = set(DECL_RE.findall(code))
-    for m in re.finditer(r"^module\s+([\w.]+)", code, re.M):
-        out |= set(m.group(1).split("."))
     for m in CTOR_RE.finditer(code):
         out |= set(re.findall(r"\b([A-Z][A-Za-z0-9_]*)\b", m.group(1)))
     return out
@@ -214,20 +210,21 @@ def norm(s):
 def check_types(doc, text, src):
     if not FENCE_LANGS or src is None:
         return 0
-    # A fence that declares `module Main` is a self-contained program (an
+    # A fence that declares a module is a self-contained program (an
     # issue reproducer, say), not an excerpt of this repo's API: its names
     # resolve against its own imports, which this checker cannot see, so
-    # the block is skipped rather than failed.
+    # the block is skipped rather than failed. What it declares still counts
+    # as the document's own, for the other blocks that use it.
     blocks = fenced_bodies(text)
     for _, quote in blocks:
         if quote:
             print(f"note {doc}: a quotation of {quote}, not checked")
-    bodies = [b for b, quote in blocks if quote is None
-              and not re.search(r"^module\s+Main\b", b, re.M)]
+    own = [b for b, quote in blocks if quote is None]
+    bodies = [b for b in own if not re.search(r"^module\s+[\w.]+", b, re.M)]
     code = strip_comments("".join(bodies))
     if not code.strip():
         return 0
-    loc = local_names(code)
+    loc = local_names(strip_comments("".join(own)))
     failures = 0
     for n in sorted(set(NAME_RE.findall(code))):
         if n in loc or re.search(r"\b" + n + r"\b", src):
@@ -263,6 +260,8 @@ def check_outputs(doc, text, normsrc):
 SELF_TEST_TYPE = "ControlTypeThatCannotExistAnywhere"
 SELF_TEST_SKIP = "ControlTypeInsideStandaloneProgram"
 SELF_TEST_MOD = "ControlModuleNamingItself"
+SELF_TEST_SKIP_MOD = "ControlTypeInsideStandaloneModule"
+SELF_TEST_MOD_DECL = "ControlTypeDeclaredInStandaloneModule"
 SELF_TEST_QUOTE = "ControlTypeInsideForeignQuotation"
 SELF_TEST_OWN = "ControlTypeAfterOwnPermalink"
 SELF_TEST_OUT = "control output present in no tracked source of this repository"
@@ -312,6 +311,7 @@ def self_test():
         "useLocal :: Local -> Local\n"
         "useLocal A = B\n"
         f"useLocal _ = {SELF_TEST_TYPE}\n"
+        f"useModule :: {SELF_TEST_MOD_DECL}\n"
         "```\n\n"
         "```hs\n"
         "module Main (main) where\n"
@@ -319,7 +319,8 @@ def self_test():
         "```\n\n"
         "```hs\n"
         f"module {SELF_TEST_MOD} (only) where\n"
-        "only :: Int\n"
+        f"only :: {SELF_TEST_SKIP_MOD}\n"
+        f"data {SELF_TEST_MOD_DECL} = Declared\n"
         "```\n\n"
         "```hs\n"
         ">>> controlExpr\n"
@@ -353,6 +354,7 @@ def self_test():
           and sum("a quotation of" in ln for ln in lines) == 2
           and not any("Local" in ln or "NOTE" in ln
                       or SELF_TEST_SKIP in ln or SELF_TEST_MOD in ln
+                      or SELF_TEST_SKIP_MOD in ln or SELF_TEST_MOD_DECL in ln
                       or SELF_TEST_QUOTE in ln
                       for ln in lines))
     for ln in lines:

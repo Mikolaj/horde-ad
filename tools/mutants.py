@@ -169,18 +169,25 @@ MUTANTS = [
     # check-doc-examples: "disabling the output comparison ... 1/0"
     ('check-doc-examples output comparison disabled', 'check-doc-examples.py',
      "        if len(body) > 40 and body not in normsrc:\n", "        if False:\n", ST),
-    # check-doc-examples: "dropping the doc-local exclusion ... 2/1" (3/1 today, the
-    # module-name control having been added since)
+    # check-doc-examples: "dropping the doc-local exclusion ... 2/1"
     ('check-doc-examples doc-local exclusion dropped', 'check-doc-examples.py',
      '        if n in loc or re.search(r"\\b" + n + r"\\b", src):\n',
      '        if re.search(r"\\b" + n + r"\\b", src):\n', ST),
-    # check-doc-examples: "removing the skip in a copy turned it red" (module Main)
-    ('check-doc-examples module Main skip removed', 'check-doc-examples.py',
-     '              and not re.search(r"^module\\s+Main\\b", b, re.M)]\n', '              and True]\n', ST),
-    # check-doc-examples: "removing that line from a copy reported the module's name"
-    ('check-doc-examples module header no longer a doc-local name', 'check-doc-examples.py',
-     '    for m in re.finditer(r"^module\\s+([\\w.]+)", code, re.M):\n        out |= set(m.group(1).split("."))\n',
-     '    pass\n', ST),
+    # check-doc-examples: "removing the skip in a copy turned it red"
+    ('check-doc-examples module skip removed', 'check-doc-examples.py',
+     '    bodies = [b for b in own if not re.search(r"^module\\s+[\\w.]+", b, re.M)]\n',
+     '    bodies = own\n', ST),
+    # check-doc-examples: the skip narrowed back to `module Main`, as it was
+    # until 2026-10-15, checks the self-test's other module block
+    ('check-doc-examples module skip narrowed to Main', 'check-doc-examples.py',
+     '    bodies = [b for b in own if not re.search(r"^module\\s+[\\w.]+", b, re.M)]\n',
+     '    bodies = [b for b in own if not re.search(r"^module\\s+Main\\b", b, re.M)]\n', ST),
+    # check-doc-examples: the doc-local names taken from the checked blocks
+    # alone failed two issue documents on types a module block declares
+    # (2026-10-15, before the skip was committed)
+    ('check-doc-examples skipped module blocks declaring nothing', 'check-doc-examples.py',
+     '    loc = local_names(strip_comments("".join(own)))\n',
+     '    loc = local_names(code)\n', ST),
     # check-doc-examples: "a source list naming nothing reads as none rather than as an
     # empty corpus" (2026-08-28)
     ('check-doc-examples empty source list read as an empty corpus', 'check-doc-examples.py',
