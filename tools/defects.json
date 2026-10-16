@@ -4740,6 +4740,99 @@
    "expect_absent": "  M.hs:4 foo",
    "bug_exit": 1,
    "bug_text": "worker instead (file:line name)\n  M.hs:4 foo"
+  },
+  {
+   "program": "pragma-calls.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "pragma-calls-10",
+   "name": "--inline counted a call of a sibling whose name is the target's followed by digits, rgather1 for rgather, as a call of the target, its pattern taking trailing digits with no $s or $w before the name",
+   "family": "two-spellings",
+   "trigger": "INLINE rgather in M, and module U calling M.rgather1",
+   "ok": "rgather inlined, exit 0",
+   "bug": "rgather CALLED U 1, exit 1",
+   "notes": "horde-ad has such pairs for kbuild, rbuild, rgather, rscatter, sbuild, sunReplicate, xbuild and xgather, by the reviewer's reading. index() of the diff mode strips digits only behind a prefix, so the two modes disagreed.",
+   "plant_cmd": "mkdir -p S D/build/src && printf 'module M where\\n{-# INLINE rgather #-}\\nrgather x = x\\nrgather1 x = x\\n' > S/M.hs && printf 'module U where\\nimport M\\nu = rgather1 1\\n' > S/U.hs && printf 'rgather = \\\\ x -> x\\nrgather1 = \\\\ x -> x\\n' > D/build/src/M.dump-simpl && printf 'u = M.rgather1 1\\n' > D/build/src/U.dump-simpl",
+   "invoke": [
+    "--inline",
+    "{tmp}/D",
+    "{tmp}/S"
+   ],
+   "expect_exit": 0,
+   "expect_text": "M.hs\trgather\tinlined",
+   "bug_exit": 1,
+   "bug_text": "rgather\tCALLED U 1"
+  },
+  {
+   "program": "pragma-calls.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "pragma-calls-11",
+   "name": "a pragma removal staged in the worktree was not read, the diff read being the unstaged one where the docstring says uncommitted",
+   "family": "silent-option",
+   "trigger": "M.hs's INLINE f removed and the change staged with git add",
+   "ok": "f's verdict printed, exit 0",
+   "bug": "the diff removes no pragma, exit 2",
+   "plant_cmd": "g() { git -c user.email=t@t -c user.name=t -c commit.gpgsign=false \"$@\"; } && mkdir -p A/build/src B/build/src && printf 'f = \\\\ x -> x\\n' > A/build/src/M.dump-simpl && cp A/build/src/M.dump-simpl B/build/src/M.dump-simpl && printf 'u = \\\\ y -> y\\n' > A/build/src/User.dump-simpl && printf 'u = \\\\ y -> M.f y\\n' > B/build/src/User.dump-simpl && mkdir W && cd W && git init -q . && printf 'module M where\\n{-# INLINE f #-}\\nf x = x\\n' > M.hs && git add M.hs && g commit -qm x && printf 'module M where\\nf x = x\\n' > M.hs && git add M.hs",
+   "invoke": [
+    "{tmp}/A",
+    "{tmp}/B",
+    "{tmp}/W"
+   ],
+   "expect_exit": 0,
+   "expect_text": "M.hs\tf\tMOVED User 0->1",
+   "bug_exit": 2,
+   "bug_text": "removes no pragma"
+  },
+  {
+   "program": "pragma-calls.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "pragma-calls-12",
+   "name": "a pragma in a file the worktree deletes was filed under ev/null, the +++ /dev/null line read as the file's name",
+   "family": "scan-for-parse",
+   "trigger": "Gone.hs, holding INLINE g, deleted from the worktree",
+   "ok": "the verdict filed under Gone.hs",
+   "bug": "the verdict filed under ev/null",
+   "plant_cmd": "g() { git -c user.email=t@t -c user.name=t -c commit.gpgsign=false \"$@\"; } && mkdir -p A/build/src B/build/src && printf 'g = \\\\ x -> x\\n' > A/build/src/Gone.dump-simpl && cp A/build/src/Gone.dump-simpl B/build/src/Gone.dump-simpl && printf 'v = 1\\n' > A/build/src/User.dump-simpl && printf 'v = Gone.g 1\\n' > B/build/src/User.dump-simpl && mkdir W && cd W && git init -q . && printf 'module Gone where\\n{-# INLINE g #-}\\ng x = x\\n' > Gone.hs && git add Gone.hs && g commit -qm x && rm Gone.hs",
+   "invoke": [
+    "{tmp}/A",
+    "{tmp}/B",
+    "{tmp}/W"
+   ],
+   "expect_exit": 0,
+   "expect_text": "Gone.hs\tg\tMOVED User 0->1",
+   "bug_exit": 0,
+   "bug_text": "ev/null\tg"
+  },
+  {
+   "program": "pragma-calls.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "pragma-calls-13",
+   "name": "a numbered specialisation such as $sf1 was counted under f1 and not f, normalise() dropping the $ prefix and leaving the numbering, so its calls moving read DEAD",
+   "family": "two-spellings",
+   "trigger": "INLINE f removed, and M.$sf1 called once in build A's User and twice in B's",
+   "ok": "f MOVED User 1->2",
+   "bug": "f DEAD",
+   "plant_cmd": "g() { git -c user.email=t@t -c user.name=t -c commit.gpgsign=false \"$@\"; } && mkdir -p A/build/src B/build/src && printf 'f = \\\\ x -> x\\n' > A/build/src/M.dump-simpl && cp A/build/src/M.dump-simpl B/build/src/M.dump-simpl && printf 'u = M.$sf1 1\\n' > A/build/src/User.dump-simpl && printf 'u = M.$sf1 1\\nv = M.$sf1 2\\n' > B/build/src/User.dump-simpl && mkdir W && cd W && git init -q . && printf 'module M where\\n{-# INLINE f #-}\\nf x = x\\n' > M.hs && git add M.hs && g commit -qm x && printf 'module M where\\nf x = x\\n' > M.hs",
+   "invoke": [
+    "{tmp}/A",
+    "{tmp}/B",
+    "{tmp}/W"
+   ],
+   "expect_exit": 0,
+   "expect_text": "M.hs\tf\tMOVED User 1->2",
+   "bug_exit": 0,
+   "bug_text": "M.hs\tf\tDEAD"
   }
  ]
 }

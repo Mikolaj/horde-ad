@@ -585,7 +585,8 @@ MUTANTS = [
     # pragma-calls (2026-09-30): each watched failing its self-test before
     # it was written down here.
     ('pragma-calls specialisation prefix no longer normalised', 'pragma-calls.py',
-     "    return re.sub(r'^(?:\\$[a-z])+', '', tok)\n", '    return tok\n', ST),
+     "    return re.sub(r'[0-9]+$', '', tok[m.end():]) if m else tok\n",
+     '    return tok\n', ST),
     ('pragma-calls tree without dumps accepted', 'pragma-calls.py',
      '        if not t:\n', '        if not t and False:\n', ST),
     # pragma-calls-01 and -02 (2026-10-02): a cache returned without its
@@ -619,7 +620,12 @@ MUTANTS = [
      "            if f.endswith(suffix) or f.endswith(suffix + '.gz'):\n",
      '            if suffix in f:\n', 'cd {dir} && python3 pragma-calls.py --self-test'),
     ('pragma-calls cache keying left out of its signature', 'pragma-calls.py',
-     '    return TOK.pattern, KEYS, files\n', '    return TOK.pattern, files\n', ST),
+     '    return TOK.pattern, KEYS, NORMALISED, files\n',
+     '    return TOK.pattern, NORMALISED, files\n', ST),
+    ('pragma-calls cache normalisation left out of its signature',
+     'pragma-calls.py',
+     '    return TOK.pattern, KEYS, NORMALISED, files\n',
+     '    return TOK.pattern, KEYS, files\n', ST),
     # rules-diff, ctime-diff, one-shot, rewrite-check and src-attrib
     # (2026-10-05): each watched failing its self-test before it was written
     # down here.

@@ -13,8 +13,9 @@ WORKTREE_B is the git checkout B was built from, whose uncommitted diff
 removes the pragmas. For each `INLINE`, `INLINABLE` or `NOINLINE` pragma
 the diff deletes, the script counts the occurrences of its target's name in
 every module's Core in both builds --- bare or module-qualified, and behind
-the `$s`, `$w` and similar prefixes of specialisations and workers, an
-operator without the parentheses its pragma writes it in --- and prints
+the `$s`, `$w` and similar prefixes of specialisations and workers, numbered
+or not, an operator without the parentheses its pragma writes it in --- and
+prints
 one line per pragma: DEAD when every module's count agrees, MOVED
 with the modules whose counts differ otherwise.
 
@@ -40,9 +41,10 @@ removed twice in one module is marked, its counts covering both.
 
 The token counts of each dump tree are cached beside it, in
 DUMPS.tokens.pickle, since tokenising 1.5 GB of Core takes a minute. The
-cache records every dump file's size and modification time, the tokeniser
-and the module keying it was counted with, and is recounted when any
-of them differs, as after a rebuild into the same builddir. Where
+cache records every dump file's size and modification time, the tokeniser,
+the module keying and the normalisation it was counted with, and is
+recounted when any of them differs, as after a rebuild into the same
+builddir. Where
 the directory refuses the write, the counts are made afresh on every run,
 which says so.
 
@@ -90,9 +92,11 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import dumps  # noqa: E402
 
-# The module keying the cache was written with, part of its signature so a
-# cache keyed the old way is recounted (pragma-calls-03).
+# The module keying and the normalisation the cache was written with, part
+# of its signature so a cache keyed or normalised the old way is recounted
+# (pragma-calls-03, pragma-calls-13).
 KEYS = 'dumps.module_key'
+NORMALISED = 'qualifier, $ prefixes and the numbering behind them'
 
 TOK = re.compile(r"(?:[A-Z][\w']*\.)*"
                  r"(?:\$*[\w'][\w$']*|[!#$%&*+./<=>?@\\^|~:-]+)")
@@ -114,15 +118,21 @@ def target(n):
 
 def pragmas(wt):
     """(file, name) of every pragma the worktree's diff removes, or None
-    when git cannot diff it."""
-    r = subprocess.run(['git', '-C', wt, 'diff', '-U0'],
-                       capture_output=True, text=True)
+    when git cannot diff it. The diff is against HEAD, staged changes
+    included, where the unstaged diff missed a staged removal
+    (pragma-calls-11); a file deleted is named by its old path, its new one
+    being /dev/null (pragma-calls-12)."""
+    r = subprocess.run(['git', '-C', wt, 'diff', '-U0', '--no-color',
+                        '--no-ext-diff', '--src-prefix=a/', '--dst-prefix=b/',
+                        'HEAD'], capture_output=True, text=True)
     if r.returncode != 0:
         return None
-    names, cur = [], None
+    names, cur, old = [], None, None
     for line in r.stdout.split('\n'):
-        if line.startswith('+++ '):
-            cur = line[6:]
+        if line.startswith('--- '):
+            old = line[6:] if line.startswith('--- a/') else None
+        elif line.startswith('+++ '):
+            cur = line[6:] if line.startswith('+++ b/') else old
         m = PRAGMA.match(line)
         if m:
             names.append((cur, target(m.group(1))))
@@ -130,22 +140,26 @@ def pragmas(wt):
 
 
 def normalise(tok):
-    """A Core token as the name it refers to: module qualifier and the
-    one-letter `$` prefixes of specialisations and workers dropped."""
+    """A Core token as the name it refers to: module qualifier, the
+    one-letter `$` prefixes of specialisations and workers and, behind
+    those, the numbering of a worker or a copy dropped, as index() drops
+    it: kept, $sf1 counted for f1 and not f (pragma-calls-13)."""
     tok = re.sub(r"^(?:[A-Z][\w']*\.)+", '', tok)
-    return re.sub(r'^(?:\$[a-z])+', '', tok)
+    m = re.match(r'(?:\$[a-z])+', tok)
+    return re.sub(r'[0-9]+$', '', tok[m.end():]) if m else tok
 
 
 def signature(root):
-    """What a cached count must match: the tokeniser, the module keying, and
-    every dump file's path, size and modification time. A dump is a file
+    """What a cached count must match: the tokeniser, the module keying, the
+    normalisation, and every dump file's path, size and modification time.
+    A dump is a file
     ending in .dump-simpl, gzipped or not, and not the .dump-simpl-stats
     beside it (pragma-calls-04)."""
     files = []
     for p, _ in dumps.walk(root, '.dump-simpl'):
         st = os.stat(p)
         files.append((p, st.st_size, st.st_mtime_ns))
-    return TOK.pattern, KEYS, files
+    return TOK.pattern, KEYS, NORMALISED, files
 
 
 def code(txt):
@@ -398,7 +412,10 @@ def inline_census(root, tokens, prags, srcs=None):
         seen += 1
         e = re.escape(n)
         refers = referrer(srcs, scopes, mod, n)
-        called_re = re.compile(rf"((?:[A-Z][\w']*\.)+)(?:\$[sw])*{e}[0-9]*")
+        # Digits only behind a prefix, as index() reads them: a bare
+        # M.rgather1 is a sibling, no call of rgather (pragma-calls-10).
+        called_re = re.compile(rf"((?:[A-Z][\w']*\.)+)"
+                               rf"(?:(?:\$[sw])+{e}[0-9]*|{e})")
         copy_re = re.compile(rf"((?:[A-Z][\w']*\.)*)\$s(?:\$[sw])*{e}[0-9]*")
         texts = [dumps.read_text(paths[k]) for k in own]
         foreign = set().union(*map(imported_copies, texts))
@@ -651,10 +668,13 @@ def self_test():
             bad.append('a dump rebuilt under its cache was read at the '
                        'cached counts')
         # A cache from before the keying entered the signature, which a run
-        # over C then keyed by each dump's whole path, must be recounted.
+        # over C then keyed by each dump's whole path, matching in all else,
+        # must be recounted.
         croot = os.path.join(td, 'C')
+        nroot = os.path.join(td, 'N')
+        shutil.copytree(croot, nroot)
         with open(croot + '.tokens.pickle', 'wb') as fh:
-            pickle.dump(((TOK.pattern, signature(croot)[-1]),
+            pickle.dump(((TOK.pattern, NORMALISED, signature(croot)[-1]),
                          {os.path.join(croot, 'src/User'):
                           collections.Counter({'g': 9})}), fh)
         got = verdicts(load(croot), load(os.path.join(td, 'D')), names or [])
@@ -662,6 +682,13 @@ def self_test():
         if got != want:
             bad.append('verdicts over -dumpdir trees, one module with a '
                        'stats file:\n  ' + '\n  '.join(got))
+        # So must one counted before the numbering was normalised
+        # (pragma-calls-13).
+        with open(nroot + '.tokens.pickle', 'wb') as fh:
+            pickle.dump(((TOK.pattern, KEYS, signature(nroot)[-1]),
+                         {'src/User': collections.Counter({'g': 9})}), fh)
+        if load(nroot).get('src/User', {}).get('g') != 1:
+            bad.append('a cache normalised the old way was read')
         # A corrupt cache is counted afresh, and a tree whose directory
         # refuses the write is counted without one (pragma-calls-05).
         cc = os.path.join(td, 'cc')
