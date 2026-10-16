@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """List the overloaded bindings of a source tree that carry no pragma.
 
-Usage: python3 tools/pragma-census.py SRC
-       python3 tools/pragma-census.py --rule SRC
-       python3 tools/pragma-census.py --write [--release] [--keep FILE] SRC
+Usage: python3 tools/pragma-census.py [--skip FILE]... SRC
+       python3 tools/pragma-census.py --rule [--skip FILE]... SRC
+       python3 tools/pragma-census.py --write [--release] [--keep FILE]
+                                      [--skip FILE]... SRC
        python3 tools/pragma-census.py --self-test
+
+`--skip FILE`, a path relative to SRC, leaves that `.hs` file out of every
+mode, `--write` included, for code a ruling puts out of scope; the files
+left out head the report, and one naming no file under SRC stops the run.
 
 For every `.hs` file under SRC, the top-level functions whose signature has
 a context, the methods of the instances that have one and the default
@@ -1211,12 +1216,16 @@ def rule_check(text, classes, fwd=None, fus=None, marked=(),
     return off, rec, unknown, unmarked, unbuilt
 
 
+SKIP = frozenset()  # paths relative to SRC that --skip leaves out
+
+
 def hs_files(src):
     files = []
     for d, dirs, names in os.walk(src):
         dirs[:] = sorted(x for x in dirs if not x.startswith(('.', 'dist')))
         files += [os.path.join(d, x) for x in sorted(names)
-                  if x.endswith('.hs')]
+                  if x.endswith('.hs')
+                  and os.path.relpath(os.path.join(d, x), src) not in SKIP]
     return files
 
 
@@ -2120,6 +2129,16 @@ def self_test_rule():
             bad.append(f'--rule ({nbad}):\n  ' + '\n  '.join(got))
         if main(['--rule', td]) != 1:
             bad.append('--rule with findings did not exit 1')
+        global SKIP
+        in_u = sum(1 for x in got if x.startswith('  U.hs'))
+        SKIP = frozenset(['U.hs'])
+        got, nbad, _ = report_rule(td)
+        SKIP = frozenset()
+        if in_u == 0 or any('U.hs' in x for x in got) or nbad != 74 - in_u:
+            bad.append(f'--skip U.hs left it in ({nbad}): '
+                       + '; '.join(x for x in got if 'U.hs' in x))
+        if main(['--rule', '--skip', 'Nope.hs', td]) != 2:
+            bad.append('--skip naming no file did not exit 2')
     return bad
 
 
@@ -2210,8 +2229,17 @@ def self_test_write():
 
 
 def main(argv):
+    global SKIP
     if argv == ['--self-test']:
         return self_test()
+    skip = []
+    while '--skip' in argv:
+        i = argv.index('--skip')
+        if i + 1 >= len(argv):
+            print('--skip names no file', file=sys.stderr)
+            return 2
+        skip.append(os.path.normpath(argv[i + 1]))
+        argv = argv[:i] + argv[i + 2:]
     write = argv[:1] == ['--write']
     rule = write or argv[:1] == ['--rule']
     if rule:
@@ -2231,6 +2259,15 @@ def main(argv):
     if len(argv) != 1 or argv[0].startswith('--'):
         print(__doc__.split('\n\n')[1], file=sys.stderr)
         return 2
+    for f in skip:
+        if not f.endswith('.hs') or not os.path.isfile(os.path.join(argv[0], f)):
+            print(f'--skip {f}: no .hs file of that path under {argv[0]}',
+                  file=sys.stderr)
+            return 2
+    SKIP = frozenset(skip)
+    if skip:
+        print('== left out by --skip (file)')
+        print('\n'.join(f'  {f}' for f in sorted(SKIP)))
     if not hs_files(argv[0]):
         print(f'no .hs file under {argv[0]}', file=sys.stderr)
         return 2
