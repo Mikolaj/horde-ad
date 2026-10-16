@@ -16,8 +16,9 @@ alone took 83 s where its whole build took seven and a half minutes, and
 gave the build's Core to the term.
 
 Nothing of the build is written to: its output directories are mirrored
-under OUTDIR/out, every file a symlink but MODULE's own outputs, which GHC
-writes afresh there. Dumps go to OUTDIR/dump (pass `-ddump-to-file` with
+under OUTDIR/out, every file a symlink but MODULE's own outputs, named for
+a source path by the module its header declares, which GHC writes afresh
+there. Dumps go to OUTDIR/dump (pass `-ddump-to-file` with
 the dump flags), GHC's output to OUTDIR/ghc.txt, its RTS statistics, which
 give its allocation and peak memory, to OUTDIR/rts.txt, and the command run
 to OUTDIR/command.txt. The wall time is printed. OUTDIR is created; an
@@ -96,6 +97,23 @@ def source(args, module, cwd):
     return None
 
 
+def output_name(cwd, src, module):
+    """The module name GHC names MODULE's outputs by: MODULE itself, or for
+    a source path the name its header declares, Main where it declares none.
+    Read from the path, tests/Tests.hs's outputs were taken for
+    tests/Tests/hs.o, and GHC wrote Main.hi through the mirror into the
+    build (one-shot-01)."""
+    if not module.endswith(('.hs', '.lhs')):
+        return module
+    try:
+        with open(os.path.join(cwd, src), errors='replace') as fh:
+            m = re.search(r"^module\s+([A-Z][\w']*(?:\.[A-Z][\w']*)*)",
+                          fh.read(), re.M)
+    except OSError:
+        return 'Main'
+    return m.group(1) if m else 'Main'
+
+
 def mirror(src, dst, module):
     """dst a tree of symlinks to src's files, but module's own outputs."""
     rel = module.replace('.', '/')
@@ -151,7 +169,7 @@ def run(logpath, module, outdir, cwd, extra):
         shutil.rmtree(outdir)
     os.makedirs(os.path.join(outdir, 'dump'), exist_ok=True)
     open(os.path.join(outdir, MARKER), 'w').close()
-    args = prepare(args, module, outdir)
+    args = prepare(args, output_name(cwd, src, module), outdir)
     rts = '-s' + os.path.join(outdir, 'rts.txt')
     cmd = [ghc, '-c'] + args + extra + [src, '+RTS', rts, '-RTS']
     with open(os.path.join(outdir, 'command.txt'), 'w') as fh:

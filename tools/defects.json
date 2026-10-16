@@ -5094,6 +5094,35 @@
    "expect_text": "before .Lloop: testq\t%rax, %rax",
    "bug_exit": 0,
    "bug_text": "before .Lloop: .p2align\t6, 0x90, 0"
+  },
+  {
+   "id": "one-shot-01",
+   "program": "one-shot.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "name": "a MODULE given as a source path, which the docstring allows, had its own outputs named from the path, tests/Tests/hs.o, so the real ones, Main.o and Main.hi, stayed symlinks into the build and GHC wrote through them",
+   "family": "two-spellings",
+   "trigger": "MODULE tests/Tests.hs, a file whose header is module Main",
+   "ok": "the build's Main.hi untouched, the one-shot's written in OUTDIR",
+   "bug": "the build's Main.hi overwritten through the mirror's symlink",
+   "notes": "The reviewer watched it on GHC 9.12.4: the build tree's Main.hi changed, against the docstring's Nothing of the build is written to.",
+   "plant_cmd": "mkdir -p pkg/tests tstout && printf 'module Main where\\nmain = pure ()\\n' > pkg/tests/Tests.hs && printf 'BUILD\\n' > tstout/Main.hi && printf 'BUILD\\n' > tstout/Main.o && cat > ghc <<'EOF'\n#!/usr/bin/env python3\nimport os, sys\na = sys.argv[1:]\nfor flag, ext in (('-odir', '.o'), ('-hidir', '.hi')):\n    with open(os.path.join(a[a.index(flag) + 1], 'Main' + ext), 'w') as fh:\n        fh.write('ONESHOT\\n')\nEOF\nchmod 755 ghc && T=\"$PWD/tstout\" && printf 'Running: %s --numeric-version\\nGHC response file arguments: --make -no-link -i -itests -i%s -outputdir %s -odir %s -hidir %s tests/Tests.hs\\n' \"$PWD/ghc\" \"$T\" \"$T\" \"$T\" \"$T\" > log.txt",
+   "invoke": [
+    "{tmp}/log.txt",
+    "tests/Tests.hs",
+    "{tmp}/one",
+    "--cwd",
+    "{tmp}/pkg"
+   ],
+   "probe_cmd": "echo \"build Main.hi: $(cat tstout/Main.hi)\"; echo \"one-shot Main.hi: $(cat one/out/0/Main.hi)\"",
+   "expect_exit": 0,
+   "expect_text": [
+    "build Main.hi: BUILD",
+    "one-shot Main.hi: ONESHOT"
+   ],
+   "bug_text": "build Main.hi: ONESHOT"
   }
  ]
 }
