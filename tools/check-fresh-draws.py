@@ -64,7 +64,12 @@ ALLOW = {
 # primitive under both: nothing here needs one.
 FORBIDDEN = ('unsafeDupableInterleaveIO', 'unsafeInterleaveIO',
              'accursedUnutterablePerformIO', 'unsafeInlineIO',
-             'inlinePerformIO', 'runRW#')
+             'inlinePerformIO', 'runRW#',
+             # runST over unsafeIOToST is unsafePerformIO without its
+             # noDuplicate, and the interleavings defer as their IO kin do
+             # (check-fresh-draws-01).
+             'unsafeIOToST', 'unsafeInterleaveST',
+             'unsafeDupableInterleaveST')
 # The seeds of rule 2: every draw reaches one of these.
 COUNTERS = {
     ('HordeAd.Core.AstFreshId', 'unsafeAstVarCounter'),

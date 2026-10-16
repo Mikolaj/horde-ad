@@ -361,6 +361,38 @@ def load_dumps(patterns):
     return sigs, stems
 
 
+def returns_state(path, name):
+    """Whether the top-level signature of NAME in PATH has a result in IO or
+    ST, whose State# token GHC's demand signature carries after the
+    arguments."""
+    with open(path, encoding='utf-8', errors='replace') as fh:
+        lines = fh.read().split('\n')
+    head = re.compile(r"^(?:[a-z_][\w']*\s*,\s*)*" + re.escape(name)
+                      + r"(?:\s*,\s*[a-z_][\w']*)*\s*(::.*)?$")
+    for i, line in enumerate(lines):
+        m = head.match(line)
+        if not m:
+            continue
+        ty = [m.group(1) or '']
+        for nxt in lines[i + 1:]:
+            if not nxt[:1].isspace():
+                break
+            ty.append(nxt.strip())
+        ty = ' '.join(ty).strip()
+        if not ty.startswith('::'):
+            continue
+        # The result: what follows the last arrow outside brackets.
+        depth, cut = 0, 0
+        for k, ch in enumerate(ty):
+            depth += ch in '([{'
+            depth -= ch in ')]}'
+            if depth == 0 and ty.startswith(('->', '=>'), k):
+                cut = k + 2
+        return re.match(r"\s*\(?\s*(?:IO|ST)\b", ty[cut:].lstrip(':')) \
+            is not None
+    return False
+
+
 def verdict(cand, sigs, dumped_stems):
     if cand['local']:
         return 'UNVERIFIED (local definition; not in dump)'
@@ -379,6 +411,11 @@ def verdict(cand, sigs, dumped_stems):
     sig = entry[quals[0]]
     brackets = re.findall(r'<([^<>]*)>', sig)
     n = cand['argc']
+    # A result in IO or ST puts GHC's State# token last, after the
+    # arguments, where the mapping below read it as the last argument and
+    # every other argument one bracket late (bang-lazy-check-05).
+    if len(brackets) > n and returns_state(cand['file'], cand['name']):
+        brackets = brackets[:-1]
     if len(brackets) < n:
         return 'UNVERIFIED (signature arity %d < %d: %s)' % (
             len(brackets), n, sig)

@@ -273,6 +273,11 @@ PATH_EXT = ("hs", "ts", "mjs", "py", "cabal", "html", "md", "yaml", "yml",
             "json", "sh", "txt", "c", "h")
 
 TICK_RE = re.compile(r"`([^`\n]+)`")
+# A list item's marker and the spaces after it, its end the item's content
+# column; behind five spaces or more the content starts after one, the rest
+# opening code inside the item.
+LIST_ITEM_RE = re.compile(r" *(?:[-*+]|\d{1,9}[.)])(?: {1,4}(?! )| |$)")
+ATX_RE = re.compile(r" {0,3}#{1,6}(?:\s|$)")
 # Up to three spaces of indentation, as CommonMark has it: four make the
 # line indented code (check-doc-refs-08).
 
@@ -429,11 +434,13 @@ def command_text(text, flat):
     Both kinds of code block count. Reading fenced ones alone made this
     check almost vacuous where a document indents its blocks instead: of
     six `cabal test <suite>` lines in CLAUDE.md exactly one, written
-    inline in backticks, was ever examined. An indented block is taken to
-    be four or more spaces, which is markdown's rule; the cost is that a
-    deeply nested list item is read as a command too, and since only
-    `make`/`cabal`/`--flag` shapes are extracted from it, that is a
-    missing check at worst, never a false failure.
+    inline in backticks, was ever examined. An indented block is taken as
+    CommonMark takes one among paragraphs, headings and lists: four or more
+    columns past the content of the innermost list item open there, after
+    a blank line, a heading or more such code, never continuing a
+    paragraph. Taken at four columns from the margin, a list
+    item's continuation was read as commands, and a sentence on it saying
+    to cabal build something failed as a target (check-doc-refs-13).
 
     Backticked spans are read off FLAT, the document unwrapped, one line
     per paragraph, because TICK_RE cannot span a newline and a wrapped document
@@ -450,10 +457,35 @@ def command_text(text, flat):
     # shown inside a tilde block is content. One boolean flipped by any
     # fence line read it as the closer, and the phase stayed inverted for
     # the rest of the document (check-doc-refs-05).
+    # items: the content columns of the open list items, innermost last;
+    # para: the line before continues a paragraph; code: it is code.
+    items, para, code = [], False, False
     for line, kind, _ in common.fence_scan(text.splitlines()):
-        if kind == "in" or (kind is None and (line.startswith("    ")
-                                               or line.startswith("\t"))):
+        if kind == "in":
             parts.append(line)
+        if kind is not None:
+            para = code = False
+            continue
+        if not line.strip():
+            para = False
+            continue
+        flat_line = line.expandtabs(4)
+        ind = len(flat_line) - len(flat_line.lstrip(" "))
+        if ind >= (items[-1] if items else 0) + 4 and (code or not para):
+            parts.append(line)
+            code = True
+            continue
+        code = False
+        # A marker, a heading or a paragraph's first line closes the items
+        # it is not inside; a heading continues no paragraph.
+        m = LIST_ITEM_RE.match(flat_line)
+        heading = ATX_RE.match(flat_line)
+        if m or heading or not para:
+            while items and items[-1] > ind:
+                items.pop()
+        if m:
+            items.append(m.end())
+        para = not heading
     return "\n".join(parts)
 
 

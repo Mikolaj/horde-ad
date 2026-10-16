@@ -5376,6 +5376,116 @@
    "expect_text": "rescore",
    "bug_exit": 1,
    "bug_text": "IndexError"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "bench-baseline-07",
+   "program": "bench-baseline.py",
+   "name": "a benchmark that moved in time alone exited 1, though the docstring says time is reported alongside and gates nothing, the position effect alone moving a time slope up to 10%",
+   "family": "other:code-against-its-docstring",
+   "trigger": "a time slope doubled against the baseline, its allocation unchanged",
+   "ok": "the benchmark listed as [time ], exit 0",
+   "bug": "exit 1",
+   "plant_cmd": "cat > b.json <<'EOF'\n[null, null, [{\"reportName\": \"g/x\", \"reportAnalysis\": {\"anRegress\": [{\"regResponder\": \"time\", \"regCoeffs\": {\"iters\": {\"estPoint\": 0.002}}}, {\"regResponder\": \"allocated\", \"regCoeffs\": {\"iters\": {\"estPoint\": 4000000}}}]}}]]\nEOF\nprintf 'g/x\\t0.001\\t4000000\\n' > base.tsv",
+   "invoke": [
+    "--baseline",
+    "{tmp}/base.tsv",
+    "{tmp}/b.json"
+   ],
+   "expect_exit": 0,
+   "expect_text": "[time ] g/x",
+   "bug_exit": 1,
+   "bug_text": "[time ] g/x"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "check-doc-refs-13",
+   "program": "check-doc-refs.py",
+   "name": "a list item's continuation indented four spaces was read as an indented code block, so a sentence on it saying to cabal build nothing failed as a cabal target, though the docstring said such a line costs a missing check at worst and never a false failure",
+   "family": "scan-for-parse",
+   "trigger": "a list item's continuation four spaces in saying to cabal build nothing, and a nested list's outer paragraph four spaces in saying to cabal build bar",
+   "ok": "neither failed, and the indented line right after a heading still read: ok target cabal ok",
+   "bug": "FAIL target cabal nothing, exit 1",
+   "plant_cmd": "g() { git -c user.email=t@t -c user.name=t -c commit.gpgsign=false \"$@\"; } && git init -q . && printf 'name: x\\nversion: 0\\n\\ntest-suite ok\\n  type: exitcode-stdio-1.0\\n  main-is: T.hs\\n' > x.cabal && printf '%s\\n' '# T' '' '- An item whose text runs on to a line' '    that says to cabal build nothing here.' '  - a nested item' '' '  more of the outer item' '' '    prose saying to cabal build bar here.' '' '## Run' '    cabal test ok' > d.md && git add -A && g commit -qm c",
+   "invoke": [
+    "d.md",
+    "--without-siblings"
+   ],
+   "expect_exit": 0,
+   "expect_text": "ok   target cabal ok",
+   "expect_absent": "FAIL target cabal",
+   "bug_exit": 1,
+   "bug_text": "FAIL target cabal nothing"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "check-plan-citations-13",
+   "program": "check-plan-citations.py",
+   "name": "a stamp wrapped between verified and against was not found, STAMP_RE wanting one space there, so an orphaned stamp passed",
+   "family": "scan-for-parse",
+   "trigger": "Citations were verified, a line break, against the tree at commit `<c1>`, c1 amended away",
+   "ok": "FAIL stamp ORPHANED, exit 1",
+   "bug": "no stamp read, exit 0",
+   "plant_cmd": "g() { git -c user.email=t@t -c user.name=t -c commit.gpgsign=false \"$@\"; } && git init -q . && printf 'x\\n' > a.hs && git add a.hs && g commit -qm one && c1=$(git rev-parse --short=9 HEAD) && g commit -q --amend -m two && printf 'Citations were verified\\nagainst the tree at commit `%s` (2026-01-01).\\n\\n`a.hs:1` cited.\\n' \"$c1\" > d.md",
+   "invoke": [
+    "d.md"
+   ],
+   "expect_exit": 1,
+   "expect_text": "ORPHANED",
+   "bug_exit": 0,
+   "bug_absent": "ORPHANED"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "bang-lazy-check-05",
+   "program": "bang-lazy-check.py",
+   "name": "a function returning in IO had its arguments mapped onto the last demand brackets, the last of which is GHC's State# token, so each argument read the demand of the one after it",
+   "family": "scan-for-parse",
+   "trigger": "f :: IORef Int -> Int -> Int -> IO () banged at y on one equation of two, its demand signature <L><1L><SL><L>",
+   "ok": "CLEARED, y's demand <SL>",
+   "bug": "CONFIRMED, the State# token's demand <L>",
+   "notes": "Watched 2026-10-16 on GHC 9.12.4: such an f dumps as M.f: <1!P(L)><1!P(1L)><ML><L>, four brackets for three arguments. The case's dump is written by hand in that format.",
+   "plant_cmd": "mkdir S && printf 'module M (f) where\\n\\nimport Data.IORef\\n\\nf :: IORef Int -> Int -> Int -> IO ()\\nf r 0 !y = writeIORef r y\\nf r x y = writeIORef r (x + 1)\\n' > S/M.hs && printf '\\n==================== Demand signatures ====================\\n\\nM.f: <L><1L><SL><L>\\n' > M.dump-dmd-signatures",
+   "invoke": [
+    "{tmp}/S",
+    "--dumps",
+    "{tmp}/*.dump-dmd-signatures"
+   ],
+   "expect_text": "CLEARED: strict per GHC, arg demand <SL>",
+   "bug_text": "CONFIRMED: lazy per GHC, arg demand <L>"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "check-fresh-draws-01",
+   "program": "check-fresh-draws.py",
+   "name": "unsafeIOToST, unsafeInterleaveST and unsafeDupableInterleaveST were not among the forbidden primitives, though runST over the first is unsafePerformIO without its noDuplicate",
+   "family": "vacuous-check",
+   "trigger": "f = runST (unsafeIOToST (pure 1))",
+   "ok": "unsafeIOToST reported, exit 1",
+   "bug": "nothing reported, exit 0",
+   "plant_cmd": "git init -q . && printf 'module M where\\nimport Control.Monad.ST\\nimport Control.Monad.ST.Unsafe\\nf :: Int\\nf = runST (unsafeIOToST (pure 1))\\n' > M.hs",
+   "invoke": [
+    "M.hs"
+   ],
+   "expect_exit": 1,
+   "expect_text": "unsafeIOToST",
+   "bug_exit": 0,
+   "bug_absent": "unsafeIOToST"
   }
  ]
 }

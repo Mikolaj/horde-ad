@@ -60,7 +60,7 @@ reported alongside but gates nothing: the position effect alone moves a
 time slope up to 10% without the program changing at all
 (docs/position-effect.md), which is why --time-tol defaults there.
 
-Exit 1 means figures moved, not that anything regressed -- an improvement
+Exit 1 means allocation moved, not that anything regressed -- an improvement
 trips it just as a regression does, and the direction is in the output. Exit
 2 is a usage, input or coverage error: a flag or file that cannot be read, a
 collection that is not criterion's or does not partition the suite, or a
@@ -260,12 +260,18 @@ def main(argv):
         print(f"  [{flag}] {name}")
         print(f"          time  {fmt_t(bt)} -> {fmt_t(nt)}  ({dt*100:+.1f}%)"
               f"   alloc {ba/1e6:.2f}MB -> {na/1e6:.2f}MB  ({da*100:+.1f}%)")
-    if moved:
-        n_alloc = sum(1 for m in moved if abs(m[6]) > alloc_tol)
+    n_alloc = sum(1 for m in moved if abs(m[6]) > alloc_tol)
+    if n_alloc:
         print(f"  {len(moved)} moved, {n_alloc} of them in allocation"
               f" -- real movement, not noise; explain it before recording it")
         return 1
-    print("  nothing moved beyond tolerance  PASS")
+    # Time gates nothing, as the docstring says, where a time-only move
+    # exited 1 (bench-baseline-07).
+    if moved:
+        print(f"  {len(moved)} moved in time alone, which gates nothing;"
+              f" allocation within tolerance  PASS")
+    else:
+        print("  nothing moved beyond tolerance  PASS")
     return 0
 
 

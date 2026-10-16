@@ -295,7 +295,9 @@ URL_RE = re.compile(
 # one -- and which break lands where moves whenever a paragraph above is
 # edited, so this is not a shape any document can be kept in.
 STAMP_RE = re.compile(
-    r"(verified against[^`*]{0,120}?commit[\s>]*(?:`|\*\*))"
+    # A line break, or a blockquote's >, may fall between the words: one
+    # space alone left a stamp so wrapped unread (check-plan-citations-13).
+    r"(verified[\s>]+against[^`*]{0,120}?commit[\s>]*(?:`|\*\*))"
     r"([0-9a-f]{7,40})"
     r"((?:`|\*\*)[\s>]*\()(\d{4}-\d{2}-\d{2})(\))")
 
