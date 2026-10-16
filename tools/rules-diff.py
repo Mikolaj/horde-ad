@@ -40,9 +40,10 @@ other to compare with (docs/perf-checklist.md, F1 and F2).
 Only the "Grand total simplifier statistics" block of each dump is read, not
 the FloatOut statistics before it; within it, a section header is a count and
 a tick kind at column 0 and an entry is an indented count and a name, which
-may hold spaces (`Class op ==`). Same-named entries are summed, a name
-standing for every binding that prints alike. Modules are keyed as
-tools/dumps.py says.
+may hold spaces (`Class op ==`), or, in a group of one entry, which GHC sets
+on one line, the count and name after the kind. Same-named entries are
+summed, a name standing for every binding that prints alike. Modules are
+keyed as tools/dumps.py says.
 
 Exit 0 when the comparison was printed, 2 when it could not be: a tree with
 no `.dump-simpl-stats` file, or one without the grand total, so that a build
@@ -60,7 +61,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import dumps  # noqa: E402
 
 GRAND = 'Grand total simplifier statistics'
-HEADER = re.compile(r'^(\d+) (\S.*?)\s*$')
+# A count and a tick kind, every kind one word; and, where GHC sets a group
+# of one entry on its header's line, that entry's count and name.
+HEADER = re.compile(r'^(\d+) (\S+)(?: (\d+) (\S.*?))?\s*$')
 ENTRY = re.compile(r'^\s+(\d+) (\S.*?)\s*$')
 FUSION_NAMES = {'fold/build', 'foldr/augment', 'augment/build',
                 'augment/augment', 'foldr2/left', 'foldr2/right'}
@@ -87,6 +90,9 @@ def ticks(txt):
         m = HEADER.match(line)
         if m:
             kind = m.group(2)
+            # Read as the kind, the entry was lost (rules-diff-01).
+            if m.group(3):
+                out[kind][m.group(4)] += int(m.group(3))
             continue
         m = ENTRY.match(line)
         if m and kind is not None:

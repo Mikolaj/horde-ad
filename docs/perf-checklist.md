@@ -999,4 +999,4 @@ it printed, its candidates being for the reader.
   and rewrites the constraints to it (A2).
 - `tools/hpc-untaken.py` lists the functions and expressions a run of an `-fhpc`
   build never entered, from its `hpc draft`, error calls and type-only
-  placeholders left out (M).
+  placeholders left out where the draft quotes them (M).

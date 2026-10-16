@@ -27,7 +27,10 @@ library's function from the client's own. Two lists are printed:
 
 A `$f` name is a dictionary unless the tree's dump of the module
 qualifying it gives it a type not headed by its class: GHC names a binding
-it floats out of a dictionary after it, `$fStorableE5 :: Int`. A name
+it floats out of a dictionary after it, `$fStorableE5 :: Int`. A class
+whose name begins with a listed one's, as horde-ad's `EqH` or ox-arrays'
+`NumElt`, counts as one of them, and a specialised dictionary,
+`$fEqList_$s$fEqList1`, as one dictionary. A name
 of a module outside the tree, base's say, or qualified by an import's
 alias, is taken for a dictionary. A `$d` argument of an unboxed type,
 a worker's field of a dictionary, is not one.
@@ -51,8 +54,8 @@ positive before trusting its silence anywhere: a module built
 `-fno-specialise` must be flagged.
 
 Exit 0 when nothing was found, 1 when something was, 2 when the audit did
-not happen: no `.dump-simpl` file under DUMPS, or a SUBSTRING no module's
-path contains.
+not happen: no `.dump-simpl` file under DUMPS, a SUBSTRING no module's
+path contains, or an `--ignore` that is no regex.
 """
 
 import bisect
@@ -66,7 +69,9 @@ import dumps  # noqa: E402
 
 CLASSES = ('Vector|MVector|Unbox|Storable|Prim|Num|Fractional|Floating|'
            'RealFrac|RealFloat|Real|Integral|Eq|Ord|Enum|Bits|NFData|IsList')
-DICT = re.compile(r'\$f(' + CLASSES + r')[A-Z][A-Za-z0-9_]*')
+# A whole name, behind its qualifiers, to an instance method's $c: without
+# the boundary and the $, $fEqList_$s$fEqList1 read as two (spec-audit-09).
+DICT = re.compile(r"(?<![\w$'])\$f(" + CLASSES + r")[A-Z](?:(?!\$c)[\w$'])*")
 OPS = r"[!#$%&*+./<=>?\\^|~:-]+"
 # A class's data constructor, an operator's instance method, an identifier
 # with its trailing #s, or an operator, each behind its qualifiers.
@@ -219,7 +224,12 @@ def audit(txt, ignore, resolve=lambda module: None):
             module = qual.split(':')[-1]
             if ty is None and qual:
                 ty = (resolve(module[:-1]) or {}).get(module + m.group(0))
-            if ty is not None and type_head(ty) != m.group(1):
+            # Its class is its type's head, which may extend the listed one,
+            # NumScalar Num's (spec-audit-08), and which its name begins
+            # with; a floated binding's type is headed otherwise.
+            head = type_head(ty) or '' if ty is not None else None
+            if head is not None and not (head.startswith(m.group(1))
+                                         and m.group(0)[2:].startswith(head)):
                 continue
             c = callee(lines, i, m.start())
             if c is None:
@@ -292,10 +302,11 @@ def self_test():
     polymorphic at run time; then a dictionary of its own and one of the
     library's, bindings floated out of dictionaries, here and in the library,
     two instance methods and a name ending in # as callees, two constructors,
-    an unboxed `$d` binder and binders running onto further lines; a library
-    dump with its own original; a component whose floated binding shares its
-    name with another component's dictionary; and a client dump with nothing to
-    find."""
+    an unboxed `$d` binder and binders running onto further lines, a
+    dictionary of a class extending a listed one's and a specialised
+    dictionary; a library dump with its own original; a component whose
+    floated binding shares its name with another component's dictionary; and
+    a client dump with nothing to find."""
     import tempfile
     head = ('\n==================== Tidy Core ====================\n'
             'Result size of Tidy Core\n  = {terms: 9, types: 1}\n\n')
@@ -345,7 +356,11 @@ def self_test():
         'Lib.rotate $dKnownNat\n\n'
         'multi\n  = \\ (@a)\n      (f :: (a -> a) -> a)\n'
         '      ($dEq :: Eq a)\n      (y :: a) ->\n      f y\n\n'
-        'srt = Lib.sort Lib.$fOrdT xs\n')
+        'srt = Lib.sort Lib.$fOrdT xs\n\n'
+        'Client.$fNumScalarDouble :: NumScalar Double\n'
+        'Client.$fNumScalarDouble = Client.mk\n\n'
+        'num = \\ (x :: Double) -> Lib.go @Double Client.$fNumScalarDouble x\n\n'
+        'spc = Lib.sort GHC.Classes.$fEqList_$s$fEqList1 xs\n')
     lib = head + ('Lib.h = \\ (@v) ($dUnbox :: Unbox v) -> '
                   'Lib.g @v $dUnbox\n\n'
                   'Lib.$fNumT3\n  :: Int\nLib.$fNumT3 = GHC.Types.I# 3#\n\n'
@@ -383,6 +398,7 @@ def self_test():
                 'line 55',
                 '  src/Client  Lib.$windex  $fStorableDouble: 1, line 37',
                 '  src/Client  Lib.$wscalar  $fUnboxDouble: 1, line 6',
+                '  src/Client  Lib.go  $fNumScalarDouble: 1, line 81',
                 '  src/Client  Lib.k  $fOrdDouble: 1, line 14',
                 '  src/Client  Lib.peek  $fStorableE: 1, line 49',
                 '  src/Client  Lib.sort  $fOrdT: 1, line 76',
@@ -391,7 +407,7 @@ def self_test():
                 '  src/Client  fam  irred :: VecElem v Double: 1, line 24',
                 '  src/Client  multi  $dEq :: Eq a: 1, line 70',
                 '  src/Client  poly  $dNum :: Num a: 1, line 22']
-        if got != want or found != 12 or read != 1:
+        if got != want or found != 13 or read != 1:
             bad.append(f'client report ({found} found, {read} read):\n  '
                        + '\n  '.join(got))
         got, found, _ = report(os.path.join(td, 'C'), 'Comp', [])
@@ -401,6 +417,10 @@ def self_test():
         got, _, _ = report(A, 'Client', [])
         if not any('GHC.Classes.==  $fEqList_' in x for x in got):
             bad.append('the shape comparison not reported without --ignore')
+        if [x for x in got if 'Lib.sort  $fEqList' in x] != [
+                '  src/Client  Lib.sort  $fEqList_$s$fEqList1: 1, line 83']:
+            bad.append('the specialised dictionary not reported as one:\n  '
+                       + '\n  '.join(got))
         got, _, _ = report(A, None, ['List'])
         if not any('src/Lib  Lib.h  $dUnbox' in x for x in got):
             bad.append("the library's own original not reported without "
@@ -437,6 +457,13 @@ def main(argv):
     if len(rest) != 1 or rest[0].startswith('--'):
         print(__doc__.split('\n\n')[1], file=sys.stderr)
         return 2
+    # An --ignore that is no regex was a traceback and exit 1 (spec-audit-10).
+    for r in ignore:
+        try:
+            re.compile(r)
+        except re.error as e:
+            print(f'--ignore {r!r} is no regex: {e}', file=sys.stderr)
+            return 2
     lines, found, read = report(rest[0], sub, ignore)
     if not dumps.walk(rest[0], '.dump-simpl'):
         print(f'no .dump-simpl file under {rest[0]}; was it built with '

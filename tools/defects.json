@@ -4833,6 +4833,146 @@
    "expect_text": "M.hs\tf\tMOVED User 1->2",
    "bug_exit": 0,
    "bug_text": "M.hs\tf\tDEAD"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "rules-diff-01",
+   "program": "rules-diff.py",
+   "name": "a tick group of one entry, which GHC prints on one line, 1 RuleFired 1 foo/id, was read as a header whose kind is RuleFired 1 foo/id, so its only entry was lost",
+   "family": "scan-for-parse",
+   "trigger": "build A firing fold/build alone, 3 RuleFired 3 fold/build on one line; build B firing it 3 times and map once",
+   "ok": "fusion rules fired 3 -> 3",
+   "bug": "fusion rules fired 0 -> 3",
+   "notes": "GHC's pprTickGroup lays a group out with hang, which sets it on one line where it fits: GHC.Core.Opt.Stats in the ghc/ source tree.",
+   "plant_cmd": "mkdir -p A/build/src B/build/src && printf '==================== Grand total simplifier statistics ====================\\nTotal ticks:     4\\n\\n3 RuleFired 3 fold/build\\n\\n' > A/build/src/M.dump-simpl-stats && printf '==================== Grand total simplifier statistics ====================\\nTotal ticks:     4\\n\\n4 RuleFired\\n  3 fold/build\\n  1 map\\n\\n' > B/build/src/M.dump-simpl-stats",
+   "invoke": [
+    "{tmp}/A",
+    "{tmp}/B"
+   ],
+   "expect_exit": 0,
+   "expect_text": "fusion rules fired 3 -> 3",
+   "bug_exit": 0,
+   "bug_text": "fusion rules fired 0 -> 3"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "hpc-untaken-01",
+   "program": "hpc-untaken.py",
+   "name": "an untaken expression spanning lines, which hpc draft prints by its position alone, was dropped, no pattern matching tick at position",
+   "family": "scan-for-parse",
+   "trigger": "tick at position 5:14-6:16; inside f, the draft's only tick",
+   "ok": "the expression listed at line 5 under f, exit 1",
+   "bug": "nothing listed, exit 0",
+   "notes": "hpc's Trace.Hpc.Draft prints an expression whose text holds a newline as at position and its HpcPos, in the ghc/ source tree's utils/hpc.",
+   "plant_cmd": "printf 'module \"pkg-0.1-inplace:A\" {\\n  inside \"f\" {\\n    tick at position 5:14-6:16;\\n  }\\n}\\n' > d.draft",
+   "invoke": [
+    "{tmp}/d.draft"
+   ],
+   "expect_exit": 1,
+   "expect_text": [
+    "== A",
+    "at position 5:14-6:16"
+   ],
+   "bug_exit": 0,
+   "bug_absent": "5:14"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "hpc-untaken-02",
+   "program": "hpc-untaken.py",
+   "name": "a module of the main unit, which hpc draft names with no package, module \"Main\", was not read as a module, the pattern wanting a pkg: prefix",
+   "family": "scan-for-parse",
+   "trigger": "a draft holding module \"Main\" { tick function \"g\" on line 3; }",
+   "ok": "== Main and g:3 listed, exit 1",
+   "bug": "no module in the draft, exit 2",
+   "notes": "hpc's fixPackageSuffix turns pkg/Module into pkg:Module and leaves a name without a slash as it is.",
+   "plant_cmd": "printf 'module \"Main\" {\\n  tick function \"g\" on line 3;\\n}\\n' > d.draft",
+   "invoke": [
+    "{tmp}/d.draft"
+   ],
+   "expect_exit": 1,
+   "expect_text": [
+    "== Main",
+    "unused functions: g:3"
+   ],
+   "bug_exit": 2,
+   "bug_text": "no module in"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "review",
+   "id": "spec-audit-08",
+   "program": "spec-audit.py",
+   "name": "a dictionary of a class whose name begins with a listed class's, NumScalar for Num, was read as the shorter class, failed the check of its type's head and was passed over in silence when its module is in the tree, though reported when it is not",
+   "family": "two-spellings",
+   "trigger": "M.$fNumScalarDouble :: NumScalar Double handed to Lib.go, its module in the tree",
+   "ok": "Lib.go $fNumScalarDouble reported, exit 1",
+   "bug": "nothing reported, exit 0",
+   "notes": "horde-ad has EqH, OrdH, IntegralH and RealFloatH, ox-arrays NumElt, by the reviewer's reading.",
+   "plant_cmd": "mkdir -p A/build/src && cat > A/build/src/M.dump-simpl <<'EOF'\nM.$fNumScalarDouble :: NumScalar Double\nM.$fNumScalarDouble = M.mk\n\nuse = \\ (x :: Double) -> Lib.go @Double M.$fNumScalarDouble x\nEOF",
+   "invoke": [
+    "{tmp}/A"
+   ],
+   "expect_exit": 1,
+   "expect_text": "Lib.go  $fNumScalarDouble: 1",
+   "bug_exit": 0,
+   "bug_absent": "$fNumScalarDouble"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "review",
+   "id": "spec-audit-09",
+   "program": "spec-audit.py",
+   "name": "a specialised dictionary, $fEqList_$s$fEqList1, was reported as two dictionaries, the pattern having no left boundary and stopping at the $",
+   "family": "scan-for-parse",
+   "trigger": "Lib.sort GHC.Classes.$fEqList_$s$fEqList1 xs",
+   "ok": "one dictionary, $fEqList_$s$fEqList1, reported",
+   "bug": "$fEqList_ and $fEqList1 reported apart",
+   "notes": "Seen 2026-10-16 in orthotope's micro-regime3 stage10 dumps, every such pair of rows merging into one under the fix.",
+   "plant_cmd": "mkdir -p A/build/src && printf 'srt = Lib.sort GHC.Classes.$fEqList_$s$fEqList1 xs\\n' > A/build/src/M.dump-simpl",
+   "invoke": [
+    "{tmp}/A"
+   ],
+   "expect_exit": 1,
+   "expect_text": "Lib.sort  $fEqList_$s$fEqList1: 1",
+   "bug_exit": 1,
+   "bug_text": "$fEqList1: 1"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "spec-audit-10",
+   "program": "spec-audit.py",
+   "name": "an --ignore REGEX that is no regex crashed the audit with a traceback and exit 1, the status of a run with findings",
+   "family": "error-as-value",
+   "trigger": "--ignore '('",
+   "ok": "exit 2, the message naming --ignore",
+   "bug": "re.error, exit 1",
+   "plant_cmd": "mkdir -p A/build/src && cat > A/build/src/M.dump-simpl <<'EOF'\nM.$fNumScalarDouble :: NumScalar Double\nM.$fNumScalarDouble = M.mk\n\nuse = \\ (x :: Double) -> Lib.go @Double M.$fNumScalarDouble x\nEOF",
+   "invoke": [
+    "{tmp}/A",
+    "--ignore",
+    "("
+   ],
+   "expect_exit": 2,
+   "expect_text": "--ignore",
+   "bug_exit": 1,
+   "bug_text": "re.error"
   }
  ]
 }

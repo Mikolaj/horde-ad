@@ -11,7 +11,9 @@ bindings it sits in, leaving out an error call (`error`,
 `errorWithoutStackTrace`, `throw`), a type-only placeholder
 `(undefined :: T)` or `(Proxy :: T)`, `coerce` and each `--trivial` NAME,
 such as a newtype's field, none of which marks a path a benchmark should
-take. With `--src DIR`, the directory the module names are paths under,
+take. An expression spanning lines, which the draft gives by its position
+and not its text, is listed by its position and none of these is left out
+of it. With `--src DIR`, the directory the module names are paths under,
 each expression comes with its source line. Read the draft of every run
 of a benchmark combined (`hpc combine`) to see which paths of an operation
 it never measures.
@@ -33,7 +35,8 @@ def untaken(text, trivial=()):
     out, mod, inside = {}, None, []
     for raw in text.split('\n'):
         s = raw.strip()
-        m = re.match(r'module "[^:"]*:(\S+)" \{$', s)
+        # A module of the main unit has no package (hpc-untaken-02).
+        m = re.match(r'module "(?:[^:"]*:)?([^"\s]+)" \{$', s)
         if m:
             mod, inside = m.group(1), []
             out[mod] = ([], [])
@@ -57,6 +60,13 @@ def untaken(text, trivial=()):
             if ERR.match(e) or TRIV.fullmatch(e) or e in trivial:
                 continue
             out[mod][1].append((int(m.group(2)), '/'.join(inside), e))
+            continue
+        # An expression spanning lines, which the draft prints by its
+        # position alone, was dropped (hpc-untaken-01).
+        m = re.match(r'tick at position ((\d+):\d+-\d+:\d+);$', s)
+        if m and mod:
+            out[mod][1].append((int(m.group(2)), '/'.join(inside),
+                                'at position ' + m.group(1)))
     return out
 
 
