@@ -51,7 +51,8 @@ change:
 Add `-ddump-dmd-signatures` for L1. Build it alone where C1 will read
 its timings, and in horde-ad never beside another build of the test suites
 or benchmarks. Dump flags change no code; `-g1`, `-ticky`, `-fspec-constr`
-and the rest do, and are asked for one at a time.
+and the rest do, and are asked for one at a time, `-ticky` excepted (Mikolaj's
+ruling of 2026-10-16).
 
 ## M. Before any reading
 
@@ -172,7 +173,11 @@ throughout, its own flags reaching no user's build.
   to 1.5% between builds under unrelated edits. It is screened first,
   but a change in evaluation rather than allocation is priced in instructions:
   removing `-fworker-wrapper-cbv` left every allocation figure but one unchanged
-  and cost up to 3.8% in instructions.
+  and cost up to 3.8% in instructions. Exact counts are the exception (Mikolaj's
+  ruling of 2026-10-16): the margins bind time and readings that drift between
+  builds, while an exact count of one build, of instructions or of allocation
+  at a row, decides at any size once its move is explained, in Core or
+  in the machine code.
 - **A call's result forced and consumed** (Mikolaj's ruling of 2026-10-15):
   where a benchmark reads a call both with its result forced to normal form
   and with it consumed as a client would, as orthotope's specialisation
@@ -199,17 +204,20 @@ throughout, its own flags reaching no user's build.
   of the Core.
 - **Removing a pragma:** not one that is dead only at today's thresholds,
   an `INLINE` on a function GHC inlines anyway or a `NOINLINE` on one it would
-  not inline, since the thresholds can change. Remove such a pragma only when
-  removing it changes the optimised Core and measurements show that what it did
-  buys nothing, on the GHCs that count, weighed as above: without an `INLINE`
-  that did nothing measurable on GHC 9.14.1, some benchmarks allocated up to 43%
-  more on HEAD. Measure the removal at the benchmarks' smallest sizes too, empty
-  included, where a cost paid once a call is not lost among those paid per
-  element. The census is a fixed point over the pragmas and their notes: run
-  it on the tree being changed, after every change to the pragmas kept or their
-  notes, and before measuring; an `INLINE` the rule requires, on a forwarder,
-  a thin wrapper or on a binding F1's recipe or A3 confirms, is not released
-  on a measurement.
+  not inline, since the thresholds can change; this binds only where the pragma
+  could matter once a threshold, such as the one for exposing unfoldings,
+  is lowered (Mikolaj's ruling of 2026-10-16), which the `INLINABLE`s taken off
+  orthotope's `unravel` wrappers, `HasCallStack` alone in their contexts, could
+  not. Remove such a pragma only when removing it changes the optimised Core
+  and measurements show that what it did buys nothing, on the GHCs that count,
+  weighed as above: without an `INLINE` that did nothing measurable on GHC
+  9.14.1, some benchmarks allocated up to 43% more on HEAD. Measure the removal
+  at the benchmarks' smallest sizes too, empty included, where a cost paid once
+  a call is not lost among those paid per element. The census is a fixed point
+  over the pragmas and their notes: run it on the tree being changed, after
+  every change to the pragmas kept or their notes, and before measuring;
+  an `INLINE` the rule requires, on a forwarder, a thin wrapper or on a binding
+  F1's recipe or A3 confirms, is not released on a measurement.
 - **Measuring compile time:** each build alone, in a fresh `--builddir`,
   on an otherwise idle machine, without `jobs` or `semaphore`
   in `cabal.project.local`, which skew build times; read the two per module
@@ -453,7 +461,7 @@ is the same question asked of NOINLINE.
 - `python3 $T/rules-diff.py dist-dump-A dist-dump-B` shows any fusion lost.
 - `ab-time.py` and `perf-per-call.py` time the benchmark.
 - `python3 $T/ticky-diff.py A.txt B.txt` names a closure that appeared; it needs
-  `-ticky`, so ask.
+  a `-ticky` build.
 
 For a group of pragmas removed at once,
 `python3 $T/pragma-calls.py DUMPS_A DUMPS_B WORKTREE_B` sorts them into DEAD
@@ -669,7 +677,7 @@ or that carries boxed state. **Seen:**
 - `python3 $T/ticky-diff.py A.txt` lists one run's closures by allocation,
   and `python3 $T/ticky-diff.py A.txt B.txt` those whose allocation moved
   between two builds, from `+RTS -rFILE` runs at the same `--iters` of builds
-  made with `-ticky` (ask).
+  made with `-ticky`.
 - `core-diff.py --module` names a `$wgo` or `go` that appeared.
 - In the dump, `letrec` where `joinrec` was meant, and `I#` or `D#` built
   in a loop's jumps.
