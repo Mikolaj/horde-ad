@@ -514,7 +514,9 @@ def main():
     # checker here does: this one's self-test names no root-relative path,
     # but two siblings' did and reported wrongly from a subdirectory.
     args = [a for a in sys.argv[1:] if a != "--self-test"]
-    docs = common.chdir_root(args)
+    # A document no repository holds is judged too, passing at either fixed
+    # point, so a run outside one is no refusal.
+    docs = common.chdir_root(args, outside=True)
     if sys.argv[1:] == ["--self-test"]:
         return self_test()
     docs = docs or tracked_markdown()

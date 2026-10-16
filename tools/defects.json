@@ -5123,6 +5123,259 @@
     "one-shot Main.hi: ONESHOT"
    ],
    "bug_text": "build Main.hi: ONESHOT"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "check-plan-citations-11",
+   "program": "check-plan-citations.py",
+   "name": "a document that is not UTF-8 crashed the check with a traceback and exit 1, the status of a run that found something",
+   "family": "error-as-value",
+   "trigger": "a document holding the byte 351",
+   "ok": "exit 2, the document named as not UTF-8",
+   "bug": "UnicodeDecodeError, exit 1",
+   "plant_cmd": "mkdir repo && cd repo && git init -q . && printf '# Title\\n\\nCaf\\351 prose.\\n' > bad.md",
+   "invoke": [
+    "{tmp}/repo/bad.md"
+   ],
+   "expect_exit": 2,
+   "expect_text": "not UTF-8",
+   "bug_exit": 1,
+   "bug_text": "UnicodeDecodeError",
+   "env": {
+    "GIT_DIR": "{tmp}/repo/.git",
+    "GIT_WORK_TREE": "{tmp}/repo"
+   }
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "check-doc-refs-11",
+   "program": "check-doc-refs.py",
+   "name": "a document that is not UTF-8 crashed the check with a traceback and exit 1, the status of a run that found something",
+   "family": "error-as-value",
+   "trigger": "a document holding the byte 351",
+   "ok": "exit 2, the document named as not UTF-8",
+   "bug": "UnicodeDecodeError, exit 1",
+   "plant_cmd": "mkdir repo && cd repo && git init -q . && printf '# Title\\n\\nCaf\\351 prose.\\n' > bad.md",
+   "invoke": [
+    "{tmp}/repo/bad.md",
+    "--without-siblings"
+   ],
+   "expect_exit": 2,
+   "expect_text": "not UTF-8",
+   "bug_exit": 1,
+   "bug_text": "UnicodeDecodeError",
+   "env": {
+    "GIT_DIR": "{tmp}/repo/.git",
+    "GIT_WORK_TREE": "{tmp}/repo"
+   }
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "check-doc-examples-08",
+   "program": "check-doc-examples.py",
+   "name": "a document that is not UTF-8 crashed the check with a traceback and exit 1, the status of a run that found something",
+   "family": "error-as-value",
+   "trigger": "a document holding the byte 351, in a repository tracking a .hs file",
+   "ok": "exit 2, the document named as not UTF-8",
+   "bug": "UnicodeDecodeError, exit 1",
+   "plant_cmd": "mkdir repo && cd repo && git init -q . && printf '# Title\\n\\nCaf\\351 prose.\\n' > bad.md && printf 'module A where\\n' > A.hs && git add A.hs",
+   "invoke": [
+    "{tmp}/repo/bad.md"
+   ],
+   "expect_exit": 2,
+   "expect_text": "not UTF-8",
+   "bug_exit": 1,
+   "bug_text": "UnicodeDecodeError",
+   "env": {
+    "GIT_DIR": "{tmp}/repo/.git",
+    "GIT_WORK_TREE": "{tmp}/repo"
+   }
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "heading-outline-06",
+   "program": "heading-outline.py",
+   "name": "a document that is not UTF-8 crashed the outline with a traceback and exit 1, where 2 is promised for a run that did not happen",
+   "family": "error-as-value",
+   "trigger": "a document holding the byte 351",
+   "ok": "exit 2, the document named as not UTF-8",
+   "bug": "UnicodeDecodeError, exit 1",
+   "plant_cmd": "mkdir repo && cd repo && git init -q . && printf '# Title\\n\\nCaf\\351 prose.\\n' > bad.md",
+   "invoke": [
+    "{tmp}/repo/bad.md"
+   ],
+   "expect_exit": 2,
+   "expect_text": "not UTF-8",
+   "bug_exit": 1,
+   "bug_text": "UnicodeDecodeError",
+   "env": {
+    "GIT_DIR": "{tmp}/repo/.git",
+    "GIT_WORK_TREE": "{tmp}/repo"
+   }
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "check-plan-citations-12",
+   "program": "check-plan-citations.py",
+   "name": "run outside any repository, common.chdir_root moved nothing and each citation of a repository file failed as unresolved",
+   "family": "environment-decides",
+   "trigger": "a document citing tools/common.py:1, checked in a directory no repository holds",
+   "ok": "exit 2, the run said not to have happened",
+   "bug": "the citation failed as unresolved, exit 1",
+   "plant_cmd": "printf '# T\\n\\nSee `tools/common.py:1`.\\n' > d.md",
+   "invoke": [
+    "{tmp}/d.md"
+   ],
+   "expect_exit": 2,
+   "expect_text": "not inside a git repository",
+   "bug_exit": 1,
+   "bug_text": "UNRESOLVED"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "check-doc-refs-12",
+   "program": "check-doc-refs.py",
+   "name": "run outside any repository with --without-siblings, common.chdir_root moved nothing, so no backticked path resolved, each listed as unverified, and the run exited 0",
+   "family": "environment-decides",
+   "trigger": "a document naming tools/common.py, checked with --without-siblings in a directory no repository holds",
+   "ok": "exit 2, the run said not to have happened",
+   "bug": "0 failed, exit 0",
+   "plant_cmd": "printf '# T\\n\\nSee `tools/common.py` and `CLAUDE.md:1`.\\n' > d.md",
+   "invoke": [
+    "{tmp}/d.md",
+    "--without-siblings"
+   ],
+   "expect_exit": 2,
+   "expect_text": "not inside a git repository",
+   "bug_exit": 0,
+   "bug_text": "0 failed"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "fills-missing-input-exits-2",
+   "program": "probe-nospill-fills.py",
+   "name": "a CMMDUMP or ASM that is not there crashed the probe with a traceback and exit 1, though it promises 2 for an input it cannot read",
+   "family": "error-as-value",
+   "trigger": "CMMDUMP naming no file",
+   "ok": "exit 2, the file named",
+   "bug": "FileNotFoundError, exit 1",
+   "invoke": [
+    "{tmp}/nothing.dump-cmm",
+    "{tmp}/nothing.s",
+    "fbA"
+   ],
+   "expect_exit": 2,
+   "expect_text": "nothing.dump-cmm",
+   "bug_exit": 1,
+   "bug_text": "FileNotFoundError"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "fills-counts-an-ncg-store",
+   "program": "probe-nospill-fills.py",
+   "name": "a store of a double printed as the native backend prints it, movsd %xmm0,(%rsi), with no space after the comma, was not counted, while a register-to-register movsd was",
+   "family": "scan-for-parse",
+   "trigger": "a self-loop holding two NCG-spelt stores and one movsd %xmm1, %xmm0",
+   "ok": "2 double store(s)",
+   "bug": "1 double store(s)",
+   "plant_cmd": "cat > f.dump-cmm <<'EOF_D'\n$wfbB_QbB_entry() { //  [R1]\n     QB0: // global\n     QB1: // global\n     QB2: // global\n}\nEOF_D\ncat > f.s <<'EOF_S'\nQB_info$def:\n\tmovq\t%rdi, %rax\n_blk_QB1$def:\n\tmovsd\t%xmm0,(%rsi)\n\tmovsd\t%xmm1, %xmm0\n\tmovsd\t%xmm0,8(%rsi)\n\tdecq\t%rcx\n\tjne\t_blk_QB1$def\n_blk_QB2$def:\n\tret\nEOF_S",
+   "invoke": [
+    "{tmp}/f.dump-cmm",
+    "{tmp}/f.s",
+    "fbB"
+   ],
+   "expect_exit": 0,
+   "expect_text": "2 double store(s)",
+   "bug_exit": 0,
+   "bug_text": "1 double store(s)"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "fills-reads-jmpq-as-a-jump",
+   "program": "probe-nospill-fills.py",
+   "name": "a block ending in jmpq, which LLVM emits for an indirect jump, was taken to fall through, so a block jumping back to it closed a loop that never runs",
+   "family": "scan-for-parse",
+   "trigger": "_blk_QB1 ending in jmpq *%rcx, and _blk_QB2 after it ending in jmp _blk_QB1",
+   "ok": "no loop listed",
+   "bug": "QB1 and QB2 listed as a loop",
+   "plant_cmd": "cat > f.dump-cmm <<'EOF_D'\n$wfbB_QbB_entry() { //  [R1]\n     QB0: // global\n     QB1: // global\n     QB2: // global\n}\nEOF_D\ncat > f.s <<'EOF_S'\nQB_info$def:\n\tmovq\t%rdi, %rax\n_blk_QB1$def:\n\taddq\t$1, %rax\n\tjmpq\t*%rcx\n_blk_QB2$def:\n\tjmp\t_blk_QB1$def\nEOF_S",
+   "invoke": [
+    "{tmp}/f.dump-cmm",
+    "{tmp}/f.s",
+    "fbB"
+   ],
+   "expect_exit": 0,
+   "expect_absent": "instructions,",
+   "bug_exit": 0,
+   "bug_text": "instructions,"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "fetch-model-exits-2-on-a-table-that-is-not-there",
+   "program": "probe-fetch-model.py",
+   "name": "rescore of a table that is not there crashed with a traceback and exit 1, the code a failed build gets",
+   "family": "error-as-value",
+   "trigger": "rescore naming no file",
+   "ok": "exit 2, the table named",
+   "bug": "FileNotFoundError, exit 1",
+   "invoke": [
+    "rescore",
+    "{tmp}/nothing.txt"
+   ],
+   "expect_exit": 2,
+   "expect_text": "nothing.txt",
+   "bug_exit": 1,
+   "bug_text": "FileNotFoundError"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "fetch-model-exits-2-on-rescore-without-a-table",
+   "program": "probe-fetch-model.py",
+   "name": "rescore given no table crashed with an IndexError and exit 1, the code a failed build gets",
+   "family": "error-as-value",
+   "trigger": "rescore and nothing after it",
+   "ok": "exit 2, a table asked for",
+   "bug": "IndexError, exit 1",
+   "invoke": [
+    "rescore"
+   ],
+   "expect_exit": 2,
+   "expect_text": "rescore",
+   "bug_exit": 1,
+   "bug_text": "IndexError"
   }
  ]
 }

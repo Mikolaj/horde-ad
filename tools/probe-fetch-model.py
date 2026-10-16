@@ -370,7 +370,14 @@ def rescore(path):
     rows, the kernel line the path, and every K row is scored again, so a
     rule can be changed and judged without the machine."""
     rows, kernel, args, meas = [], None, [], []
-    for line in open(path):
+    # A table that is not there was a traceback and exit 1
+    # (fetch-model-exits-2-on-a-table-that-is-not-there).
+    try:
+        with open(path) as f:
+            table = f.read().splitlines()
+    except (OSError, UnicodeDecodeError) as e:
+        die('probe-fetch-model: cannot read %s: %s' % (path, e))
+    for line in table:
         if line.startswith('# kernel:'):
             p = line.split()[2:]
             kernel, args = p[0], p[1:]
@@ -416,6 +423,10 @@ def main():
     ap.add_argument('--pairs', type=int, default=2)
     args = ap.parse_args()
     if args.kernel == 'rescore':
+        # Given no table it was an IndexError and exit 1
+        # (fetch-model-exits-2-on-rescore-without-a-table).
+        if len(args.args) != 1:
+            die('probe-fetch-model: rescore takes one saved table')
         return rescore(args.args[0])
     for tool in ('gcc', 'perf', 'objdump'):
         if shutil.which(tool) is None:

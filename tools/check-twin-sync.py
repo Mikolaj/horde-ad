@@ -21,8 +21,9 @@ TWIN_ROOT names the sibling's tools directory. Absent -- unmounted, or
 hidden by the outer wrapper -- the run is BLOCKED with exit 2, the same
 ruling as check-doc-refs.py's siblings: an unverified sync must not read
 as a passing one. So is a twin directory sharing no file with this one, as
-on a branch without tools/ or a partial mount (check-twin-sync-04). Exit 1
-when a shared tool drifts, 0 when none does.
+on a branch without tools/ or a partial mount (check-twin-sync-04), and a
+run outside any repository stops at exit 2 too, saying so. Exit 1 when a
+shared tool drifts, 0 when none does.
 Files present in only one checkout are noted, not failed: a tool can be
 legitimately unported.
 

@@ -125,18 +125,6 @@ def outline(path):
     return headings
 
 
-def require_readable(paths):
-    """Exit cleanly on a mistyped name rather than with a traceback.
-
-    Exit 2 means the run did not happen, as distinct from 1, which means
-    it ran and found something.
-    """
-    for p in paths:
-        if not os.path.isfile(p):
-            print(f'no such document: {p}', file=sys.stderr)
-            sys.exit(2)
-
-
 def self_test():
     """Build the docstring's scratch file and assert its outline."""
     import tempfile
@@ -179,7 +167,7 @@ def main(argv):
     if not argv:
         print('usage: heading-outline.py FILE [FILE ...]', file=sys.stderr)
         return 2
-    require_readable(argv)
+    common.require_readable(argv)
     for path in argv:
         print(f'=== {path} ===')
         headings = outline(path)

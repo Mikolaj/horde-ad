@@ -3,7 +3,9 @@
 Imported by its neighbours, never run: each puts its own directory first on
 sys.path, which running it does anyway and importing it by path does not.
 
-chdir_root serves the checkers whose configuration is root-relative, and
+chdir_root serves the checkers whose configuration is root-relative;
+require_readable the four that kept a copy of it each, check-doc-examples.py,
+check-doc-refs.py, check-plan-citations.py and heading-outline.py; and
 fence_scan the four that must tell fenced code from prose:
 check-doc-examples.py, check-doc-refs.py, check-doc-wrap.py and
 heading-outline.py. Each of the four once kept its own fence tracker, and
@@ -27,6 +29,7 @@ import math
 import os
 import re
 import subprocess
+import sys
 
 # Git's location variables. `git -C dir` does not override GIT_DIR, so a git
 # call made with one inherited answers for whatever repository the caller
@@ -49,18 +52,51 @@ def git_env(**extra):
 FENCE = re.compile(r"^( {0,3})(`{3,}|~{3,})(.*)$")
 
 
-def chdir_root(paths=()):
+def chdir_root(paths=(), outside=False):
     """Run from the repository root whatever the cwd -- the configuration's
     paths are root-relative -- and return PATHS rebased to it. Outside a
-    repository nothing moves."""
+    repository, or with no git to ask, exit 2, the run not happening: where
+    nothing moved, check-plan-citations failed each citation of a repository
+    file as unresolved, and check-doc-refs under --without-siblings resolved
+    no path and exited 0 (check-plan-citations-12, check-doc-refs-12). With
+    OUTSIDE, for a checker whose verdict needs no repository, nothing moves
+    there instead."""
     # answered dropped-status: an empty top is the failure, and the next line tests it
-    top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
-                         capture_output=True, text=True).stdout.strip()
+    try:
+        top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
+                             capture_output=True, text=True).stdout.strip()
+    except OSError:
+        top = ""
     if not top:
-        return list(paths)
+        if outside:
+            return list(paths)
+        print("not inside a git repository, or no git on PATH; the paths"
+              " this checker reads are root-relative, so nothing was checked",
+              file=sys.stderr)
+        sys.exit(2)
     paths = [os.path.relpath(os.path.abspath(p), top) for p in paths]
     os.chdir(top)
     return paths
+
+
+def require_readable(paths):
+    """Exit cleanly on a mistyped name, or a document that is not UTF-8,
+    rather than with a traceback (check-doc-examples-08,
+    check-doc-refs-11, check-plan-citations-11, heading-outline-06).
+
+    Exit 2 means the run did not happen, as distinct from 1, which means
+    it ran and found something.
+    """
+    for p in paths:
+        if not os.path.isfile(p):
+            print(f"no such document: {p}", file=sys.stderr)
+            sys.exit(2)
+        try:
+            with open(p, encoding="utf-8") as fh:
+                fh.read()
+        except UnicodeDecodeError as e:
+            print(f"not UTF-8: {p} ({e})", file=sys.stderr)
+            sys.exit(2)
 
 
 def fence_scan(lines):

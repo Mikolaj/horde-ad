@@ -24,6 +24,8 @@ document), OUT-OF-RANGE (the file is shorter than the cited line, the
 line is 0, or a range runs backwards), or
 PROSE-LINE (the target is a `.md`, whose line numbers move under the
 formatter and so cannot be cited at all --- name a phrase or a heading).
+It is 2 where the run did not happen: a usage error, a document that cannot
+be read, no repository to run in, or a --restamp refused.
 
 Line numbers drift as commits land: after changing a cited file, re-run
 this and eyeball the printed snippets; the document header records the
@@ -371,18 +373,6 @@ def resolve(name):
     return None, f"AMBIGUOUS: {hits} --- qualify the citation"
 
 
-def require_readable(paths):
-    """Exit cleanly on a mistyped name rather than with a traceback.
-
-    Exit 2 means the run did not happen, as distinct from 1, which means
-    it ran and found something.
-    """
-    for p in paths:
-        if not os.path.isfile(p):
-            print(f"no such document: {p}", file=sys.stderr)
-            sys.exit(2)
-
-
 def restamp(doc, text, cited_paths, failures):
     """Rewrite the document's own stamp to name HEAD. Refuse if unsure.
 
@@ -688,7 +678,7 @@ def main():
     if "--self-test" in flags:
         return self_test()
     docs = docs or ["CLAUDE.md"]
-    require_readable(docs)
+    common.require_readable(docs)
     if "--restamp" in flags and len(docs) > 1:
         print("--restamp takes one document: the stamp it writes is that"
               " document's own", file=sys.stderr)

@@ -125,7 +125,9 @@ def cycles(mine, blocks, order_asm):
                 if t in mineset:
                     out.add(t)
         last = [l for l in body if l.startswith('\t')]
-        ends = last and re.match(r'\s+(jmp|ret|ud2)\b', last[-1])
+        # LLVM's jmpq and retq too: read as falling through, a jmpq closed
+        # loops that never run (fills-reads-jmpq-as-a-jump).
+        ends = last and re.match(r'\s+(jmpq?|retq?|ud2)\b', last[-1])
         if not ends and b in idx and idx[b] + 1 < len(order_asm):
             nxt = order_asm[idx[b] + 1]
             if nxt in mineset:
@@ -170,8 +172,13 @@ def cycles(mine, blocks, order_asm):
 def main():
     if len(sys.argv) < 4:
         die(__doc__)
-    dump = open(sys.argv[1]).read().splitlines()
-    asm = open(sys.argv[2]).read().splitlines()
+    # An input that is not there was a traceback and exit 1
+    # (fills-missing-input-exits-2).
+    try:
+        dump = open(sys.argv[1]).read().splitlines()
+        asm = open(sys.argv[2]).read().splitlines()
+    except (OSError, UnicodeDecodeError) as e:
+        die(f'cannot read an input: {e}')
     arms = sys.argv[3:]
     ranges = procs_of(dump, arms)
     missing = [a for a in arms if a not in ranges]
@@ -224,7 +231,11 @@ def main():
             ins = [ln for ln in body
                    if ln.startswith('\t') and not ln.lstrip().startswith('.')]
             ld = sum(1 for ln in ins if re.search(r'movsd\s+[^,]*\(', ln))
-            st = sum(1 for ln in ins if re.search(r'movsd\s+%xmm[0-9]+, ', ln))
+            # A register to memory, with or without a space after the comma:
+            # NCG writes none, and a register-to-register move is no store
+            # (fills-counts-an-ncg-store).
+            st = sum(1 for ln in ins
+                     if re.search(r'movsd\s+%xmm[0-9]+,\s*[^%\s,]*\(', ln))
             sp = sum(1 for ln in ins if '(%rbp)' in ln or re.search(r'\(%rbp,', ln))
             cs = sum(1 for ln in ins if '(%rsp)' in ln or re.search(r'\(%rsp,', ln))
             print(f'    {owner[grp[0]]}/{q}: {len(ins):3d} instructions, '

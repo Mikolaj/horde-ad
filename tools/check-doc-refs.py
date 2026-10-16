@@ -73,7 +73,8 @@ unclassified rather than guessed at:
 Exit 1 for an unresolved path, an unknown `make` target or an unknown
 cabal target --- the kinds that are unambiguously this repo's own drift.
 Exit 2 means the run did not happen at all: a document that cannot be
-read, or an absent sibling checkout. Nothing else fails the run.
+read, an absent sibling checkout, or no repository to run in. Nothing else
+fails the run.
 
 Sibling policy (Mikolaj's ruling, 2026-07-29): **use `../foo` whenever it
 is available; if it is not, flag it and stop.** So SIBLING_ROOTS are
@@ -685,19 +686,6 @@ def self_path():
     return os.path.relpath(os.path.abspath(__file__))
 
 
-def require_readable(paths):
-    """Exit cleanly on a mistyped name rather than with a traceback.
-
-    Exit 2 means the run did not happen, which is also what an absent
-    sibling reports, as distinct from 1, which means it ran and found
-    something.
-    """
-    for p in paths:
-        if not os.path.isfile(p):
-            print(f"no such document: {p}", file=sys.stderr)
-            sys.exit(2)
-
-
 def self_test():
     """Run the configuration block's SELF_TEST_DOC through the real
     machinery and hold it to the verdicts recorded beside it. In-process,
@@ -765,7 +753,7 @@ def self_test():
 
         try:
             with contextlib.redirect_stderr(io.StringIO()):
-                require_readable(["no-such-document.md"])
+                common.require_readable(["no-such-document.md"])
             bad.append("a missing document did not stop the run")
         except SystemExit as e:
             if e.code != 2:
@@ -844,7 +832,7 @@ def main():
     if "--self-test" in sys.argv[1:]:
         return self_test()
     docs = docs or ["CLAUDE.md"]
-    require_readable(docs)
+    common.require_readable(docs)
 
     missing = [] if no_siblings else missing_siblings()
     if missing:

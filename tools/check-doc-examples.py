@@ -52,7 +52,8 @@ reading the document, and must never be reported as one; it is the part
 of that reading a machine can repeat.
 
 Exit 1 if anything is unresolved, 2 if the run did not happen (a document
-that cannot be read), matching the other checkers.
+that cannot be read, a source list naming no file, or no repository to run
+in), matching the other checkers.
 
 Non-vacuity (per CLAUDE.md's "prove a checker non-vacuous"): run
 
@@ -393,18 +394,6 @@ def self_test():
     return 0 if ok else 1
 
 
-def require_readable(paths):
-    """Exit cleanly on a mistyped name rather than with a traceback.
-
-    Exit 2 means the run did not happen, as distinct from 1, which means
-    it ran and found something.
-    """
-    for p in paths:
-        if not os.path.isfile(p):
-            print(f"no such document: {p}", file=sys.stderr)
-            sys.exit(2)
-
-
 def main():
     # From the root before anything, the self-test included: its
     # from-the-root control is a relative path, and dispatched first the
@@ -415,7 +404,7 @@ def main():
     if "--self-test" in sys.argv[1:]:
         return self_test()
     docs = docs or ["README.md"]
-    require_readable(docs)
+    common.require_readable(docs)
     src = sources()
     if src is None and SOURCE_LIST:
         print(f"BLOCKED: {SOURCE_LIST!r} listed no file, nothing checked")
