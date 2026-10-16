@@ -40,13 +40,16 @@ substitution falls inside, which the check then reports for a reading; an
 where the commits are signed. It moves no ref; run that check, then move
 the branch by a reset guarded by the hash it expects to find.
 
+Files are read and written as bytes, so their line endings and any bytes
+that are not UTF-8 are kept.
+
 Exit 0 when it ran, 2 when it did not: wrong arguments, an unreadable SPEC
 or message file, a revision git cannot resolve, a merge in BASE..TIP or a
 BASE that is not its fork point, a COMMIT outside it, an END not after
 its COMMIT, a substitution
-refused as above, or a failing git command. A refusal of the SPEC or of a
-substitution comes before anything is written; a git command failing later
-leaves objects that no ref reaches.
+refused as above, or a failing git command or none to run. A refusal of
+the SPEC or of a substitution comes before anything is written; a git
+command failing later leaves objects that no ref reaches.
 """
 
 import io
@@ -56,19 +59,33 @@ import subprocess
 import sys
 import tempfile
 
+# Beside this file, which a path import (a defect case's unit) leaves off
+# sys.path.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import common  # noqa: E402
+
 
 class Refusal(Exception):
     pass
 
 
 def git(repo, *args, stdin=None, env=None):
-    e = dict(os.environ, **env) if env else None
-    r = subprocess.run(['git', '-C', repo] + list(args), input=stdin,
-                       capture_output=True, text=True, encoding='utf-8',
-                       errors='surrogateescape', env=e)
+    """git's output, its bytes kept: decoded with surrogateescape, where text
+    mode turned CR LF into LF in every file a substitution reached
+    (rewrite-fold-02); git's location variables cleared, an inherited
+    GIT_DIR overriding -C (rewrite-fold-03)."""
+    try:
+        r = subprocess.run(
+            ['git', '-C', repo] + list(args), capture_output=True,
+            input=None if stdin is None
+            else stdin.encode('utf-8', 'surrogateescape'),
+            env=common.git_env(**(env or {})))
+    except OSError as e:
+        raise Refusal('git %s: %s' % (' '.join(args), e))
     if r.returncode != 0:
-        raise Refusal('git %s: %s' % (' '.join(args), r.stderr.strip()))
-    return r.stdout
+        raise Refusal('git %s: %s' % (
+            ' '.join(args), r.stderr.decode('utf-8', 'replace').strip()))
+    return r.stdout.decode('utf-8', 'surrogateescape')
 
 
 def resolve(repo, rev):
@@ -80,10 +97,12 @@ def resolve(repo, rev):
 
 def load_spec(path):
     spec = {}
+    # A SPEC that is not UTF-8 is unreadable too, where it was a traceback
+    # and exit 1 (rewrite-fold-05).
     try:
-        with open(path) as fh:
+        with open(path, encoding='utf-8') as fh:
             exec(compile(fh.read(), path, 'exec'), spec)
-    except (OSError, SyntaxError) as e:
+    except (OSError, SyntaxError, UnicodeDecodeError) as e:
         raise Refusal('cannot read %s: %s' % (path, e))
     for k in ('BASE', 'TIP'):
         if not isinstance(spec.get(k), str):
@@ -105,9 +124,9 @@ def load_spec(path):
     for c, f in reword.items():
         p = os.path.join(where, f)
         try:
-            with open(p) as fh:
+            with open(p, encoding='utf-8') as fh:
                 msgs[c] = fh.read()
-        except OSError as e:
+        except (OSError, UnicodeDecodeError) as e:
             raise Refusal('cannot read %s: %s' % (p, e))
     return spec['BASE'], spec['TIP'], [tuple(s) for s in subs], msgs
 
@@ -174,9 +193,11 @@ def plan(repo, base_rev, tip_rev, subs, msgs):
 
 
 def build(repo, base, chain, starts, rw, files, changed, out):
-    r = subprocess.run(['git', '-C', repo, 'config', '--bool',
-                        'commit.gpgsign'], capture_output=True, text=True)
-    sign = r.stdout.strip() == 'true'
+    try:
+        sign = (git(repo, 'config', '--bool', 'commit.gpgsign').strip()
+                == 'true')
+    except Refusal:
+        sign = False  # unset: git config exits 1
     parent = base
     with tempfile.TemporaryDirectory() as td:
         env = {'GIT_INDEX_FILE': os.path.join(td, 'index')}
@@ -267,9 +288,12 @@ def self_test():
         g = ['git', '-C', td, '-c', 'user.name=Ann', '-c', 'user.email=a@a',
              '-c', 'commit.gpgsign=false']
 
+        # Git's location variables cleared here too: inherited, they sent
+        # this scratch repository's commits and user.name elsewhere
+        # (rewrite-fold-04).
         def sh(*a, env=None):
             r = subprocess.run(g + list(a), capture_output=True, text=True,
-                               env=dict(os.environ, **(env or {})))
+                               env=common.git_env(**(env or {})))
             if r.returncode != 0:
                 raise RuntimeError('%s: %s' % (a, r.stderr))
             return r.stdout.strip()
@@ -336,7 +360,8 @@ def self_test():
                            % checks)
             else:
                 r = subprocess.run(shlex.split(checks[0]),
-                                   capture_output=True, text=True)
+                                   capture_output=True, text=True,
+                                   env=common.git_env())
                 if r.returncode != 0:
                     bad.append('the printed check found more than the fold:\n'
                                + r.stdout + r.stderr)

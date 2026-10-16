@@ -677,7 +677,7 @@ MUTANTS = [
     ('rewrite-check tree difference not checked', 'rewrite-check.py',
      "            find(f'tree differs: {p}')\n", '            pass\n', ST),
     ('rewrite-check expectation that missed accepted', 'rewrite-check.py',
-     '            if po == pn and mo == mn:\n',
+     '            if po == pn and lo == ln and mo == mn:\n',
      '            if False:\n', ST),
     # The move pairing (2026-10-06, rewrite-check-01), written down before
     # its replay watched the self-test's reorder scenario catch it.
@@ -689,11 +689,15 @@ MUTANTS = [
     ('rewrite-check an --expect naming the new commit not taken for its pair',
      'rewrite-check.py',
      '        if o in exp or n in exp:\n', '        if o in exp:\n', ST),
-    # rewrite-check-03: a change of whitespace alone is a changed patch.
-    ('rewrite-check whitespace stripped before the patches are compared',
+    # rewrite-check-03: a change of whitespace alone is a changed patch. The
+    # changed lines decide it, patch-id deciding only unchanged against
+    # context-only.
+    ('rewrite-check whitespace stripped before the changed lines are compared',
      'rewrite-check.py',
-     "    pid = git(repo, 'patch-id', '--verbatim', stdin=patch).split()\n",
-     "    pid = git(repo, 'patch-id', '--stable', stdin=patch).split()\n", ST),
+     "                                         and prev[:1] in ('+', '-')):\n"
+     "            lines[(cur, line)] += 1\n",
+     "                                         and prev[:1] in ('+', '-')):\n"
+     "            lines[(cur, ''.join(line.split()))] += 1\n", ST),
     # rewrite-fold-01: the self-test folds two substitutions of one file.
     ('rewrite-fold a second substitution of a file restarts from the old text', 'rewrite-fold.py',
      '                s = s.replace(o, n)\n',

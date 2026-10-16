@@ -12,7 +12,11 @@ order, and a commit the rewrite moved with the leftover of its subject; a
 commit of the old range with no counterpart is dropped, which is expected
 of a `fixup!`, `squash!` or `amend!` commit and of one named by `--expect`,
 and a finding otherwise. Each pair's patch is compared by `git patch-id
---verbatim`, whitespace included. Where the two differ the change is
+--verbatim`, whitespace included, and by its lines: every added and removed
+line, as bytes, so a change of line endings shows, and its header lines,
+which carry a mode, a rename, a file added or deleted empty, and a binary
+change, the patch being read with git's `--binary`. A merge's patch is its
+diff against its first parent. Where the two differ the change is
   expected, the old commit or the new one paired with it being one an
     `--expect REV` names;
   context-only, the lines the two patches add and remove being the same,
@@ -20,7 +24,8 @@ and a finding otherwise. Each pair's patch is compared by `git patch-id
     is what a commit replayed over an earlier fold looks like; or
   a finding.
 A changed message or author is a finding unless the commit is expected, as
-is a commit an `--expect` names whose patch did not change at all. The two
+is a commit an `--expect` names whose patch did not change at all, and a
+changed number of parents whether expected or not. The two
 tips' trees must be equal but for the paths `--allow-tree` names (a fold of
 uncommitted work moves the tip's tree by that work); with `--signed`, every
 commit of the new range must carry a good signature.
@@ -36,7 +41,7 @@ every new commit signed.
 
 Exit 0 when the rewrite changed nothing it was not expected to, 1 with the
 findings listed, 2 when it could not be checked: a range git cannot resolve
-or an empty one, or an `--expect` that is no commit.
+or an empty one, an `--expect` that is no commit, or no git to run.
 """
 
 import collections
@@ -45,10 +50,19 @@ import os
 import subprocess
 import sys
 
+# Beside this file, which a path import (a defect case's unit) leaves off
+# sys.path.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import common  # noqa: E402
+
 FOLDED = ('fixup! ', 'squash! ', 'amend! ')
-# Subject, message and author, NUL-separated, the date raw so a rewrite that
-# kept it compares equal.
-FORMAT = '%s%x00%B%x00%an <%ae> %ad'
+# Subject, message, author and parents, NUL-separated, the date raw so a
+# rewrite that kept it compares equal.
+FORMAT = '%s%x00%B%x00%an <%ae> %ad%x00%P'
+# A file's header lines that move with its content or repeat its name, and
+# so are left out of the lines compared.
+MOVING = ('index ', '--- ', '+++ ', 'similarity index ',
+          'dissimilarity index ')
 
 
 class GitError(Exception):
@@ -56,11 +70,21 @@ class GitError(Exception):
 
 
 def git(repo, *args, stdin=None):
-    r = subprocess.run(['git', '-C', repo] + list(args), input=stdin,
-                       capture_output=True, text=True)
+    """git's output, its bytes kept: decoded with surrogateescape, where text
+    mode turned CR LF into LF (rewrite-check-12) and raised on a byte that is
+    not UTF-8 (rewrite-check-10)."""
+    try:
+        r = subprocess.run(
+            ['git', '-C', repo] + list(args), capture_output=True,
+            input=None if stdin is None
+            else stdin.encode('utf-8', 'surrogateescape'),
+            env=common.git_env())
+    except OSError as e:
+        raise GitError(f'git {" ".join(args)}: {e}')
     if r.returncode != 0:
-        raise GitError(f'git {" ".join(args)}: {r.stderr.strip()}')
-    return r.stdout
+        raise GitError(f'git {" ".join(args)}: '
+                       + r.stderr.decode('utf-8', 'replace').strip())
+    return r.stdout.decode('utf-8', 'surrogateescape')
 
 
 def commits(repo, rng):
@@ -71,21 +95,35 @@ def commits(repo, rng):
 
 
 def info(repo, rev):
-    """(subject, message, author, patch id, changed lines) of a commit."""
+    """(subject, message, author, patch id, changed lines, parents) of a
+    commit."""
     fmt = git(repo, 'log', '-1', '--date=raw', '--format=' + FORMAT, rev)
-    subject, message, author = fmt.split('\x00')
-    patch = git(repo, 'show', '--format=', '--no-color', rev)
+    subject, message, author, parents = fmt.split('\x00')
+    # A merge against its first parent: its combined diff gives patch-id
+    # nothing, so every merge compared equal (rewrite-check-09).
+    patch = git(repo, 'show', '--format=', '--no-color', '--no-ext-diff',
+                '--no-textconv', '--binary', '--diff-merges=first-parent',
+                rev)
     pid = git(repo, 'patch-id', '--verbatim', stdin=patch).split()
-    lines, cur = collections.Counter(), None
+    # A hunk's lines are read as hunk lines: one beginning --- or +++ there
+    # was skipped as a file header (rewrite-check-04). Before the first hunk
+    # the header lines count but for MOVING: a mode, a rename, an empty file
+    # or a binary change shows there alone (rewrite-check-05 to -08).
+    lines, cur, hunk, prev = collections.Counter(), None, False, ''
     for line in patch.split('\n'):
         if line.startswith('diff --git '):
-            cur = line
-        elif line.startswith(('+++', '---')):
-            continue
-        elif line[:1] in ('+', '-'):
+            cur, hunk = line, False
+        elif line.startswith('@@'):
+            hunk = True
+        elif not hunk:
+            if not line.startswith(MOVING):
+                lines[(cur, line)] += 1
+        elif line[:1] in ('+', '-') or (line[:1] == '\\'
+                                         and prev[:1] in ('+', '-')):
             lines[(cur, line)] += 1
+        prev = line
     return (subject, message.rstrip('\n'), author.strip(),
-            pid[0] if pid else '', lines)
+            pid[0] if pid else '', lines, len(parents.split()))
 
 
 def check(repo, old, new, expect, allow, signed):
@@ -102,12 +140,14 @@ def check(repo, old, new, expect, allow, signed):
         lines.append('FINDING ' + text)
     counts = collections.Counter()
     def compare(o, n):
-        so, mo, ao, po, lo = oi[o]
-        sn, mn, an, pn, ln = ni[n]
+        so, mo, ao, po, lo, ko = oi[o]
+        sn, mn, an, pn, ln, kn = ni[n]
         tag = f'{o[:9]} -> {n[:9]} {sn}'
+        if ko != kn:
+            find(f'parents changed: {tag} ({ko} -> {kn})')
         if o in exp or n in exp:
             used.update((o, n))
-            if po == pn and mo == mn:
+            if po == pn and lo == ln and mo == mn:
                 find(f'expected to change, unchanged: {tag}')
             else:
                 counts['expected'] += 1
@@ -115,7 +155,7 @@ def check(repo, old, new, expect, allow, signed):
             return
         if so != sn:
             find(f'subject changed: {o[:9]} {so} -> {sn}')
-        if po == pn:
+        if po == pn and lo == ln:
             counts['unchanged'] += 1
         elif lo == ln:
             counts['context-only'] += 1
@@ -191,9 +231,11 @@ def self_test():
     with tempfile.TemporaryDirectory() as td:
         g = ['git', '-C', td, '-c', 'user.name=t', '-c', 'user.email=t@t',
              '-c', 'commit.gpgsign=false']
+        # Git's location variables cleared here too: inherited, they sent
+        # this scratch repository's commits elsewhere (rewrite-check-14).
         def run(*a, env=None):
             r = subprocess.run(g + list(a), capture_output=True, text=True,
-                               env=env)
+                               env=env or common.git_env())
             if r.returncode != 0:
                 raise RuntimeError(f'{a}: {r.stderr}')
             return r.stdout.strip()
@@ -201,8 +243,8 @@ def self_test():
             with open(os.path.join(td, name), 'w') as fh:
                 fh.write(text)
         def commit(msg, date):
-            env = dict(os.environ, GIT_AUTHOR_DATE=date,
-                       GIT_COMMITTER_DATE=date)
+            env = common.git_env(GIT_AUTHOR_DATE=date,
+                                 GIT_COMMITTER_DATE=date)
             run('commit', '-qam', msg, env=env)
             return run('rev-parse', 'HEAD')
         def text(*numbers):
@@ -359,6 +401,9 @@ def main(argv):
     except GitError as e:
         print(e, file=sys.stderr)
         return 2
+    # A subject's bytes that are not UTF-8 written back as they came.
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(errors='surrogateescape')
     print('\n'.join(lines))
     return 1 if findings else 0
 

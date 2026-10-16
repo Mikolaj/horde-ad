@@ -17,6 +17,9 @@ regressions against the iteration count. A file that is not such a
 collection raises CriterionError, which each turns into its own exit 2, the
 run not having happened; so does an estimate that is not a finite number,
 criterion writing a NaN as null.
+
+git_env serves rewrite-check.py and rewrite-fold.py, whose git calls name
+their repository by -C.
 """
 
 import json
@@ -24,6 +27,22 @@ import math
 import os
 import re
 import subprocess
+
+# Git's location variables. `git -C dir` does not override GIT_DIR, so a git
+# call made with one inherited answers for whatever repository the caller
+# had set (rewrite-check-13, rewrite-fold-03).
+GIT_LOCATION = ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE", "GIT_COMMON_DIR",
+                "GIT_OBJECT_DIRECTORY", "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+                "GIT_NAMESPACE", "GIT_CEILING_DIRECTORIES")
+
+
+def git_env(**extra):
+    """The environment with git's location variables removed, and EXTRA
+    set."""
+    env = {k: v for k, v in os.environ.items() if k not in GIT_LOCATION}
+    env.update(extra)
+    return env
+
 
 # A fence: three or more backticks or tildes, indented at most three spaces;
 # four make the line indented code (check-doc-wrap-08).

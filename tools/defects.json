@@ -4072,6 +4072,392 @@
    "expect_absent": "gone from new",
    "bug_exit": 1,
    "bug_text": "f: u' banged in old, gone from new"
+  },
+  {
+   "program": "rewrite-check.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "rewrite-check-04",
+   "name": "a patch line beginning --- or +++ inside a hunk was skipped as a file header, so a removed Haskell comment or an added line beginning ++ never entered the comparison of changed lines",
+   "family": "scan-for-parse",
+   "trigger": "an old commit deleting the line -- | old wording and its rewrite deleting -- | other instead, under one subject",
+   "ok": "the pair's patch reported changed, exit 1",
+   "bug": "the pair counted context-only, exit 0",
+   "plant_cmd": "export GIT_AUTHOR_DATE='1000000000 +0000' GIT_COMMITTER_DATE='1000000000 +0000' && g() { git -c user.email=t@t -c user.name=t -c commit.gpgsign=false \"$@\"; } && git init -q . && printf -- '-- | old wording\\n-- | other\\nx\\n' > a && git add a && g commit -qm base && git tag base && printf -- '-- | other\\nx\\n' > a && g commit -qam 'Edit a' && git branch old && git checkout -q -b new base && printf -- '-- | old wording\\nx\\n' > a && g commit -qam 'Edit a'",
+   "invoke": [
+    "base..old",
+    "base..new",
+    "--allow-tree",
+    "a"
+   ],
+   "expect_exit": 1,
+   "expect_text": "patch changed",
+   "bug_exit": 0,
+   "bug_text": "1 context-only"
+  },
+  {
+   "program": "rewrite-check.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "rewrite-check-05",
+   "name": "a mode change a rewrite added to a commit was counted context-only, the changed lines being read from the hunks alone",
+   "family": "scan-for-parse",
+   "trigger": "an old commit editing a, its rewrite making the same edit and chmod +x a",
+   "ok": "the pair's patch reported changed, exit 1",
+   "bug": "the pair counted context-only, exit 0",
+   "plant_cmd": "export GIT_AUTHOR_DATE='1000000000 +0000' GIT_COMMITTER_DATE='1000000000 +0000' && g() { git -c user.email=t@t -c user.name=t -c commit.gpgsign=false \"$@\"; } && git init -q . && printf 'x\\n' > a && git add a && g commit -qm base && git tag base && printf 'y\\n' > a && g commit -qam 'Edit a' && git branch old && git checkout -q -b new base && printf 'y\\n' > a && chmod +x a && g commit -qam 'Edit a'",
+   "invoke": [
+    "base..old",
+    "base..new",
+    "--allow-tree",
+    "a"
+   ],
+   "expect_exit": 1,
+   "expect_text": "patch changed",
+   "bug_exit": 0,
+   "bug_text": "1 context-only"
+  },
+  {
+   "program": "rewrite-check.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "rewrite-check-06",
+   "name": "a rename a rewrite retargeted was counted context-only, its patch having no hunk and so no changed line to compare",
+   "family": "scan-for-parse",
+   "trigger": "an old commit renaming a to y, its rewrite renaming a to z, under one subject",
+   "ok": "the pair's patch reported changed, exit 1",
+   "bug": "the pair counted context-only, exit 0",
+   "plant_cmd": "export GIT_AUTHOR_DATE='1000000000 +0000' GIT_COMMITTER_DATE='1000000000 +0000' && g() { git -c user.email=t@t -c user.name=t -c commit.gpgsign=false \"$@\"; } && git init -q . && printf 'x\\n' > a && git add a && g commit -qm base && git tag base && git mv a y && g commit -qm 'Rename a' && git branch old && git checkout -q -b new base && git mv a z && g commit -qm 'Rename a'",
+   "invoke": [
+    "base..old",
+    "base..new",
+    "--allow-tree",
+    "y",
+    "--allow-tree",
+    "z"
+   ],
+   "expect_exit": 1,
+   "expect_text": "patch changed",
+   "bug_exit": 0,
+   "bug_text": "1 context-only"
+  },
+  {
+   "program": "rewrite-check.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "rewrite-check-07",
+   "name": "an added empty file a rewrite replaced by another was counted context-only, its patch having no hunk and so no changed line to compare",
+   "family": "scan-for-parse",
+   "trigger": "an old commit adding the empty file e, its rewrite adding the empty file f instead, under one subject",
+   "ok": "the pair's patch reported changed, exit 1",
+   "bug": "the pair counted context-only, exit 0",
+   "plant_cmd": "export GIT_AUTHOR_DATE='1000000000 +0000' GIT_COMMITTER_DATE='1000000000 +0000' && g() { git -c user.email=t@t -c user.name=t -c commit.gpgsign=false \"$@\"; } && git init -q . && printf 'x\\n' > a && git add a && g commit -qm base && git tag base && : > e && git add e && g commit -qm 'Add e' && git branch old && git checkout -q -b new base && : > f && git add f && g commit -qm 'Add e'",
+   "invoke": [
+    "base..old",
+    "base..new",
+    "--allow-tree",
+    "e",
+    "--allow-tree",
+    "f"
+   ],
+   "expect_exit": 1,
+   "expect_text": "patch changed",
+   "bug_exit": 0,
+   "bug_text": "1 context-only"
+  },
+  {
+   "program": "rewrite-check.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "rewrite-check-08",
+   "name": "a binary file's change was counted context-only, the patch saying only that the binary files differ, which reads the same for any change",
+   "family": "scan-for-parse",
+   "trigger": "an old commit adding the bytes 0 1 2 as file b, its rewrite adding 0 1 3",
+   "ok": "the pair's patch reported changed, exit 1",
+   "bug": "the pair counted context-only, exit 0",
+   "plant_cmd": "export GIT_AUTHOR_DATE='1000000000 +0000' GIT_COMMITTER_DATE='1000000000 +0000' && g() { git -c user.email=t@t -c user.name=t -c commit.gpgsign=false \"$@\"; } && git init -q . && printf 'x\\n' > a && git add a && g commit -qm base && git tag base && printf '\\000\\001\\002' > b && git add b && g commit -qm 'Add b' && git branch old && git checkout -q -b new base && printf '\\000\\001\\003' > b && git add b && g commit -qm 'Add b'",
+   "invoke": [
+    "base..old",
+    "base..new",
+    "--allow-tree",
+    "b"
+   ],
+   "expect_exit": 1,
+   "expect_text": "patch changed",
+   "bug_exit": 0,
+   "bug_text": "1 context-only"
+  },
+  {
+   "program": "rewrite-check.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "rewrite-check-09",
+   "name": "a merge whose conflict resolution a rewrite changed was counted unchanged, patch-id printing nothing for the combined diff of either merge",
+   "family": "vacuous-check",
+   "trigger": "one merge of a conflicting side branch resolved as R1, and its rewrite resolved as R2",
+   "ok": "the merge's patch reported changed, exit 1",
+   "bug": "every commit counted unchanged, exit 0",
+   "plant_cmd": "export GIT_AUTHOR_DATE='1000000000 +0000' GIT_COMMITTER_DATE='1000000000 +0000' && g() { git -c user.email=t@t -c user.name=t -c commit.gpgsign=false \"$@\"; } && git init -q . && printf 'x\\n' > a && git add a && g commit -qm base && git tag base && printf 'main\\n' > a && g commit -qam Main && git branch main && git checkout -q -b side base && printf 'side\\n' > a && g commit -qam Side && git checkout -q -b old main && { g merge -q side > /dev/null 2>&1 || true; } && printf 'R1\\n' > a && git add a && g commit -qm 'Merge side' && git checkout -q -b new main && { g merge -q side > /dev/null 2>&1 || true; } && printf 'R2\\n' > a && git add a && g commit -qm 'Merge side'",
+   "invoke": [
+    "base..old",
+    "base..new",
+    "--allow-tree",
+    "a"
+   ],
+   "expect_exit": 1,
+   "expect_text": "patch changed",
+   "bug_exit": 0,
+   "bug_text": "3 unchanged"
+  },
+  {
+   "program": "rewrite-check.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "rewrite-check-10",
+   "name": "a commit holding text that is not UTF-8 crashed the check with a traceback and exit 1, the status of a run with findings",
+   "family": "error-as-value",
+   "trigger": "a commit adding the Latin-1 bytes caf\\351, replayed unchanged",
+   "ok": "the pair compared: no finding, exit 0",
+   "bug": "UnicodeDecodeError, exit 1",
+   "plant_cmd": "export GIT_AUTHOR_DATE='1000000000 +0000' GIT_COMMITTER_DATE='1000000000 +0000' && g() { git -c user.email=t@t -c user.name=t -c commit.gpgsign=false \"$@\"; } && git init -q . && printf 'x\\n' > a && git add a && g commit -qm base && git tag base && printf 'caf\\351\\n' > l && git add l && g commit -qm 'Add l' && git branch old && git checkout -q -b new base && printf 'caf\\351\\n' > l && git add l && GIT_COMMITTER_DATE='1000000001 +0000' g commit -qm 'Add l'",
+   "invoke": [
+    "base..old",
+    "base..new"
+   ],
+   "expect_exit": 0,
+   "expect_text": "1 unchanged",
+   "bug_exit": 1,
+   "bug_text": "UnicodeDecodeError"
+  },
+  {
+   "program": "rewrite-check.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "rewrite-check-11",
+   "name": "git missing from PATH crashed the check with a traceback and exit 1, the status of a run with findings",
+   "family": "error-as-value",
+   "trigger": "PATH holding python3 and no git",
+   "ok": "exit 2, the message naming git",
+   "bug": "FileNotFoundError, exit 1",
+   "plant_cmd": "mkdir bin && ln -s \"$(command -v python3)\" bin/python3",
+   "env": {
+    "PATH": "{tmp}/bin"
+   },
+   "invoke": [
+    "base..old",
+    "base..new"
+   ],
+   "expect_exit": 2,
+   "expect_text": "git",
+   "bug_exit": 1,
+   "bug_text": "FileNotFoundError"
+  },
+  {
+   "program": "rewrite-check.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "rewrite-check-12",
+   "name": "a change of line endings alone was counted unchanged, the patch being read in text mode, which turns CR LF into LF",
+   "family": "other:normalised-away",
+   "trigger": "an old commit adding a with CR LF line endings, its rewrite adding the same lines with LF",
+   "ok": "the pair's patch reported changed, exit 1",
+   "bug": "the pair counted unchanged, exit 0",
+   "plant_cmd": "export GIT_AUTHOR_DATE='1000000000 +0000' GIT_COMMITTER_DATE='1000000000 +0000' && g() { git -c user.email=t@t -c user.name=t -c commit.gpgsign=false \"$@\"; } && git init -q . && printf 'x\\n' > a && git add a && g commit -qm base && git tag base && printf 'x\\r\\ny\\r\\n' > c && g -c core.autocrlf=false add c && g commit -qm 'Add c' && git branch old && git checkout -q -b new base && printf 'x\\ny\\n' > c && g -c core.autocrlf=false add c && g commit -qm 'Add c'",
+   "invoke": [
+    "base..old",
+    "base..new",
+    "--allow-tree",
+    "c"
+   ],
+   "expect_exit": 1,
+   "expect_text": "patch changed",
+   "bug_exit": 0,
+   "bug_text": "1 unchanged",
+   "notes": "Planted with core.autocrlf=false: the global core.autocrlf=input on this machine strips the CRs as the fixture commits its file, and the case then passes either way."
+  },
+  {
+   "program": "rewrite-check.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "rewrite-check-13",
+   "name": "an inherited GIT_DIR overrode -C, git -C not clearing it, so the check asked another repository or none",
+   "family": "environment-decides",
+   "trigger": "GIT_DIR=/nonexistent-decoy in the environment, -C naming a repository holding both ranges",
+   "ok": "the repository -C names is checked: no finding, exit 0",
+   "bug": "exit 2, git finding no repository",
+   "plant_cmd": "export GIT_AUTHOR_DATE='1000000000 +0000' GIT_COMMITTER_DATE='1000000000 +0000' && g() { git -c user.email=t@t -c user.name=t -c commit.gpgsign=false \"$@\"; } && git init -q . && printf 'x\\n' > a && git add a && g commit -qm base && git tag base && printf 'y\\n' > a && g commit -qam 'Edit a' && git branch old && git branch new",
+   "env": {
+    "GIT_DIR": "/nonexistent-decoy"
+   },
+   "invoke": [
+    "-C",
+    "{tmp}",
+    "base..old",
+    "base..new"
+   ],
+   "expect_exit": 0,
+   "expect_text": "1 unchanged",
+   "bug_exit": 2,
+   "bug_text": "not a git repository"
+  },
+  {
+   "program": "rewrite-check.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "rewrite-check-14",
+   "name": "the self-test's git calls inherited GIT_DIR, so the scratch repository's commits went to whatever repository the caller had set",
+   "family": "environment-decides",
+   "trigger": "--self-test with GIT_DIR naming another repository's .git",
+   "ok": "that repository untouched: no commit in it",
+   "bug": "the self-test's commits in it",
+   "plant_cmd": "git init -q decoy",
+   "env": {
+    "GIT_DIR": "{tmp}/decoy/.git"
+   },
+   "invoke": [
+    "--self-test"
+   ],
+   "probe_cmd": "echo \"decoy commits: $(git --git-dir=decoy/.git rev-list --all | wc -l)\"",
+   "expect_text": "decoy commits: 0",
+   "bug_absent": "decoy commits: 0"
+  },
+  {
+   "program": "rewrite-fold.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "rewrite-fold-02",
+   "name": "a file with CR LF line endings lost its CRs in every tree a substitution reached, git's output being read in text mode",
+   "family": "other:normalised-away",
+   "trigger": "a substitution in a file whose lines end in CR LF",
+   "ok": "the new text keeps CR LF",
+   "bug": "the new text has LF alone",
+   "plant_cmd": "export GIT_AUTHOR_DATE='1000000000 +0000' GIT_COMMITTER_DATE='1000000000 +0000' && g() { git -c user.email=t@t -c user.name=t -c commit.gpgsign=false \"$@\"; } && git init -q . && printf 'one\\r\\ntwo\\r\\n' > a && g -c core.autocrlf=false add a && g commit -qm base && printf 'one\\r\\ntwo\\r\\nthree\\r\\n' > a && g -c core.autocrlf=false commit -qam 'Add three'",
+   "unit": "plan('.', 'HEAD~1', 'HEAD', [('HEAD', 'a', 'one', 'ONE')], {})[4][0]['a']",
+   "expect_text": "'ONE\\r\\ntwo\\r\\nthree\\r\\n'",
+   "bug_text": "'ONE\\ntwo\\nthree\\n'",
+   "notes": "Planted with core.autocrlf=false: the global core.autocrlf=input on this machine strips the CRs as the fixture commits its file, and the case then passes either way."
+  },
+  {
+   "program": "rewrite-fold.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "rewrite-fold-03",
+   "name": "an inherited GIT_DIR overrode -C, git -C not clearing it, so the fold read and would have written another repository or none",
+   "family": "environment-decides",
+   "trigger": "GIT_DIR=/nonexistent-decoy in the environment, -C naming the repository the spec's revisions are in",
+   "ok": "the fold planned in the repository -C names, exit 0",
+   "bug": "REFUSED, exit 2",
+   "plant_cmd": "export GIT_AUTHOR_DATE='1000000000 +0000' GIT_COMMITTER_DATE='1000000000 +0000' && g() { git -c user.email=t@t -c user.name=t -c commit.gpgsign=false \"$@\"; } && git init -q . && printf 'x\\n' > a && git add a && g commit -qm base && git tag base && printf 'y\\n' > a && g commit -qam 'Edit a' && printf \"BASE = 'HEAD~1'\\nTIP = 'HEAD'\\nSUBS = [('HEAD', 'a', 'y', 'Y')]\\n\" > spec.py",
+   "env": {
+    "GIT_DIR": "/nonexistent-decoy"
+   },
+   "invoke": [
+    "-C",
+    "{tmp}",
+    "{tmp}/spec.py",
+    "--dry"
+   ],
+   "expect_exit": 0,
+   "expect_text": "every substitution applies once",
+   "bug_exit": 2,
+   "bug_text": "REFUSED"
+  },
+  {
+   "program": "rewrite-fold.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "rewrite-fold-04",
+   "name": "the self-test's git calls inherited GIT_DIR, so its commits and its user.name went to whatever repository the caller had set",
+   "family": "environment-decides",
+   "trigger": "--self-test with GIT_DIR naming another repository's .git",
+   "ok": "that repository untouched: no commit and no user.name in it",
+   "bug": "the self-test's commits and user.name Ann in it",
+   "plant_cmd": "git init -q decoy",
+   "env": {
+    "GIT_DIR": "{tmp}/decoy/.git"
+   },
+   "invoke": [
+    "--self-test"
+   ],
+   "probe_cmd": "echo \"decoy commits: $(git --git-dir=decoy/.git rev-list --all | wc -l)\"; echo \"decoy name: $(git --git-dir=decoy/.git config --local user.name || echo none)\"",
+   "expect_text": [
+    "decoy commits: 0",
+    "decoy name: none"
+   ],
+   "bug_text": "decoy name: Ann"
+  },
+  {
+   "program": "rewrite-fold.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "rewrite-fold-05",
+   "name": "a SPEC that is not UTF-8 crashed the fold with a traceback and exit 1, where the docstring promises 2 for an unreadable SPEC",
+   "family": "error-as-value",
+   "trigger": "a SPEC holding the byte 351 in a comment",
+   "ok": "REFUSED, exit 2",
+   "bug": "UnicodeDecodeError, exit 1",
+   "plant_cmd": "printf \"# caf\\351\\nBASE = 'a'\\nTIP = 'b'\\n\" > spec.py",
+   "invoke": [
+    "{tmp}/spec.py"
+   ],
+   "expect_exit": 2,
+   "expect_text": "REFUSED",
+   "bug_exit": 1,
+   "bug_text": "UnicodeDecodeError"
+  },
+  {
+   "program": "rewrite-fold.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "rewrite-fold-06",
+   "name": "git missing from PATH crashed the fold with a traceback and exit 1, where the docstring promises 2 for a failing git command",
+   "family": "error-as-value",
+   "trigger": "PATH holding python3 and no git",
+   "ok": "REFUSED naming git, exit 2",
+   "bug": "FileNotFoundError, exit 1",
+   "plant_cmd": "mkdir bin && ln -s \"$(command -v python3)\" bin/python3 && printf \"BASE = 'a'\\nTIP = 'b'\\nREWORD = {'b': 'm'}\\n\" > spec.py && echo m > m",
+   "env": {
+    "PATH": "{tmp}/bin"
+   },
+   "invoke": [
+    "{tmp}/spec.py"
+   ],
+   "expect_exit": 2,
+   "expect_text": "REFUSED",
+   "bug_exit": 1,
+   "bug_text": "FileNotFoundError"
   }
  ]
 }
