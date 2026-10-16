@@ -125,8 +125,17 @@ import os
 import re
 import sys
 
-PRAGMA = re.compile(r'\{-#\s*(?:INLINE|INLINABLE|INLINEABLE|NOINLINE'
-                    r'|SPECIALI[SZ]E)\s*(?:\[~?\d+\]\s*)?\(?([^\s)#,]+)')
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from hssource import strip_comments  # noqa: E402
+
+# A pragma's kind ends at a word boundary, and CONLIKE, or a SPECIALISE's
+# INLINE or NOINLINE, may stand between it and the phase or the name:
+# INLINE first in the alternation read INLINEABLE f as an INLINE of ABLE,
+# INLINE CONLIKE g as one of CONLIKE (pragma-census-17, -18).
+KIND = r'INLINE|INLINABLE|INLINEABLE|NOINLINE|SPECIALI[SZ]E'
+MODIFIERS = r'\b\s*(?:(?:CONLIKE|(?:NO)?INLINE)\b\s*)*'
+PRAGMA = re.compile(r'\{-#\s*(?:' + KIND + ')' + MODIFIERS
+                    + r'(?:\[~?\d+\]\s*)?\(?([^\s)#,]+)')
 TOP_SIG = re.compile(r"^([a-z_][\w']*(?:\s*,\s*[a-z_][\w']*)*"
                      r"|\([!#$%&*+./<=>?@\\^|~:-]+\))\s*::(.*)")
 OP = r"[!#$%&*+./<=>?@\\^|~:-]+"
@@ -137,6 +146,30 @@ SECTION = re.compile(r'^\((' + OP + r')\)')
 INFIX_OP = re.compile(r"\s+(`[\w']+`|" + OP + r")(?=\s)")
 SIGNATURE = re.compile(r"^(?:[\w']+|\(" + OP + r"\))(?:\s*,\s*[\w']+)*"
                        r"\s*::(?![!#$%&*+./<=>?@\\^|~:-])")
+# A line at column 0 that is no code: a pragma, a line comment or a block
+# comment opening.
+ASIDE = re.compile(r"\{-|--(?![!#$%&*+./<=>?@\\^|~:])")
+
+
+def code(lines):
+    """LINES with their comments blanked, pragmas and line breaks kept: what
+    the pragma regexes are run over. Over the raw lines a commented-out pragma
+    read as the binding's own (pragma-census-14 to -16)."""
+    return strip_comments('\n'.join(lines)).split('\n')
+
+
+def past_asides(lines, j):
+    """The first line from j that is neither blank nor a pragma or a comment
+    at column 0, a block comment's own lines included."""
+    while j < len(lines):
+        line = lines[j]
+        if line.startswith('{-') and not line.startswith('{-#'):
+            while j < len(lines) and '-}' not in lines[j]:
+                j += 1
+        elif line.strip() and not ASIDE.match(line):
+            return j
+        j += 1
+    return j
 
 
 def constraints(ctx):
@@ -329,7 +362,7 @@ def class_at(lines, i):
     body = instance_body(lines, j, k, hm)
     sigs = body_signatures(lines, j, k)
     pk = {}
-    for b in lines[i:k]:
+    for b in code(lines[i:k]):
         for p in KINDS.finditer(b):
             pk[p.group(3)] = (p.group(1), bool(p.group(2)))
     return (words[0] if words else None), sigs, body, pk, k
@@ -381,7 +414,7 @@ def census(text):
     [(line, class, method)] of the instance methods and [(line, class,
     method)] of the class default methods carrying no pragma."""
     lines = text.split('\n')
-    module_pragmas = {m.group(1) for line in lines
+    module_pragmas = {m.group(1) for line in code(lines)
                       for m in PRAGMA.finditer(line)}
     funs, meths, dms = [], [], []
     i = 0
@@ -412,7 +445,7 @@ def census(text):
                 if cs:
                     cls = cls_head.split()[0]
                     body = instance_body(lines, j, k, hm)
-                    pragmas = {p.group(1) for b in [head] + lines[j + 1:k]
+                    pragmas = {p.group(1) for b in code(lines[i:k])
                                for p in PRAGMA.finditer(b)}
                     seen = set()
                     for n, b in body:
@@ -427,8 +460,8 @@ def census(text):
     return funs, meths, dms
 
 
-KINDS = re.compile(r'\{-#\s*(INLINE|INLINABLE|INLINEABLE|NOINLINE|SPECIALI[SZ]E)'
-                   r'\s*(\[~?\d+\]\s*)?\(?([^\s)#,]+)')
+KINDS = re.compile(r'\{-#\s*(' + KIND + ')' + MODIFIERS
+                   + r'(\[~?\d+\]\s*)?\(?([^\s)#,]+)')
 NOTE = re.compile(r'\b(?:INLINE|INLINABLE|NOINLINE)\b|\bpragma\b')
 F1NOTE = re.compile(r'\bF1\b')
 A3NOTE = re.compile(r'\bA3\b')
@@ -624,18 +657,23 @@ def class_methods(text):
 
 def definition(lines, start, name):
     """The equations of name from line start, joined, their string literals
-    and comments blanked and each one's leading name dropped."""
+    and comments blanked and each one's leading name dropped; a pragma or
+    a comment at column 0 between them is passed over. A line is one of
+    them by the name ending where it does: read by its prefix, foo's ran on
+    into foobar's (pragma-census-20)."""
     body, j = [], start
     pat = re.compile(r"(?<![\w.'])" + re.escape(name) + r"(?![\w'])")
     while j < len(lines):
         line = lines[j]
-        if line[:1] not in (' ', '\t') and line.strip() and \
-                not pat.match(line) and not line.startswith(name):
-            break
+        if line[:1] not in (' ', '\t') and line.strip():
+            if past_asides(lines, j) > j:
+                j = past_asides(lines, j)
+                continue
+            if not pat.match(line):
+                break
         line = re.sub(r'"(?:[^"\\]|\\.)*"', '""', line)
         line = re.sub(r'(^|\s)--(\s.*)?$', '', line)
-        body.append(pat.sub('', line, count=1) if line.startswith(name)
-                    else line)
+        body.append(pat.sub('', line, count=1) if pat.match(line) else line)
         j += 1
     return ' '.join(x for x in body if not x.lstrip().startswith('--'))
 
@@ -793,16 +831,18 @@ def element_lists(ty):
 
 def own_start(lines, start, name, names):
     """The line from start at which name's equations begin, past those of
-    the other names its signature declares, names, which may come first."""
+    the other names its signature declares, names, which may come first,
+    and past pragmas and comments: ending at one, a pragma between the
+    signature and the equations left the binding none (pragma-census-19)."""
     others = [re.compile(r"\(?" + re.escape(o) + r"\)?(?![\w'])")
               for o in names if o != name]
-    j = start
+    j = past_asides(lines, start)
     while j < len(lines):
         line = lines[j]
-        if line[:1] not in (' ', '\t') and line.strip() and \
+        if line[:1] not in (' ', '\t') and \
                 not any(o.match(line) for o in others):
             return j
-        j += 1
+        j = past_asides(lines, j + 1)
     return start
 
 
@@ -810,10 +850,15 @@ def equations(lines, start, name):
     """[(argument patterns, rest)] of the equations of name from line start:
     each one's left side split at depth 0 into its patterns, and the guards,
     right-hand side and where clause after them, string literals and
-    comments blanked."""
+    comments blanked; a pragma or a comment at column 0 between them is
+    passed over."""
     head = re.compile(r"\(?" + re.escape(name) + r"\)?(?![\w'])")
     eqs, j = [], start
     while j < len(lines):
+        if lines[j][:1] not in (' ', '\t') and lines[j].strip() and \
+                past_asides(lines, j) > j:
+            j = past_asides(lines, j)
+            continue
         line = re.sub(r'(^|\s)--(\s.*)?$', '',
                       re.sub(r'"(?:[^"\\]|\\.)*"', '""', lines[j]))
         if line[:1] in (' ', '\t') or not line.strip():
@@ -915,8 +960,8 @@ def forwarding(texts, classes=None):
         lines = text.split('\n')
         mod, aliases, opens = module_info(text)
         info[mod] = (aliases, opens)
-        kinds = {m.group(3): m.group(1) for x in lines if x[:1] not in ' \t'
-                 for m in KINDS.finditer(x)}
+        kinds = {m.group(3): m.group(1) for x in code(lines)
+                 if x[:1] not in ' \t' for m in KINDS.finditer(x)}
         for i, line in enumerate(lines):
             m = top_signature(lines, i)
             if not m:
@@ -939,7 +984,7 @@ def forwarding(texts, classes=None):
                 continue
             cls = re.sub(r'^.*\.', '', (hm.group(1).split('=>', 1)[-1]).split()[0])
             pk = {}
-            for b in [head] + lines[j + 1:k]:
+            for b in code(lines[i:k]):
                 for p in KINDS.finditer(b):
                     pk[p.group(3)] = p.group(1)
             seen = set()
@@ -1101,7 +1146,7 @@ def rule_check(text, classes, fwd=None, fus=None, marked=(),
     fus = fus or set()
     unmarked, unbuilt = [], []
     kinds = {}
-    for line in lines:
+    for line in code(lines):
         for m in KINDS.finditer(line):
             if line[:1] not in (' ', '\t'):
                 kinds[m.group(3)] = (m.group(1), bool(m.group(2)))
@@ -1185,7 +1230,7 @@ def rule_check(text, classes, fwd=None, fus=None, marked=(),
                 over = bool(constraints(ctx)) if ctx else False
                 body = instance_body(lines, j, k, hm)
                 pk = {}
-                for b in [head] + lines[j + 1:k]:
+                for b in code(lines[i:k]):
                     for p in KINDS.finditer(b):
                         pk[p.group(3)] = (p.group(1), bool(p.group(2)))
                 hdecl = declared(plain_lines(lines, i))
@@ -1297,8 +1342,9 @@ def pragma_lines(lines, i, name):
         while h > 0 and not re.match(r'(instance|class)\b', lines[h]):
             h -= 1
         span = range(h, decl_at(lines, h, lines[h].split()[0])[2])
+    c = code(lines)
     return [(n, m.group(1), bool(m.group(2))) for n in span
-            for m in KINDS.finditer(lines[n]) if m.group(3) == name]
+            for m in KINDS.finditer(c[n]) if m.group(3) == name]
 
 
 def plan(lines, n, name, has, want):

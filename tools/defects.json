@@ -4570,6 +4570,176 @@
    "unit": "definitions('M.hs')",
    "expect_text": "[(2, 'f'), (3, \"f'\")]",
    "bug_text": "[(2, 'f'), (3, 'f')]"
+  },
+  {
+   "program": "pragma-census.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "review",
+   "id": "pragma-census-14",
+   "name": "--rule read a commented-out pragma as the binding's own, the pragma regex running over raw lines",
+   "family": "scan-for-parse",
+   "trigger": "-- {-# INLINE f #-} above f, whose argument of function type wants INLINE, and {- {-# INLINABLE g #-} -} above an overloaded g",
+   "ok": "f: none -> INLINE and g: none -> INLINABLE listed, exit 1",
+   "bug": "neither listed, exit 0",
+   "notes": "Live at horde-ad's OpsADVal.hs:52, -- {-# INLINE crevOnADInputs #-}, disabled on purpose to break the inline chain, which hid the finding crevOnADInputs: none -> INLINE.",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\n\n-- {-# INLINE f #-}\nf :: (Int -> Int) -> Int -> Int\nf k x = k (k x) + 1\n\n{- {-# INLINABLE g #-} -}\ng :: Num a => a -> a\ng x = x * x + 1\nEOF",
+   "invoke": [
+    "--rule",
+    "{tmp}/S"
+   ],
+   "expect_exit": 1,
+   "expect_text": [
+    "M.hs:4 f: none -> INLINE",
+    "M.hs:8 g: none -> INLINABLE"
+   ],
+   "bug_exit": 0,
+   "bug_absent": "none ->"
+  },
+  {
+   "program": "pragma-census.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "pragma-census-15",
+   "name": "the census read a commented-out pragma as the binding's own, the pragma regex running over raw lines",
+   "family": "scan-for-parse",
+   "trigger": "{- {-# INLINABLE g #-} -} above an overloaded g",
+   "ok": "g listed as carrying no pragma, exit 1",
+   "bug": "g not listed, exit 0",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\n\n-- {-# INLINE f #-}\nf :: (Int -> Int) -> Int -> Int\nf k x = k (k x) + 1\n\n{- {-# INLINABLE g #-} -}\ng :: Num a => a -> a\ng x = x * x + 1\nEOF",
+   "invoke": [
+    "{tmp}/S"
+   ],
+   "expect_exit": 1,
+   "expect_text": "M.hs:8 g",
+   "bug_exit": 0,
+   "bug_absent": "M.hs:8 g"
+  },
+  {
+   "program": "pragma-census.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "pragma-census-16",
+   "name": "--write took a commented-out pragma for one standing on the binding and wrote none",
+   "family": "scan-for-parse",
+   "trigger": "-- {-# INLINE f #-} above f, whose argument of function type wants INLINE",
+   "ok": "round 1 writes INLINE above f's signature, exit 0",
+   "bug": "nothing written, exit 0",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\n\n-- {-# INLINE f #-}\nf :: (Int -> Int) -> Int -> Int\nf k x = k (k x) + 1\n\n{- {-# INLINABLE g #-} -}\ng :: Num a => a -> a\ng x = x * x + 1\nEOF",
+   "invoke": [
+    "--write",
+    "{tmp}/S"
+   ],
+   "probe_cmd": "echo \"pragmas written: $(grep -c '^{-# INLINE f #-}' S/M.hs)\"",
+   "expect_text": [
+    "M.hs:4 f: none -> INLINE",
+    "pragmas written: 1"
+   ],
+   "bug_text": "pragmas written: 0"
+  },
+  {
+   "program": "pragma-census.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "review",
+   "id": "pragma-census-17",
+   "name": "--rule read INLINEABLE f as INLINE on a binding named ABLE, INLINE coming first in the alternation, and misread INLINE CONLIKE g and SPECIALISE INLINE h the same way",
+   "family": "scan-for-parse",
+   "trigger": "{-# INLINEABLE f #-}, {-# INLINE CONLIKE g #-} and {-# SPECIALISE INLINE h :: Int -> Int #-}, each the pragma its binding's type wants",
+   "ok": "nothing listed, exit 0",
+   "bug": "f, g and h listed as carrying none, exit 1",
+   "notes": "Live at horde-ad's AstInterpret.hs:72, {-# INLINEABLE interpretAst #-}, and AstSimplify.hs:950 and 1023.",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\n\nf :: Num a => a -> a\nf x = x * x + 1\n{-# INLINEABLE f #-}\n\ng :: (Int -> Int) -> Int -> Int\ng k x = k (k x)\n{-# INLINE CONLIKE g #-}\n\nh :: Num a => a -> a\nh x = x * x * 2\n{-# SPECIALISE INLINE h :: Int -> Int #-}\nEOF",
+   "invoke": [
+    "--rule",
+    "{tmp}/S"
+   ],
+   "expect_exit": 0,
+   "expect_absent": "none ->",
+   "bug_exit": 1,
+   "bug_text": [
+    "f: none -> INLINABLE",
+    "g: none -> INLINE",
+    "h: none -> INLINABLE"
+   ]
+  },
+  {
+   "program": "pragma-census.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "pragma-census-18",
+   "name": "the census read INLINEABLE f as a pragma of a binding named ABLE and SPECIALISE INLINE h as one of INLINE, so both stood without one",
+   "family": "scan-for-parse",
+   "trigger": "{-# INLINEABLE f #-} and {-# SPECIALISE INLINE h :: Int -> Int #-} on overloaded f and h",
+   "ok": "nothing listed, exit 0",
+   "bug": "f and h listed, exit 1",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\n\nf :: Num a => a -> a\nf x = x * x + 1\n{-# INLINEABLE f #-}\n\ng :: (Int -> Int) -> Int -> Int\ng k x = k (k x)\n{-# INLINE CONLIKE g #-}\n\nh :: Num a => a -> a\nh x = x * x * 2\n{-# SPECIALISE INLINE h :: Int -> Int #-}\nEOF",
+   "invoke": [
+    "{tmp}/S"
+   ],
+   "expect_exit": 0,
+   "expect_absent": [
+    "M.hs:3 f",
+    "M.hs:11 h"
+   ],
+   "bug_exit": 1,
+   "bug_text": [
+    "M.hs:3 f",
+    "M.hs:11 h"
+   ]
+  },
+  {
+   "program": "pragma-census.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "pragma-census-19",
+   "name": "a pragma or comment at column 0 between a signature and its equations ended the definition there, so the binding read with no equations and its recursion, thinness and forwarding went unseen",
+   "family": "scan-for-parse",
+   "trigger": "f :: (Int -> Int) -> Int -> Int, then {-# INLINE f #-}, then f k x = f k (k x)",
+   "ok": "f listed as recursive and INLINE, exit 1",
+   "bug": "nothing listed, exit 0",
+   "notes": "Before the fix 211 of the 821 top-level signatures under horde-ad's src read with no equations, ADEngine.hs:71's grad among them, and none after, by a count made 2026-10-16.",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\n\nf :: (Int -> Int) -> Int -> Int\n{-# INLINE f #-}\n-- A comment.\nf k x = f k (k x)\nEOF",
+   "invoke": [
+    "--rule",
+    "{tmp}/S"
+   ],
+   "expect_exit": 1,
+   "expect_text": "worker instead (file:line name)\n  M.hs:3 f",
+   "bug_exit": 0,
+   "bug_absent": "  M.hs:3 f"
+  },
+  {
+   "program": "pragma-census.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "pragma-census-20",
+   "name": "definition() read on into a following binding whose name begins with the name defined, so foo calling nothing read as recursive through foobar's call of it",
+   "family": "scan-for-parse",
+   "trigger": "{-# INLINE foo #-} foo g x = g x, then foobar y = foo id y",
+   "ok": "no recursive binding listed, exit 0",
+   "bug": "foo listed as recursive and INLINE, exit 1",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\n\n{-# INLINE foo #-}\nfoo :: (Int -> Int) -> Int -> Int\nfoo g x = g (g x)\nfoobar :: Int -> Int\nfoobar y = foo id y + foo negate y\nEOF",
+   "invoke": [
+    "--rule",
+    "{tmp}/S"
+   ],
+   "expect_exit": 0,
+   "expect_absent": "  M.hs:4 foo",
+   "bug_exit": 1,
+   "bug_text": "worker instead (file:line name)\n  M.hs:4 foo"
   }
  ]
 }
