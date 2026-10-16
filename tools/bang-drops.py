@@ -67,7 +67,7 @@ def drops(old, new):
                     if un:
                         out.append(f'{rel}: {fn}: {x} banged in old, '
                                    f'unbanged in new: {un}')
-                    elif not re.search(r"\b" + e + r"\b", nb):
+                    elif not re.search(r"(?<![\w'])" + e + r"(?![\w'])", nb):
                         out.append(f'{rel}: {fn}: {x} banged in old, '
                                    'gone from new')
     return out, compared
@@ -75,7 +75,8 @@ def drops(old, new):
 
 def self_test():
     """Two versions of a module: a bang dropped from a `let`, a `where`
-    and a `<-`, a banged binding gone, one kept, and a file only in OLD."""
+    and a `<-`, a banged binding gone, one kept, one kept whose name ends
+    in a prime, and a file only in OLD."""
     import tempfile
     old = ('module M where\n'
            'f v = let !x = g v in x + 1\n'
@@ -83,13 +84,15 @@ def self_test():
            'k v = do { !y <- get v; return y }\n'
            'gone v = let !z = 1 in z\n'
            'same v = let !s = 1 in s\n'
+           "keep v = let !p' = 1 in p'\n"
            '-- c v = let !c = 1 in c\n')
     new = ('module M where\n'
            'f v = let x = g v in x + 1\n'
            'h v = go v\n  where n = 3\n'
            'k v = do { y <- get v; return y }\n'
            'gone v = 1\n'
-           'same v = let !s = 1 in s\n')
+           'same v = let !s = 1 in s\n'
+           "keep v = let !p' = 1 in p'\n")
     bad = []
     with tempfile.TemporaryDirectory() as td:
         for rel, text in (('O/src/M.hs', old), ('N/src/M.hs', new),

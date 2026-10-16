@@ -1014,8 +1014,13 @@ MUTANTS = [
      '                          or re.search(r"(?:^|[\\s(,{;])" + e + r"\\s*<-", ln)]\n',
      '                          ]\n', ST),
     ('bang-drops a banged name gone not reported', 'bang-drops.py',
-     "                    elif not re.search(r\"\\b\" + e + r\"\\b\", nb):\n",
+     "                    elif not re.search(r\"(?<![\\w'])\" + e + r\"(?![\\w'])\", nb):\n",
      '                    elif False:\n', ST),
+    # bang-drops-01: the word-boundary test, which finds no boundary after
+    # a name's prime, so a kept u' read as gone.
+    ('bang-drops a kept primed name read as gone', 'bang-drops.py',
+     "                    elif not re.search(r\"(?<![\\w'])\" + e + r\"(?![\\w'])\", nb):\n",
+     "                    elif not re.search(r\"\\b\" + e + r\"\\b\", nb):\n", ST),
     ('lazy-reads a lambda right-hand side read as a value', 'lazy-reads.py',
      "                    if x == 'in' or not rhs or rhs.lstrip().startswith('\\\\'):\n",
      "                    if x == 'in' or not rhs:\n", ST),

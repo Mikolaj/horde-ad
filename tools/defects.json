@@ -4049,6 +4049,29 @@
    ],
    "bug_exit": 0,
    "bug_absent": "M/Cpp"
+  },
+  {
+   "id": "bang-drops-01",
+   "program": "bang-drops.py",
+   "name": "a banged name ending in a prime, as u', was reported gone from the new tree wherever the new tree kept it, the word-boundary test finding no boundary after the prime",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "OLD and NEW alike, f x = loop x where loop !u' = u' + 1",
+   "ok": "no line, exit 0, the bang being kept",
+   "bug": "f: u' banged in old, gone from new, exit 1",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-16 running the tool over orthotope's pragma run, its base against its result: equalT's and compareT's loop !u' !w' and readRangeT's let !hi', unchanged in both trees, were all reported gone from new.",
+   "plant_cmd": "mkdir -p A B && printf 'module M where\\n\\nf :: Int -> Int\\nf x = loop x\\n  where loop !u%s = u%s + 1\\n' \"'\" \"'\" > A/M.hs && cp A/M.hs B/M.hs",
+   "invoke": [
+    "{tmp}/A",
+    "{tmp}/B"
+   ],
+   "expect_exit": 0,
+   "expect_absent": "gone from new",
+   "bug_exit": 1,
+   "bug_text": "f: u' banged in old, gone from new"
   }
  ]
 }
