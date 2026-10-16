@@ -78,7 +78,11 @@ is for (its floor section).
   LOOP_PIN     LABEL:RESIDUE, a probe's knob and never a recipe's: the group
                holding that head takes the residue that puts the head
                there, whatever any cost says, so a placement can be built
-               to order and timed. Dead-spot form only; refused otherwise
+               to order and timed. Dead-spot form only; refused otherwise.
+               A residue the spot cannot reach, or a label of the module
+               that no group can pin, fails the assembly; each pin applied
+               is said on stderr, so a label no module holds shows by the
+               line's absence
   REAL_AS      the real assembler, default /usr/bin/gcc
   ALIGN_AS_VERBOSE  report the budgets emitted, the heads fallen back on,
                and the heads the info-table guard left alone
@@ -104,7 +108,10 @@ move exactly the heads that would cross an extra boundary and no others --
 exactly, GNU `as` skipping the alignment altogether when it would need more
 than `max_skip` bytes. A head so treated either stays byte for byte where it
 fell or goes to offset 0, there being no third outcome, and none is moved for
-nothing. `p` is left to the assembler because padding upstream moves it; `L`
+nothing. A loop one byte over a whole number of lines spans its least at
+every offset, and its budget of 0 gets no directive, GNU `as` reading a
+`max_skip` of 0 as no limit. `p` is left to the assembler because padding
+upstream moves it; `L`
 is measured here because the assembler will not say, and can be, being
 layout-invariant for these loops: padding before a head does not change
 intra-loop distances, so a short loop's backward branch keeps its `rel8`
@@ -520,6 +527,11 @@ if PIN and not DEADSPOT:
              ' wants LOOP_DEADSPOT=1 beside it')
 if PIN and (':' not in PIN or not PIN.rsplit(':', 1)[1].isdigit()):
     sys.exit('align-as: LOOP_PIN=%r is not LABEL:RESIDUE' % PIN)
+
+
+class PinError(Exception):
+    """A LOOP_PIN this module cannot honour: main() fails the assembly on
+    it, where its catch-all assembled the module unpinned."""
 if ENTRIES and (WINDOW < 1 or BOUND % WINDOW or ENTRY_OPS < 1):
     sys.exit('align-as: LOOP_WINDOW=%d LOOP_ENTRY_OPS=%d: the window must'
              ' divide the alignment boundary of %d bytes and an entry must'
@@ -1235,11 +1247,25 @@ def plan_dead(src, args, path):
             lab, want = PIN.rsplit(':', 1)
             d = cands[-1]
             i = edges[lab][0]
-            rho = next(p for p in range(BOUND)
-                       if (residue(d, i, p) + shift[g, d]) % BOUND
-                       == int(want) % BOUND)
+            # A residue an `.align` between the spot and the head rules
+            # out was a bare StopIteration, which main's catch-all
+            # printed as no message, the module assembled unpinned
+            # (pin-unreachable-residue-built-unpinned).
+            at = {p: (residue(d, i, p) + shift[g, d]) % BOUND
+                  for p in range(BOUND)}
+            rho = next((p for p in range(BOUND)
+                        if at[p] == int(want) % BOUND), None)
+            if rho is None:
+                raise PinError(f'{lab} cannot be put at residue'
+                               f' {int(want) % BOUND} from the spot at line'
+                               f' {d + 1}, which reaches only'
+                               f' {sorted(set(at.values()))}')
             chosen = ((cost(d, rho, mode), rho, BOUND - 1), d)
-            if VERBOSE and first:
+            pinned.add(lab)
+            # Said whatever ALIGN_AS_VERBOSE is: a label no
+            # module holds is told only by this line's absence
+            # (pin-applied-said-only-when-verbose).
+            if first:
                 print(f'align-as: {path}: {lab} pinned at residue'
                       f' {int(want) % BOUND} by LOOP_PIN', file=sys.stderr)
         directive(chosen, ins)
@@ -1247,9 +1273,18 @@ def plan_dead(src, args, path):
         if first and VERBOSE and mode in below:
             directive(choose(below[mode]), ins_alt)
 
+    pinned = set()
     for g, (cands, hs) in enumerate(groups):
         if cands:
             plan_one(g, True)
+    # A label of this module the pin could not take was passed over in silence
+    # (pin-on-no-head-passed-over): a head no group with a spot holds, or a
+    # label that heads no loop.
+    lab = PIN.rsplit(':', 1)[0] if PIN else None
+    if lab and lab not in pinned and any(x.startswith(lab + ':') for x in src):
+        raise PinError(f'{lab} is a label of {path} but '
+                       + ('a loop head no group with a dead spot holds'
+                          if lab in edges else 'heads no loop'))
 
     # The plan settled against the assembler: the padded copy assembled
     # and every head read where it landed, and a group whose heads cost
@@ -1451,8 +1486,12 @@ def rewrite(path, args):
                 # (L-1) mod BOUND, so a loop longer than a line is moved when
                 # -- and only when -- it would otherwise span one line more
                 # than its length forces. It is L-1 whenever L fits a line.
-                out.append(f'\t.p2align\t{ALIGN}, 0x90, {(ln - 1) % BOUND}')
-                n += 1
+                # A budget of 0 gets no directive: GNU as reads a max-skip
+                # of 0 as no limit (maxskip-budget-zero-aligns-always).
+                if (ln - 1) % BOUND:
+                    out.append(f'\t.p2align\t{ALIGN}, 0x90,'
+                               f' {(ln - 1) % BOUND}')
+                    n += 1
         out.append(line)
     if PAD:
         out += ['\t.section .text', '\t.p2align 3', f'\t.space {PAD}, 0x90', '']
@@ -1470,6 +1509,8 @@ def main():
             try:
                 dn, db, dd = rewrite(a, args)
                 n, back, dropped = n + dn, back + db, dropped + dd
+            except PinError as e:            # a probe built to order or not at all
+                sys.exit(f'align-as: {a}: LOOP_PIN: {e}')
             except Exception as e:           # never break a build over this
                 print(f'align-as: {a}: {e}', file=sys.stderr)
     if VERBOSE:

@@ -4973,6 +4973,127 @@
    "expect_text": "--ignore",
    "bug_exit": 1,
    "bug_text": "re.error"
+  },
+  {
+   "program": "align-as.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "pin-unreachable-residue-built-unpinned",
+   "name": "a LOOP_PIN residue the spot cannot reach, an .align 8 standing between them, raised a bare StopIteration, which main's catch-all printed as no message, and the module was assembled unpinned and the build went on",
+   "family": "quiet-failure",
+   "trigger": "LOOP_DEADSPOT=1 LOOP_PIN=.Lloop:4, an .align 8 between the dead spot and .Lloop, which reaches only residues 3 mod 8",
+   "ok": "the assembly fails, the message naming the residue and the ones the spot reaches",
+   "bug": "align-as: a.s: and nothing more, exit 0, the module unpinned",
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n\t.globl\tgo\ngo:\n\tmovq\t%rdi, %rax\n\tjmp\t.Lgo\n\tnop\n\t.align 8\n.Lgo:\n\ttestq\t%rax, %rax\n.Lloop:\n\taddq\t$1, %rax\n\tcmpq\t$10, %rax\n\tjne\t.Lloop\n\tret\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "/usr/bin/gcc",
+    "LOOP_DEADSPOT": "1",
+    "LOOP_PIN": ".Lloop:4"
+   },
+   "expect_exit": 1,
+   "expect_text": [
+    "LOOP_PIN: .Lloop cannot be put at residue 4",
+    "reaches only [3, 11"
+   ],
+   "bug_exit": 0,
+   "bug_absent": "LOOP_PIN"
+  },
+  {
+   "program": "align-as.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "pin-on-no-head-passed-over",
+   "name": "a LOOP_PIN naming a label of the module that heads no loop was passed over in silence, the module built unpinned",
+   "family": "silent-option",
+   "trigger": "LOOP_DEADSPOT=1 LOOP_PIN=.Lgo:3, .Lgo a label no back edge jumps to",
+   "ok": "the assembly fails, the message saying .Lgo heads no loop",
+   "bug": "exit 0, nothing said",
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n\t.globl\tgo\ngo:\n\tmovq\t%rdi, %rax\n\tjmp\t.Lgo\n\tnop\n\t.align 8\n.Lgo:\n\ttestq\t%rax, %rax\n.Lloop:\n\taddq\t$1, %rax\n\tcmpq\t$10, %rax\n\tjne\t.Lloop\n\tret\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "/usr/bin/gcc",
+    "LOOP_DEADSPOT": "1",
+    "LOOP_PIN": ".Lgo:3"
+   },
+   "expect_exit": 1,
+   "expect_text": ".Lgo is a label of",
+   "bug_exit": 0,
+   "bug_absent": ".Lgo"
+  },
+  {
+   "program": "align-as.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "pin-applied-said-only-when-verbose",
+   "name": "a pin applied was said only under ALIGN_AS_VERBOSE, so a build whose LOOP_PIN label no module holds, a typo, read the same as a pinned one",
+   "family": "quiet-failure",
+   "trigger": "LOOP_DEADSPOT=1 LOOP_PIN=.Lloop:3, a residue the spot reaches, ALIGN_AS_VERBOSE unset",
+   "ok": ".Lloop pinned at residue 3 said on stderr",
+   "bug": "nothing said",
+   "notes": "GHC runs the assembler once per module, so one invocation cannot know that no module holds the label; the line said for every pin applied is what tells.",
+   "plant_cmd": "cat > a.s <<'EOF_A_S'\n\t.text\n\t.globl\tgo\ngo:\n\tmovq\t%rdi, %rax\n\tjmp\t.Lgo\n\tnop\n\t.align 8\n.Lgo:\n\ttestq\t%rax, %rax\n.Lloop:\n\taddq\t$1, %rax\n\tcmpq\t$10, %rax\n\tjne\t.Lloop\n\tret\nEOF_A_S\nchmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "/usr/bin/gcc",
+    "LOOP_DEADSPOT": "1",
+    "LOOP_PIN": ".Lloop:3"
+   },
+   "expect_exit": 0,
+   "expect_text": ".Lloop pinned at residue 3 by LOOP_PIN",
+   "bug_exit": 0,
+   "bug_absent": "pinned"
+  },
+  {
+   "program": "align-as.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "maxskip-budget-zero-aligns-always",
+   "name": "a loop one byte over a whole number of lines got a max-skip budget of 0, which GNU as reads as no limit, so it was aligned wherever it sat, though it spans its least at every offset",
+   "family": "domain-unchecked",
+   "trigger": "LOOP_MAXSKIP=1 and a 65-byte loop",
+   "ok": "no directive before the head",
+   "bug": ".p2align 6, 0x90, 0 before the head",
+   "notes": "The reviewer checked GNU as's reading of a max-skip of 0 with gas itself; the dead-spot planner's budget is never 0, the residue chosen being no costlier than itself.",
+   "plant_cmd": "{ printf '\\t.text\\n\\t.globl\\tgo\\ngo:\\n\\tmovq\\t%%rdi, %%rax\\n\\ttestq\\t%%rax, %%rax\\n.Lloop:\\n\\taddq\\t$1, %%rax\\n'; for i in $(seq 55); do printf '\\tnop\\n'; done; printf '\\tcmpq\\t$10, %%rax\\n\\tjne\\t.Lloop\\n\\tret\\n'; } > a.s && chmod 664 a.s\ncat > as <<'EOF_AS'\n#!/bin/sh\nexit 0\nEOF_AS\nchmod 755 as",
+   "invoke": [
+    "-c",
+    "-o",
+    "{tmp}/a.o",
+    "{tmp}/a.s"
+   ],
+   "env": {
+    "REAL_AS": "/usr/bin/gcc",
+    "LOOP_MAXSKIP": "1"
+   },
+   "probe_cmd": "python3 - {tmp}/a.s <<'PY'\nimport sys\nlines = open(sys.argv[1]).read().split('\\n')\nout = []\nfor k, l in enumerate(lines[:-1]):\n    s, nxt = l.strip(), lines[k + 1].strip()\n    if nxt.startswith('.L') and nxt.endswith(':'):\n        out.append('before %s %s' % (nxt, s))\nprint('\\n'.join(out))\nPY",
+   "expect_exit": 0,
+   "expect_text": "before .Lloop: testq\t%rax, %rax",
+   "bug_exit": 0,
+   "bug_text": "before .Lloop: .p2align\t6, 0x90, 0"
   }
  ]
 }
