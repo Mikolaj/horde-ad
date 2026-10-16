@@ -9,7 +9,8 @@ OLD and NEW are two versions of one source tree, two checkouts, say, or a
 and every top-level definition in both versions of it, this reports each
 name OLD's definition binds with a bang and NEW's binds without one, in a
 `let`, a `where`, a continuation line of their blocks or a `<-`, with the
-unbanged lines; and each banged name of OLD's definition that NEW's no
+unbanged lines that OLD's definition does not also hold; and each banged
+name of OLD's definition that NEW's no
 longer mentions, which a rewrite may have moved elsewhere.
 
 This is how 908 was found in orthotope: `allSameT`'s `!x` dropped for
@@ -24,6 +25,7 @@ Exit 0 when no bang was dropped, 1 when one was, 2 when the comparison did
 not happen: OLD or NEW not a directory, or no `.hs` file in both.
 """
 
+import collections
 import os
 import re
 import sys
@@ -37,6 +39,14 @@ BANG = re.compile(r"(?:(?<=[\s(\[,])|^)!([a-z_][\w']*)")
 def defs(path):
     with open(path, errors='replace') as fh:
         return split_functions(strip_comments(fh.read()))
+
+
+def unbanged(body, e):
+    """The lines of BODY binding the name E escapes without a bang."""
+    return [ln.strip() for ln in body.split('\n')
+            if re.search(r"(?:\blet\s+|\bwhere\s+|^\s+)" + e
+                         + r"\s*=(?!=)", ln)
+            or re.search(r"(?:^|[\s(,{;])" + e + r"\s*<-", ln)]
 
 
 def drops(old, new):
@@ -60,10 +70,16 @@ def drops(old, new):
                 nb = n[fn]
                 for x in sorted(set(BANG.findall(body))):
                     e = re.escape(x)
-                    un = [ln.strip() for ln in nb.split('\n')
-                          if re.search(r"(?:\blet\s+|\bwhere\s+|^\s+)" + e
-                                       + r"\s*=(?!=)", ln)
-                          or re.search(r"(?:^|[\s(,{;])" + e + r"\s*<-", ln)]
+                    # NEW's unbanged lines less OLD's: NEW's alone, a tree
+                    # against itself reported a name OLD banged in one
+                    # place and bound unbanged in another (bang-drops-02).
+                    had = collections.Counter(unbanged(body, e))
+                    un = []
+                    for ln in unbanged(nb, e):
+                        if had[ln]:
+                            had[ln] -= 1
+                        else:
+                            un.append(ln)
                     if un:
                         out.append(f'{rel}: {fn}: {x} banged in old, '
                                    f'unbanged in new: {un}')

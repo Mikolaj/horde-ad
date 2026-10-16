@@ -56,7 +56,8 @@ NOTE_TEXT = re.compile(r'src<[^>]*>')
 # or an alternative's arrow, or `in`.
 SCOPE = re.compile(r'^\s*$|(?:=|->|\bin)\s*$')
 OPCHARS = r"[!#$%&*+./<=>?@\\^|~:-]+"
-NAME_DEF = re.compile(r"^([a-z_][\w']*)\b")
+# Not \b after the name, which backtracks past a prime (src-attrib-01).
+NAME_DEF = re.compile(r"^([a-z_][\w']*)(?![\w'])")
 INFIX_DEF = re.compile(r"^[a-z_][\w']*\s+(" + OPCHARS + r")\s")
 OP_SIG = re.compile(r"^\((" + OPCHARS + r")\)")
 DECL = re.compile(r'^(instance|data|newtype|type|class|pattern)\s+(.*)')

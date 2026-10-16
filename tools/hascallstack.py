@@ -104,11 +104,13 @@ def parse(cfg, texts):
                 j += 1
             occ, errors = {}, []
             for i in range(sig_end, j):
-                # The name heading its own equation is no call.
-                l = re.sub(r"^%s\b" % re.escape(name), ' ' * len(name),
+                # The name heading its own equation is no call. A name's
+                # end is no \b, which backtracks past a prime and read go'
+                # as go (hascallstack-02).
+                l = re.sub(r"^%s(?![\w'])" % re.escape(name), ' ' * len(name),
                            code[i])
-                for q, f in re.findall(r"\b(?:([A-Z]\w*)\.)?([a-z_][\w']*)\b",
-                                       l):
+                for q, f in re.findall(r"(?<![\w'])(?:([A-Z]\w*)\.)?"
+                                       r"([a-z_][\w']*)(?![\w'])", l):
                     occ.setdefault((q, f), []).append(i)
                 if re.search(r'\berror\b', l):
                     e = MESSAGE.search(lines[i])

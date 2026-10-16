@@ -59,17 +59,20 @@ def reads(tree):
                     if x == 'in' or not rhs or rhs.lstrip().startswith('\\'):
                         continue
                     e = re.escape(x)
+                    # Not \b around the name, which finds no boundary after
+                    # a prime, so x' was never found read (lazy-reads-01).
+                    w = r"(?<![\w'])" + e + r"(?![\w'])"
                     tags = set()
                     for j, u in enumerate(lines):
-                        if j == i or not re.search(r"\b" + e + r"\b", u):
+                        if j == i or not re.search(w, u):
                             continue
-                        if re.search(r"\\[^->]*->.*\b" + e + r"\b", u):
+                        if re.search(r"\\[^->]*->.*" + w, u):
                             tags.add('lambda')
                         if re.search(r"\(\s*" + e + r"\s*[^\w\s(),\[\]]+\s*\)"
                                      r"|\(\s*[^\w\s(),\[\]]+\s*" + e
                                      + r"\s*\)", u):
                             tags.add('section')
-                        if re.search(PER_ELEM + r".*\b" + e + r"\b", u):
+                        if re.search(PER_ELEM + r".*" + w, u):
                             tags.add('per-elem-arg')
                     if tags:
                         out.append(f"{os.path.relpath(p, tree)}\t{fn}\t"
