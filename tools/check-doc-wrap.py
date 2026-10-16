@@ -341,6 +341,11 @@ def self_test():
     if not shutil.which("wrap80") or not shutil.which("git"):
         print("BLOCKED: wrap80 or git not on PATH, self-test did not run")
         return 2
+    # The scratch repository is found by the cwd, by every git call here and
+    # every run of this script: an inherited GIT_DIR took the commits to the
+    # caller's repository (check-doc-wrap-10).
+    for k in common.GIT_LOCATION:
+        os.environ.pop(k, None)
     script = os.path.abspath(__file__)
     prev = os.getcwd()
     bad = []

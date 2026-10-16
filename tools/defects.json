@@ -5486,6 +5486,78 @@
    "expect_text": "unsafeIOToST",
    "bug_exit": 0,
    "bug_absent": "unsafeIOToST"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "generalisation",
+   "family": "environment-decides",
+   "trigger": "--self-test with GIT_DIR naming another repository's .git",
+   "ok": "that repository untouched: no commit in it",
+   "bug": "the self-test's commits in it",
+   "notes": "Found 2026-10-16 by asking where else rewrite-check-14's shape stood: every self-test under tools/ that builds a scratch repository.",
+   "plant_cmd": "git init -q decoy",
+   "env": {
+    "GIT_DIR": "{tmp}/decoy/.git"
+   },
+   "invoke": [
+    "--self-test"
+   ],
+   "probe_cmd": "echo \"decoy commits: $(git --git-dir=decoy/.git rev-list --all | wc -l)\"",
+   "expect_text": "decoy commits: 0",
+   "bug_absent": "decoy commits: 0",
+   "id": "check-plan-citations-14",
+   "program": "check-plan-citations.py",
+   "name": "the self-test's git calls and its runs of the checker inherited GIT_DIR, so its scratch repository's commits went to whatever repository the caller had set"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "generalisation",
+   "family": "environment-decides",
+   "trigger": "--self-test with GIT_DIR naming another repository's .git",
+   "ok": "that repository untouched: no commit in it",
+   "bug": "the self-test's commits in it",
+   "notes": "Found 2026-10-16 by asking where else rewrite-check-14's shape stood: every self-test under tools/ that builds a scratch repository.",
+   "plant_cmd": "git init -q decoy",
+   "env": {
+    "GIT_DIR": "{tmp}/decoy/.git"
+   },
+   "invoke": [
+    "--self-test"
+   ],
+   "probe_cmd": "echo \"decoy commits: $(git --git-dir=decoy/.git rev-list --all | wc -l)\"",
+   "expect_text": "decoy commits: 0",
+   "bug_absent": "decoy commits: 0",
+   "id": "check-doc-wrap-10",
+   "program": "check-doc-wrap.py",
+   "name": "the self-test's git calls and its runs of the checker inherited GIT_DIR, so its scratch repository's commits went to whatever repository the caller had set"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "generalisation",
+   "family": "environment-decides",
+   "trigger": "--self-test with GIT_DIR naming another repository's .git",
+   "ok": "that repository untouched: no commit in it",
+   "bug": "the self-test's commits in it",
+   "notes": "Found 2026-10-16 by asking where else rewrite-check-14's shape stood: every self-test under tools/ that builds a scratch repository.",
+   "plant_cmd": "git init -q decoy",
+   "env": {
+    "GIT_DIR": "{tmp}/decoy/.git"
+   },
+   "invoke": [
+    "--self-test"
+   ],
+   "probe_cmd": "echo \"decoy commits: $(git --git-dir=decoy/.git rev-list --all | wc -l)\"",
+   "expect_text": "decoy commits: 0",
+   "bug_absent": "decoy commits: 0",
+   "id": "pragma-calls-14",
+   "program": "pragma-calls.py",
+   "name": "the self-test's git calls inherited GIT_DIR, so its scratch repository's commits went to whatever repository the caller had set, git -C not overriding it"
   }
  ]
 }

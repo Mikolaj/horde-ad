@@ -20,8 +20,11 @@ collection raises CriterionError, which each turns into its own exit 2, the
 run not having happened; so does an estimate that is not a finite number,
 criterion writing a NaN as null.
 
-git_env serves rewrite-check.py and rewrite-fold.py, whose git calls name
-their repository by -C.
+GIT_LOCATION and git_env serve the git calls that must not answer for a
+repository the caller set: rewrite-check.py's and rewrite-fold.py's, which
+name theirs by -C, and those of the self-tests that build a scratch one,
+check-doc-wrap.py's, check-plan-citations.py's and pragma-calls.py's
+among them.
 """
 
 import json

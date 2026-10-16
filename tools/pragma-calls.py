@@ -90,6 +90,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import common  # noqa: E402
 import dumps  # noqa: E402
 
 # The module keying and the normalisation the cache was written with, part
@@ -614,6 +615,10 @@ def self_test():
     """A git repository whose diff removes two pragmas, and two dump trees
     in which one target's call sites change and the other's do not."""
     import tempfile
+    # git -C does not override an inherited GIT_DIR, which took the scratch
+    # repository's commits to the caller's (pragma-calls-14).
+    for k in common.GIT_LOCATION:
+        os.environ.pop(k, None)
     bad = []
     with tempfile.TemporaryDirectory() as td:
         repo = os.path.join(td, 'repo')
