@@ -5624,6 +5624,33 @@
    "expect_text": "M.hs:11 op2",
    "bug_exit": 1,
    "bug_absent": "M.hs:11 op2"
+  },
+  {
+   "program": "pragma-calls.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "generalisation",
+   "id": "pragma-calls-15",
+   "name": "the worktree's diff inherited GIT_DIR, git -C not overriding it, so it diffed another repository or none",
+   "family": "environment-decides",
+   "trigger": "GIT_DIR=/nonexistent-decoy in the environment, WORKTREE a repository whose diff removes an INLINE pragma",
+   "ok": "the worktree's diff is read: f DEAD, exit 0",
+   "bug": "exit 2, git cannot diff the worktree",
+   "notes": "Found by asking where else pragma-calls-14's shape stood: the self-test was fixed and the main path, which runs the same git -C, was not.",
+   "plant_cmd": "export GIT_AUTHOR_DATE='1000000000 +0000' GIT_COMMITTER_DATE='1000000000 +0000' && g() { git -c user.email=t@t -c user.name=t -c commit.gpgsign=false \"$@\"; } && mkdir W && printf 'module M where\\n{-# INLINE f #-}\\nf x = x\\n' > W/M.hs && g -C W init -q && g -C W add M.hs && g -C W commit -qm base && printf 'module M where\\nf x = x\\n' > W/M.hs && mkdir -p A/src B/src && printf 'f = \\\\ x -> x\\n' > A/src/M.dump-simpl && printf 'f = \\\\ x -> x\\n' > B/src/M.dump-simpl",
+   "env": {
+    "GIT_DIR": "/nonexistent-decoy"
+   },
+   "invoke": [
+    "{tmp}/A",
+    "{tmp}/B",
+    "{tmp}/W"
+   ],
+   "expect_exit": 0,
+   "expect_text": "M.hs\tf\tDEAD",
+   "bug_exit": 2,
+   "bug_text": "git cannot diff"
   }
  ]
 }

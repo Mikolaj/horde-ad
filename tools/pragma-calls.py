@@ -122,10 +122,12 @@ def pragmas(wt):
     when git cannot diff it. The diff is against HEAD, staged changes
     included, where the unstaged diff missed a staged removal
     (pragma-calls-11); a file deleted is named by its old path, its new one
-    being /dev/null (pragma-calls-12)."""
+    being /dev/null (pragma-calls-12). An inherited GIT_DIR, which -C does
+    not override, is cleared (pragma-calls-15)."""
     r = subprocess.run(['git', '-C', wt, 'diff', '-U0', '--no-color',
                         '--no-ext-diff', '--src-prefix=a/', '--dst-prefix=b/',
-                        'HEAD'], capture_output=True, text=True)
+                        'HEAD'], capture_output=True, text=True,
+                       env=common.git_env())
     if r.returncode != 0:
         return None
     names, cur, old = [], None, None
