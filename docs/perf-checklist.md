@@ -101,6 +101,15 @@ Not a check: the conditions every timing below assumes.
   which code placement does not move.
 - A time difference under about 10% decides nothing without instruction counts:
   an unchanged row's ratio ranged from 0.86 to 0.98 across pairs of builds.
+- An instruction count decides only at the cells it counts: count the large size
+  and every view the change's code takes, a cost having twice gone unseen
+  at the cells left out. Read gains and costs at one threshold, reporting
+  a ratio exactly at it; check a counting tool's verdict on one row before
+  counting its list; and read a stage's tests line before its counts.
+- A count differencing N and 2N calls spans few calls at a large size,
+  and an old-generation collection falling between them in one build and
+  not the other moved one cell by 6M instructions a call, at `-A4m`: recount
+  such a cell over ten times the calls before reading it.
 - `-A32m`, and `-A4m` too where a library's users may run at the default area.
 - `GHCRTS=-V0`, which stops the RTS clock, on every timed or counted process
   of horde-ad or orthotope; `ab-time.py`, `perf-per-call.py`,
@@ -218,6 +227,10 @@ throughout, its own flags reaching no user's build.
   every change to the pragmas kept or their notes, and before measuring;
   an `INLINE` the rule requires, on a forwarder, a thin wrapper or on a binding
   F1's recipe or A3 confirms, is not released on a measurement.
+- **Measuring a pragma change:** a pragma added, removed or changed is measured
+  with the binding's calls in I1's terms, point-free and with its arguments
+  named, and with the library's own calls of it as written and all saturated
+  where these differ; the form taken is the best of them.
 - **Measuring compile time:** each build alone, in a fresh `--builddir`,
   on an otherwise idle machine, without `jobs` or `semaphore`
   in `cabal.project.local`, which skew build times; read the two per module
@@ -337,8 +350,12 @@ into a wrapper and a worker with no unfolding, which no client could specialise.
 **Read:** set aside dictionaries that feed `Show`, error messages and the test
 harness. Every other callee needs what P requires of its module, a pragma where
 the callers cannot specialise without one: the polymorphic worker ran 6 to 44
-times slower in the fill's variant C. Library code is the scope: a user's own
-unspecialised call is the user's to fix in their Core.
+times slower in the fill's variant C. A class method can need more: on GHC
+9.12.4 a client called orthotope's INLINABLE `vUnsafeFillStrided`, a method
+constrained by `VecElem`, unspecialised through the generic apply, 16%
+at Dynamic's small strided Storable `force`, which an INLINE method forwarding
+to a top-level INLINABLE function took back. Library code is the scope: a user's
+own unspecialised call is the user's to fix in their Core.
 
 **Keep** a test that fails when specialisation breaks, cheap enough for CI: one
 shape and `Double`, every operation at every vector type, an allocation bound
