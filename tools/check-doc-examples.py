@@ -190,9 +190,31 @@ def fenced_bodies(text):
     return out
 
 
+# Outside a block comment: an opening, or a line comment, which is stepped
+# over so that a {- inside it opens nothing. Inside one: an opening or
+# a close, block comments nesting as in GHC.
+OUTSIDE_RE = re.compile(r"\{-|--[^\n]*")
+INSIDE_RE = re.compile(r"\{-|-\}")
+
+
 def strip_comments(code):
-    code = re.sub(r"\{-.*?-\}", "", code, flags=re.S)
-    return re.sub(r"--.*$", "", code, flags=re.M)
+    """CODE without its comments and pragmas. A pragma inside a block
+    comment ended it (check-doc-examples-09); an opening never closed is
+    left as code."""
+    out, kept, pos, depth = [], 0, 0, 0
+    while m := (INSIDE_RE if depth else OUTSIDE_RE).search(code, pos):
+        pos = m.end()
+        if m.group(0) == "{-":
+            if depth == 0:
+                out.append(code[kept:m.start()])
+                kept = m.start()
+            depth += 1
+        elif m.group(0) == "-}":
+            depth -= 1
+            if depth == 0:
+                kept = pos
+    out.append(code[kept:])
+    return re.sub(r"--.*$", "", "".join(out), flags=re.M)
 
 
 def local_names(code):

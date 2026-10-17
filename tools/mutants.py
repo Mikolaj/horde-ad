@@ -1540,10 +1540,12 @@ MUTANTS = [
     ('pragma-census --rule block comments read as code', 'pragma-census.py',
      '            texts[path] = blank_blocks(fh.read())\n',
      '            texts[path] = fh.read()\n', ST),
-    ('pragma-census a pragma inside a block comment closing it',
-     'pragma-census.py',
+    # hssource-03 (2026-10-17): the block comment scanner pragma-census
+    # shares, judged by its self-test, which caught it.
+    ('hssource a pragma inside a block comment closing it', 'hssource.py',
      'INSIDE = re.compile(r"\\{-|-\\}")\n',
-     'INSIDE = re.compile(r"-\\}")\n', ST),
+     'INSIDE = re.compile(r"-\\}")\n',
+     'cd {dir} && python3 pragma-census.py --self-test'),
     # hpc-untaken (2026-10-13): each watched failing its self-test before
     # it was written down here.
     ('hpc-untaken error calls listed', 'hpc-untaken.py',

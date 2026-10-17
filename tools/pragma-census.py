@@ -127,7 +127,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from hssource import strip_comments  # noqa: E402
+from hssource import blank_blocks, strip_comments  # noqa: E402
 
 # A pragma's kind ends at a word boundary, and CONLIKE, or a SPECIALISE's
 # INLINE or NOINLINE, may stand between it and the phase or the name:
@@ -156,38 +156,6 @@ def code(lines):
     the pragma regexes are run over. Over the raw lines a commented-out pragma
     read as the binding's own (pragma-census-14 to -16)."""
     return strip_comments('\n'.join(lines)).split('\n')
-
-
-# Outside a block comment: a pragma or a line comment, each stepped over so
-# that a {- inside it opens nothing, or a block comment's opening. Inside
-# one: an opening, a pragma's included, as block comments nest, or a close.
-OUTSIDE = re.compile(r"\{-#.*?#-\}|\{-|(?<![!#$%&*+./<=>?@\\^|~:])--"
-                     r"(?![!#$%&*+./<=>?@\\^|~:])[^\n]*", re.S)
-INSIDE = re.compile(r"\{-|-\}")
-
-
-def blank_blocks(text):
-    """TEXT with each block comment, nested ones included, blanked but for its
-    line breaks, the pragmas and line comments outside them kept: what the
-    walks read. Over the raw text a signature
-    commented out in {- -} was judged (pragma-census-21, -22), and a block
-    comment at column 0 ended an instance body (pragma-census-23)."""
-    out, kept, pos, depth = [], 0, 0, 0
-    while m := (INSIDE if depth else OUTSIDE).search(text, pos):
-        pos = m.end()
-        if m.group(0) == '{-':
-            if depth == 0:
-                out.append(text[kept:m.start()])
-                kept = m.start()
-            depth += 1
-        elif m.group(0) == '-}':
-            depth -= 1
-            if depth == 0:
-                out.append(re.sub(r'[^\n]', ' ', text[kept:pos]))
-                kept = pos
-    rest = text[kept:]
-    out.append(re.sub(r'[^\n]', ' ', rest) if depth else rest)
-    return re.sub(r'[ \t]+$', '', ''.join(out), flags=re.M)
 
 
 def past_asides(lines, j):

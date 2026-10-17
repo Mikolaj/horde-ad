@@ -6,7 +6,10 @@ as for common.py.
 
 strip_comments blanks comments but keeps pragmas and every line break, so
 a line number still names its line; an operator that begins with `--`, such
-as `-->`, is no comment. split_functions files every line under the
+as `-->`, is no comment. Block comments nest, as in GHC, so a pragma inside
+one does not end it, and a `{-` inside a line comment opens none.
+blank_blocks blanks the block comments alone and keeps the columns too,
+for a reader of the layout. split_functions files every line under the
 top-level definition above it, a `data` or `newtype` under its first two
 words, a `class` or `instance` under its whole head, read to its `where`
 with the spaces normalised, and a function under its name, so that two
@@ -23,11 +26,56 @@ NOT_DEFINITIONS = ('import', 'module', 'infixl', 'infixr', 'infix', 'type',
                    'deriving', 'default', 'foreign', 'pattern')
 
 
+# Outside a block comment: a pragma or a line comment, each stepped over so
+# that a {- inside it opens nothing, or a block comment's opening. Inside
+# one: an opening, a pragma's included, as block comments nest, or a close.
+OUTSIDE = re.compile(r"\{-#.*?#-\}|\{-(?!#)|(?<![!#$%&*+./<=>?@\\^|~:])--"
+                     r"(?![!#$%&*+./<=>?@\\^|~:])[^\n]*", re.S)
+INSIDE = re.compile(r"\{-|-\}")
+
+
+def block_comments(src):
+    """(start, end) of each block comment of src, the ones nested in it
+    inside its span, an opening never closed left as code. A pragma inside
+    one ended it (hssource-03), and a {- inside a line comment opened one
+    (hssource-04)."""
+    spans, pos, depth, start = [], 0, 0, 0
+    while m := (INSIDE if depth else OUTSIDE).search(src, pos):
+        pos = m.end()
+        if m.group(0) == '{-':
+            if depth == 0:
+                start = m.start()
+            depth += 1
+        elif m.group(0) == '-}':
+            depth -= 1
+            if depth == 0:
+                spans.append((start, pos))
+    return spans
+
+
+def sub_blocks(src, repl):
+    """src with each block comment c replaced by repl(c)."""
+    out, kept = [], 0
+    for s, e in block_comments(src):
+        out += [src[kept:s], repl(src[s:e])]
+        kept = e
+    return ''.join(out) + src[kept:]
+
+
 def strip_comments(src):
-    src = re.sub(r'\{-(?!#).*?-\}', lambda m: '\n' * m.group(0).count('\n'),
-                 src, flags=re.S)
+    src = sub_blocks(src, lambda c: '\n' * c.count('\n'))
     return '\n'.join(re.sub(r'--(?![!#$%&*+./<=>?@\\^|~:]).*$', '', line)
                      for line in src.split('\n'))
+
+
+def blank_blocks(src):
+    """src with each block comment blanked but for its line breaks, the
+    pragmas and line comments outside them kept, and trailing blanks
+    dropped: columns and line numbers kept, for pragma-census's walks
+    (pragma-census-21 to -23)."""
+    return re.sub(r'[ \t]+$', '',
+                  sub_blocks(src, lambda c: re.sub(r'[^\n]', ' ', c)),
+                  flags=re.M)
 
 
 def head_key(lines, i):

@@ -5651,6 +5651,65 @@
    "expect_text": "M.hs\tf\tDEAD",
    "bug_exit": 2,
    "bug_text": "git cannot diff"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "hssource-03",
+   "program": "hssource.py",
+   "name": "strip_comments ended a block comment at the #-} of a pragma inside it, block comments nesting in GHC, so the rest of the comment was kept as code",
+   "family": "scan-for-parse",
+   "trigger": "{- x {-# INLINE f #-}, then f = 1 and -} on lines of their own",
+   "ok": "the comment's three lines blank",
+   "bug": "f = 1 and -} kept",
+   "unit": "strip_comments('a\\n{- x {-# INLINE f #-}\\nf = 1\\n-}\\nb\\n')",
+   "expect_text": "'a\\n\\n\\n\\nb\\n'",
+   "bug_text": "'a\\n\\nf = 1\\n-}\\nb\\n'"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "generalisation",
+   "id": "hssource-04",
+   "program": "hssource.py",
+   "name": "strip_comments opened a block comment at a {- inside a line comment, so the code up to a -} on a later line was blanked",
+   "family": "scan-for-parse",
+   "trigger": "-- see {- here, then f = 1, then -- and -} there",
+   "ok": "f = 1 kept",
+   "bug": "f = 1 blanked",
+   "notes": "Found by asking what else the nesting fix changed: its scan steps over line comments.",
+   "unit": "strip_comments('-- see {- here\\nf = 1\\n-- and -} there\\ng = 2\\n')",
+   "expect_text": "'\\nf = 1\\n\\ng = 2\\n'",
+   "bug_text": "'\\n\\n there\\ng = 2\\n'"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "generalisation",
+   "id": "check-doc-examples-09",
+   "program": "check-doc-examples.py",
+   "name": "its own strip_comments ended a block comment at the #-} of a pragma inside it, so a type named in the rest of the comment was checked as the example's",
+   "family": "scan-for-parse",
+   "trigger": "a haskell block whose {- -} comment holds {-# INLINE f #-} and then f :: Zorblax -> Int",
+   "ok": "nothing unresolved, exit 0",
+   "bug": "Zorblax unresolved, exit 1",
+   "notes": "Found beside hssource-03: the tool keeps a copy of its own rather than importing hssource.",
+   "plant_cmd": "mkdir repo && cd repo && git init -q . && printf 'module A where\\nx :: Int\\nx = 0\\n' > A.hs && git add A.hs && cat > doc.md <<'EOF'\n# Title\n\n```haskell\n{- an older signature:\n{-# INLINE f #-}\nf :: Zorblax -> Int\n-}\nf :: Int -> Int\n```\nEOF",
+   "invoke": [
+    "{tmp}/repo/doc.md"
+   ],
+   "expect_exit": 0,
+   "expect_absent": "Zorblax",
+   "bug_exit": 1,
+   "bug_text": "Zorblax",
+   "env": {
+    "GIT_DIR": "{tmp}/repo/.git",
+    "GIT_WORK_TREE": "{tmp}/repo"
+   }
   }
  ]
 }
