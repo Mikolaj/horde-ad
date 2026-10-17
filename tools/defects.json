@@ -5710,6 +5710,31 @@
     "GIT_DIR": "{tmp}/repo/.git",
     "GIT_WORK_TREE": "{tmp}/repo"
    }
+  },
+  {
+   "fix_rev": "3fa118cce",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "rules-diff-02",
+   "program": "rules-diff.py",
+   "name": "--unfolding read a one-entry UnfoldingDone group, which GHC prints on one line, as no entry, so an inlining count unchanged between two builds read as 0 -> 3",
+   "family": "scan-for-parse",
+   "trigger": "build A's stats print 3 UnfoldingDone 3 Data.Array.Internal.sumT on one line; build B's print the group over lines, sumT 3 and foo 1",
+   "ok": "sumT 3 -> 3, exit 0",
+   "bug": "sumT 0 -> 3, exit 0",
+   "notes": "The --unfolding half of rules-diff-01, fixed by the same commit; rules-diff-01's own case is a RuleFired group read without --unfolding.",
+   "plant_cmd": "mkdir -p A/build/src/M B/build/src/M && printf '\\n==================== Grand total simplifier statistics ====================\\n2026-10-05 10:00:01.2 UTC\\n\\nTotal ticks:     9\\n\\n3 UnfoldingDone 3 Data.Array.Internal.sumT\\n7 BetaReduction\\n  7 x\\n' > A/build/src/M/User.dump-simpl-stats && printf '\\n==================== Grand total simplifier statistics ====================\\n2026-10-05 10:00:01.2 UTC\\n\\nTotal ticks:     9\\n\\n4 UnfoldingDone\\n  3 Data.Array.Internal.sumT\\n  1 foo\\n7 BetaReduction\\n  7 x\\n' > B/build/src/M/User.dump-simpl-stats",
+   "invoke": [
+    "{tmp}/A",
+    "{tmp}/B",
+    "--unfolding",
+    "sumT"
+   ],
+   "expect_exit": 0,
+   "expect_text": "3 ->       3  Data.Array.Internal.sumT",
+   "bug_exit": 0,
+   "bug_text": "0 ->       3  Data.Array.Internal.sumT"
   }
  ]
 }
