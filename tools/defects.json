@@ -5558,6 +5558,72 @@
    "id": "pragma-calls-14",
    "program": "pragma-calls.py",
    "name": "the self-test's git calls inherited GIT_DIR, so its scratch repository's commits went to whatever repository the caller had set, git -C not overriding it"
+  },
+  {
+   "program": "pragma-census.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "id": "pragma-census-21",
+   "name": "--rule walked the lines of a block comment as code, so a signature commented out in {- -} was judged and listed as wanting a pragma",
+   "family": "scan-for-parse",
+   "trigger": "a module whose only binding, h :: Num a => a -> a, sits inside a {- TODO: ... -} block",
+   "ok": "no finding, exit 0",
+   "bug": "h listed as wanting INLINE, exit 1",
+   "notes": "Fired over src and test, where --rule listed bindings commented out in {- -} blocks, Types.hs's ixxTake and TestGatherSimplified.hs's gatherCond among them.",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\n\n{- TODO:\nh :: Num a => a -> a\nh x = x\n-}\nEOF",
+   "invoke": [
+    "--rule",
+    "{tmp}/S"
+   ],
+   "expect_exit": 0,
+   "expect_absent": "  M.hs:4 h",
+   "bug_exit": 1,
+   "bug_text": "  M.hs:4 h: none -> INLINE [thin wrapper]"
+  },
+  {
+   "program": "pragma-census.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "generalisation",
+   "id": "pragma-census-22",
+   "name": "the census walked the lines of a block comment as code, so a signature commented out in {- -} was listed as an overloaded function without a pragma",
+   "family": "scan-for-parse",
+   "trigger": "a module whose only binding, h :: Num a => a -> a, sits inside a {- TODO: ... -} block",
+   "ok": "nothing listed, exit 0",
+   "bug": "h listed with its context, exit 1",
+   "notes": "Fired over src and test, where the census listed bindings commented out in {- -} blocks, Types.hs's ixxTake and TestGatherSimplified.hs's gatherCond among them.",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\n\n{- TODO:\nh :: Num a => a -> a\nh x = x\n-}\nEOF",
+   "invoke": [
+    "{tmp}/S"
+   ],
+   "expect_exit": 0,
+   "expect_absent": "  M.hs:4 h",
+   "bug_exit": 1,
+   "bug_text": "  M.hs:4 h [Num a]"
+  },
+  {
+   "program": "pragma-census.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "generalisation",
+   "id": "pragma-census-23",
+   "name": "a block comment at column 0 inside an instance body ended the body, so the methods after it were passed over",
+   "family": "scan-for-parse",
+   "trigger": "instance Num a => C [a] whose methods op and op2 are parted by a {- -} comment at column 0",
+   "ok": "both methods listed, exit 1",
+   "bug": "op listed and op2 not, exit 1",
+   "plant_cmd": "mkdir -p S && cat > S/M.hs <<'EOF'\nmodule M where\n\nclass C a where\n  op :: a -> a\n  op2 :: a -> a\n\ninstance Num a => C [a] where\n  op = map negate\n{- op2 is the second\n-}\n  op2 = map abs\nEOF",
+   "invoke": [
+    "{tmp}/S"
+   ],
+   "expect_exit": 1,
+   "expect_text": "M.hs:11 op2",
+   "bug_exit": 1,
+   "bug_absent": "M.hs:11 op2"
   }
  ]
 }

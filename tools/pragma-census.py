@@ -32,7 +32,8 @@ after its `where`;
 an instance or class head may span lines too, a comment line inside it left
 out, and only the lines at the body's own indentation define a method,
 the deeper ones continuing it, a blank line or a comment at column 0 ending
-the body only where the code after it is not indented. A method's pragma
+the body only where the code after it is not indented, the lines of a block
+comment being read as blank. A method's pragma
 is looked for in its instance or class, a top-level function's anywhere
 in its module, and a line `m :: ...` or `m:: ...` in an instance or class
 is its signature while a definition holding `(Proxy :: Proxy n)` is not.
@@ -146,9 +147,8 @@ SECTION = re.compile(r'^\((' + OP + r')\)')
 INFIX_OP = re.compile(r"\s+(`[\w']+`|" + OP + r")(?=\s)")
 SIGNATURE = re.compile(r"^(?:[\w']+|\(" + OP + r"\))(?:\s*,\s*[\w']+)*"
                        r"\s*::(?![!#$%&*+./<=>?@\\^|~:-])")
-# A line at column 0 that is no code: a pragma, a line comment or a block
-# comment opening.
-ASIDE = re.compile(r"\{-|--(?![!#$%&*+./<=>?@\\^|~:])")
+# A line at column 0 that is no code: a pragma or a line comment.
+ASIDE = re.compile(r"\{-#|--(?![!#$%&*+./<=>?@\\^|~:])")
 
 
 def code(lines):
@@ -158,16 +158,42 @@ def code(lines):
     return strip_comments('\n'.join(lines)).split('\n')
 
 
+# Outside a block comment: a pragma or a line comment, each stepped over so
+# that a {- inside it opens nothing, or a block comment's opening. Inside
+# one: an opening, a pragma's included, as block comments nest, or a close.
+OUTSIDE = re.compile(r"\{-#.*?#-\}|\{-|(?<![!#$%&*+./<=>?@\\^|~:])--"
+                     r"(?![!#$%&*+./<=>?@\\^|~:])[^\n]*", re.S)
+INSIDE = re.compile(r"\{-|-\}")
+
+
+def blank_blocks(text):
+    """TEXT with each block comment, nested ones included, blanked but for its
+    line breaks, the pragmas and line comments outside them kept: what the
+    walks read. Over the raw text a signature
+    commented out in {- -} was judged (pragma-census-21, -22), and a block
+    comment at column 0 ended an instance body (pragma-census-23)."""
+    out, kept, pos, depth = [], 0, 0, 0
+    while m := (INSIDE if depth else OUTSIDE).search(text, pos):
+        pos = m.end()
+        if m.group(0) == '{-':
+            if depth == 0:
+                out.append(text[kept:m.start()])
+                kept = m.start()
+            depth += 1
+        elif m.group(0) == '-}':
+            depth -= 1
+            if depth == 0:
+                out.append(re.sub(r'[^\n]', ' ', text[kept:pos]))
+                kept = pos
+    rest = text[kept:]
+    out.append(re.sub(r'[^\n]', ' ', rest) if depth else rest)
+    return re.sub(r'[ \t]+$', '', ''.join(out), flags=re.M)
+
+
 def past_asides(lines, j):
     """The first line from j that is neither blank nor a pragma or a comment
-    at column 0, a block comment's own lines included."""
-    while j < len(lines):
-        line = lines[j]
-        if line.startswith('{-') and not line.startswith('{-#'):
-            while j < len(lines) and '-}' not in lines[j]:
-                j += 1
-        elif line.strip() and not ASIDE.match(line):
-            return j
+    at column 0, blank_blocks having blanked the block comments."""
+    while j < len(lines) and (not lines[j].strip() or ASIDE.match(lines[j])):
         j += 1
     return j
 
@@ -413,7 +439,7 @@ def census(text):
     """([(line, name, constraints)] of the top-level functions,
     [(line, class, method)] of the instance methods and [(line, class,
     method)] of the class default methods carrying no pragma."""
-    lines = text.split('\n')
+    lines = blank_blocks(text).split('\n')
     module_pragmas = {m.group(1) for line in code(lines)
                       for m in PRAGMA.finditer(line)}
     funs, meths, dms = [], [], []
@@ -1281,7 +1307,7 @@ def rule_findings(src):
     files, texts, classes = hs_files(src), {}, dict(STD)
     for path in files:
         with open(path) as fh:
-            texts[path] = fh.read()
+            texts[path] = blank_blocks(fh.read())
         classes.update(class_methods(texts[path]))
     fwd, fus, shallow = forwarding(texts, classes)
     marked, fields = marked_types(texts), newtype_fields(texts)
@@ -1583,7 +1609,15 @@ def self_test():
            'class CS a where\n'
            '  cs1\n'
            '    :: a -> a\n'
-           '  cs1 = id\n')
+           '  cs1 = id\n'
+           'instance Ord a => BC (T a) where\n'
+           '  bc1 = id\n'
+           '{- a block comment inside the body, holding\n'
+           'instance {-# OVERLAPPABLE #-} Num a => BD a where\n'
+           '  bd = id\n'
+           'bs :: Num a => a -> a\n'
+           '-}\n'
+           '  bc2 = id\n')
     want = ['== overloaded functions without a pragma'
             ' (file:line name [context])',
             '  M.hs:4 g [Num a]',
@@ -1595,6 +1629,8 @@ def self_test():
             '== overloaded instance methods without a pragma'
             ' (class: file:line method)',
             '  Arbitrary: M.hs:72 arbitrary',
+            '  BC: M.hs:112 bc1',
+            '  BC: M.hs:118 bc2',
             '  E: M.hs:36 e',
             '  Eq: M.hs:24 /=',
             '  F: M.hs:39 f1',
@@ -1624,7 +1660,7 @@ def self_test():
             fh.write('module N where\n{-# INLINE n #-}\n'
                      'n :: Num a => a\nn = 0\n')
         got, nbad, nfiles = report(os.path.join(td, 'S'))
-        if got != want or (nbad, nfiles) != (23, 1):
+        if got != want or (nbad, nfiles) != (25, 1):
             bad.append(f'report ({nbad}, {nfiles}):\n  ' + '\n  '.join(got))
         for d, code, why in (('S', 1, 'bindings without a pragma'),
                              ('E', 2, 'a tree without .hs files'),
@@ -2166,7 +2202,9 @@ def self_test_rule():
         for name, text in (('R.hs', src), ('L.hs', layer), ('Low.hs', low),
                            ('Mid.hs', mid), ('Api.hs', api), ('Fac.hs', fac),
                            ('N.hs', nopr), ('V.hs', decl), ('W.hs', fusw),
-                           ('U.hs', unbuilt), ('Th.hs', thinw)):
+                           ('U.hs', unbuilt), ('Th.hs', thinw),
+                           ('Bk.hs', 'module Bk where\n{- commented out\n'
+                                     'bk :: Num a => a -> a\nbk x = x\n-}\n')):
             with open(os.path.join(td, name), 'w') as fh:
                 fh.write(text)
         got, nbad, _ = report_rule(td)
