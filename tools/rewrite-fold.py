@@ -97,13 +97,13 @@ def resolve(repo, rev):
 
 def load_spec(path):
     spec = {}
-    # A SPEC that is not UTF-8 is unreadable too, where it was a traceback
-    # and exit 1 (rewrite-fold-05).
+    # A SPEC that is not UTF-8, or whose code raises, is unreadable too, where
+    # each was a traceback and exit 1 (rewrite-fold-05, rewrite-fold-07).
     try:
         with open(path, encoding='utf-8') as fh:
             exec(compile(fh.read(), path, 'exec'), spec)
-    except (OSError, SyntaxError, UnicodeDecodeError) as e:
-        raise Refusal('cannot read %s: %s' % (path, e))
+    except Exception as e:
+        raise Refusal('cannot read %s: %s: %s' % (path, type(e).__name__, e))
     for k in ('BASE', 'TIP'):
         if not isinstance(spec.get(k), str):
             raise Refusal('%s defines no %s' % (path, k))
@@ -389,7 +389,9 @@ def self_test():
                  "BASE = %r\nTIP = 'nosuch'\nREWORD = {%r: 'msg2.txt'}\n"
                  % (base, c2)),
                 ('a message file that is missing',
-                 head + "REWORD = {%r: 'nosuch.txt'}\n" % c2)]:
+                 head + "REWORD = {%r: 'nosuch.txt'}\n" % c2),
+                ('a SPEC whose code raises',
+                 head + "REWORD = {%r: 'msg2.txt'}\nx = nosuch\n" % c2)]:
             rc, _ = fold(spec)
             if rc != 2:
                 bad.append('%s did not exit 2 but %s' % (why, rc))

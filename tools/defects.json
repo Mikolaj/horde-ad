@@ -4460,6 +4460,27 @@
    "bug_text": "FileNotFoundError"
   },
   {
+   "program": "rewrite-fold.py",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "id": "rewrite-fold-07",
+   "name": "a SPEC whose code raised, as one naming __file__ does under the fold's exec, crashed the fold with a traceback and exit 1, where the docstring promises 2 for an unreadable SPEC",
+   "family": "error-as-value",
+   "trigger": "a SPEC naming an unbound variable",
+   "ok": "REFUSED, exit 2",
+   "bug": "NameError, exit 1",
+   "plant_cmd": "printf \"BASE = 'a'\\nTIP = 'b'\\nx = nosuch\\n\" > spec.py",
+   "invoke": [
+    "{tmp}/spec.py"
+   ],
+   "expect_exit": 2,
+   "expect_text": "REFUSED",
+   "bug_exit": 1,
+   "bug_text": "NameError"
+  },
+  {
    "fix_rev": "self",
    "proved": "ran",
    "harm": "fired",

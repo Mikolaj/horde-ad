@@ -743,6 +743,10 @@ MUTANTS = [
     ('rewrite-fold the printed check omits the paths changed at the tip', 'rewrite-fold.py',
      "        cmd += ['--allow-tree', p]\n",
      '        pass\n', ST),
+    # rewrite-fold-07: a SPEC whose code raises is refused, not a traceback.
+    ('rewrite-fold a SPEC whose code raises crashes the fold', 'rewrite-fold.py',
+     '    except Exception as e:\n',
+     '    except (OSError, SyntaxError, UnicodeDecodeError) as e:\n', ST),
     ('src-attrib note text counted as code', 'src-attrib.py',
      "            body = s.strip() if with_notes else NOTE_TEXT.sub('', s).strip()\n",
      '            body = s.strip()\n', ST),
