@@ -912,7 +912,31 @@ and `docs/pragmas-and-flags.md` `pragma-calls`.
   for a machine where `perf stat` cannot run. It is deterministic, so it is what
   backs a wall-time ratio that decides whether a change is banned; in that study
   it showed wall-time medians of 1.05 to 1.06 to be noise, the instruction
-  counts equal to 0.003%.
+  counts equal to 0.003%. With `--cells FILE` it counts every cell of a file
+  of `MODE NAME N` lines in each of several builds, a `summed` cell run
+  with `--summed` as orthotope's specialisation benchmark takes it, each figure
+  exact to two decimals; give a cell of large arrays 100 calls or more, which
+  keeps a collection from moving its count. `--cpu` pins the runs to one CPU,
+  and `--arg` passes the benchmark an argument.
+- `tools/cg-read.py` reads a benchmark binary's callgrind runs, made with
+  `valgrind --tool=callgrind --dump-instr=yes --compress-strings=no --compress-pos=no`,
+  against the binary's symbols and disassembly, each symbol's z-encoded unit
+  prefix stripped so that a function keeps its name across builds: `bysym` gives
+  instructions a call by symbol in two runs, `incr` the same between N and 2N
+  calls of each of two binaries, which cancels the process's setup, `allocs`
+  the heap-pointer bumps executed at least half as often as the calls
+  and the info pointers stored into the memory they allocate, `region`
+  the executed instructions of one symbol's code in two runs, diffed, and `seq`
+  one run's, filtered by count a call. Its disassembly restarts at every
+  executed address a sweep did not decode: a linear sweep through one of GHC's
+  info tables falls out of step with the code after it, dropping executed
+  instructions and printing the table's bytes as code. In orthotope's
+  specialisation benchmark a run of N calls executes the row N + 2 times, so one
+  run's counts over N are high by (N + 2)/N, and `incr`'s are not. `sweep`
+  reports whether every `perf record` sample of a range decodes
+  as an instruction start in a linear sweep from the range's start; settle
+  that before reading a hot loop off the samples and objdump at the hot
+  addresses, and where it reports a miss, read the loop from `seq` instead.
 - `tools/ticky-diff.py` diffs the per-closure allocation of two ticky-ticky runs
   of one benchmark, closure names normalised across builds. Build both
   with `--ghc-options=-ticky` and run the same `--iters` with `+RTS -rFILE`.
@@ -930,6 +954,27 @@ and `docs/pragmas-and-flags.md` `pragma-calls`.
   so this --- not timing the module --- is how to see where a flag or pragma
   puts its cost. Given one build and `--module`, it lists every binding name
   of the modules matched, with its count and terms (S2, C1).
+- `tools/row-core.py` tells which rows of orthotope's specialisation benchmark
+  have Core that differs between two builds, from their `-ddump-simpl` dumps
+  and a source tree resolving the qualifiers: for each row, the forced
+  and the summing function are each `same`, `literals` or `differs`, following
+  the benchmark's own code alone and then every reference, a binding's hash
+  covering everything it reaches. `diff` names a row's first differing node,
+  `dump` writes a row's closures to a file, and `nodes` and `tokens` compare two
+  such files node by node and one node token by token, names normalised.
+  It is the first reading of a change, the rows it leaves `same` serving
+  as controls for the counts and timings after it.
+- `tools/census.py` runs a census of orthotope's specialisation benchmark
+  over two builds: `cells` takes the cells of the rows `row-core.py` marks
+  `differs`, and `movers` those whose bytes differ between the two builds'
+  tables; `count` counts each with `perf-per-call.py` at N and 2N calls, N sized
+  from the first build's table to about 20 ms, resuming where an earlier count
+  stopped, and `--cpus` splits it over lanes, one a CPU; give CPUs on separate
+  cores. `read` groups the cells whose ratio moves by 0.2% or more, one exactly
+  at it included, and lists apart those counted over fewer than 200 calls
+  in a group not every cell of which moves, which `noise` counts again at ten
+  times N. Its figures are differences between N and 2N calls, so the two
+  evaluations the harness makes before each batch cancel.
 - `tools/pragma-calls.py` sorts the inlining pragmas a worktree's diff removes
   by whether their removal changed the Core, counting each target's name per
   module in two builds' dumps: DEAD where every count agrees, MOVED
@@ -940,6 +985,11 @@ and `docs/pragmas-and-flags.md` `pragma-calls`.
   rule on removing keeps it. With `--inline` it processes one build instead,
   marking each INLINE target of a source tree CALLED, COPIED or RECURSIVE (I1,
   I2).
+- `tools/pragma-map.py` sets the inlining pragmas of two source trees side
+  by side, keyed by file, enclosing class or instance head, name and occurrence,
+  and prints those that differ, `none` where a tree has none for a key:
+  the pragmas two commits of a library disagree on, where `pragma-calls.py`
+  reads what removing some does to the Core.
 - `tools/rules-diff.py` compares which rewrite rules fired per module in two
   builds, from `-ddump-simpl-stats` dumps, the fusion rules marked,
   and with `--unfolding NAME` how often a function was inlined. It reports

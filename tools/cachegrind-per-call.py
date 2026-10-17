@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 """Instructions and estimated cycles per call of one criterion benchmark,
-from cachegrind, for where `perf stat` cannot run.
+or of each cell of a list in several builds, from cachegrind: exact, and
+for where `perf stat` cannot run.
 
-Usage: python3 tools/cachegrind-per-call.py BENCH_BINARY NAME N [--no-cache-sim]
+Usage: python3 tools/cachegrind-per-call.py [--cpu CPU] [--arg ARG ...]
+           BENCH_BINARY NAME N [--no-cache-sim]
+       python3 tools/cachegrind-per-call.py [--cpu CPU] [--arg ARG ...]
+           --cells FILE BIN [BIN ...] [--no-cache-sim]
        python3 tools/cachegrind-per-call.py --self-test
 
 Runs the benchmark binary twice under `valgrind --tool=cachegrind`, with
@@ -21,12 +25,29 @@ under a second of native work. Both runs are under GHCRTS=-V0
 (docs/perf-checklist.md, M). Two builds are compared by running this on
 each; for a banned-or-not decision about a slowdown, this is the instrument
 to back an interleaved wall-time A/B with (docs/perf-checklist.md).
+Each `--arg` is passed to the benchmark before its `--iters`; with `--cpu`,
+every run is pinned to CPU by `taskset -c`.
+
+With `--cells`, every BIN, in the order given, is run so at each cell of
+FILE in turn, a cell being a line `MODE NAME N`: MODE `forced` runs the
+benchmark as it is and `summed` with `--summed` too, the switch of
+orthotope's specialisation benchmark to its summing function; anything
+from a `#` to the line's end is skipped, and blank lines. A line is
+printed as each cell is counted, tab-separated: BIN, MODE, NAME, N, the
+instructions per call, exact to two decimals, and, with the simulation,
+the estimated cycles, or `-` where the runs failed. Give a cell N enough
+to keep a collection from moving its count, a cell of large arrays 100
+or more.
 
 The cachegrind output is written under the system temporary directory and
 removed. Exit 0 when the figures were printed, 2 when they could not be:
-valgrind missing, a run failing, or its output without the counts.
+valgrind missing, or taskset with `--cpu`, a run failing, or its output
+without the counts; with `--cells`, a cells file that cannot be read, or
+any cell's runs failing, the other cells' lines printed.
 """
 
+import contextlib
+import io
 import os
 import shutil
 import subprocess
@@ -39,6 +60,9 @@ WEIGHTS = {'Ir': 1, 'I1mr': 10, 'D1mr': 10, 'D1mw': 10,
 
 # The self-test runs a fake in its place.
 VALGRIND = ['valgrind']
+
+# A cell's mode -> the benchmark arguments it adds.
+MODES = {'forced': [], 'summed': ['--summed']}
 
 
 def counts(path):
@@ -77,11 +101,17 @@ def measured_env():
                 GHCRTS=(os.environ.get('GHCRTS', '') + ' -V0').strip())
 
 
-def run(binary, name, iters, sim, out):
-    cmd = VALGRIND + ['--tool=cachegrind',
-                      f'--cache-sim={"yes" if sim else "no"}',
-                      f'--cachegrind-out-file={out}',
-                      binary, '--iters', str(iters), '-m', 'glob', name]
+def command(binary, name, iters, sim, out, cpu=None, args=()):
+    """One counted run, pinned to cpu unless it is None, args before the
+    benchmark's own."""
+    return ((['taskset', '-c', cpu] if cpu is not None else []) + VALGRIND
+            + ['--tool=cachegrind', f'--cache-sim={"yes" if sim else "no"}',
+               f'--cachegrind-out-file={out}', binary] + list(args)
+            + ['--iters', str(iters), '-m', 'glob', name])
+
+
+def run(binary, name, iters, sim, out, cpu=None, args=()):
+    cmd = command(binary, name, iters, sim, out, cpu, args)
     r = subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
                        text=True, env=measured_env())
     if r.returncode != 0:
@@ -97,8 +127,12 @@ if os.environ.get('GHCRTS', '').split()[-1:] != ['-V0']:
 a = sys.argv
 out = [x for x in a if x.startswith('--cachegrind-out-file=')][0]
 iters = int(a[a.index('--iters') + 1])
+if a[a.index(out) + 1].endswith('F'):
+    sys.exit(1)
+# Summed, 7.5 instructions a call, which an integer division truncates.
+per = (15 * iters) // 2 if '--summed' in a else 7 * iters
 with open(out.split('=', 1)[1], 'w') as fh:
-    fh.write('events: Ir' + chr(10) + 'summary: ' + str(1000 + 7 * iters)
+    fh.write('events: Ir' + chr(10) + 'summary: ' + str(1000 + per)
              + chr(10))
 '''
 
@@ -152,8 +186,52 @@ def self_test():
                 bad.append(f'per call from two runs: {got}')
         except ValueError as e:
             bad.append(f'a run failed: {e}')
+        cells = os.path.join(td, 'cells')
+        with open(cells, 'w') as fh:
+            fh.write('# mode cell N\nforced g/x 10\n\nsummed g/y 10\n')
+        try:
+            got = read_cells(cells)
+            if got != [('forced', 'g/x', 10), ('summed', 'g/y', 10)]:
+                bad.append(f'cells read: {got}')
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                rc = main(['--cells', cells, 'A', 'B', '--no-cache-sim'])
+            if rc != 0 or out.getvalue() != ('A\tforced\tg/x\t10\t7.00\n'
+                                             'A\tsummed\tg/y\t10\t7.50\n'
+                                             'B\tforced\tg/x\t10\t7.00\n'
+                                             'B\tsummed\tg/y\t10\t7.50\n'):
+                bad.append(f'cells counted: {rc} {out.getvalue()!r}')
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out), \
+                    contextlib.redirect_stderr(io.StringIO()):
+                rc = main(['--cells', cells, 'F', 'A', '--no-cache-sim'])
+            if rc != 2 or out.getvalue().split('\n')[:3] != [
+                    'F\tforced\tg/x\t10\t-', 'F\tsummed\tg/y\t10\t-',
+                    'A\tforced\tg/x\t10\t7.00']:
+                bad.append(f"a failing binary's cells: {rc}"
+                           f' {out.getvalue()!r}')
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                rc = main(['--arg', '--summed', 'A', 'g/x', '10'])
+            if rc != 0 or 'instructions/call 8' not in out.getvalue():
+                bad.append(f'--arg not passed: {rc} {out.getvalue()!r}')
         finally:
             VALGRIND = saved
+        if command('b', 'g/x', 5, False, 'o', '3', ['--summed'])[:3] != [
+                'taskset', '-c', '3']:
+            bad.append('--cpu did not pin the run')
+        if command('b', 'g/x', 5, False, 'o', None, ['--summed'])[-7:] != [
+                'b', '--summed', '--iters', '5', '-m', 'glob', 'g/x']:
+            bad.append('benchmark arguments not between it and --iters')
+        for text, what in (('forced g/x\n', 'a cell without N'),
+                           ('mean g/x 10\n', 'an unknown mode'),
+                           ('forced g/x ten\n', 'N not a number'),
+                           ('forced g/x 0\n', 'N of 0'), ('', 'no cell')):
+            with open(cells, 'w') as fh:
+                fh.write(text)
+            with contextlib.redirect_stderr(io.StringIO()):
+                if main(['--cells', cells, 'A']) != 2:
+                    bad.append(f'{what} did not exit 2')
         with mock.patch.dict(os.environ, GHCRTS='-V1'):
             if measured_env()['GHCRTS'] != '-V1 -V0':
                 bad.append("-V0 not after the caller's GHCRTS")
@@ -163,22 +241,86 @@ def self_test():
     return 1 if bad else 0
 
 
+def read_cells(path):
+    """[(mode, name, N)] of a cells file, or ValueError."""
+    out = []
+    with open(path) as fh:
+        for k, line in enumerate(fh, 1):
+            f = line.split('#', 1)[0].split()
+            if not f:
+                continue
+            if (len(f) != 3 or f[0] not in MODES or not f[2].isdigit()
+                    or int(f[2]) < 1):
+                raise ValueError(f'{path}:{k}: not `MODE NAME N`, MODE one of'
+                                 f' {", ".join(MODES)}: {line.strip()!r}')
+            out.append((f[0], f[1], int(f[2])))
+    if not out:
+        raise ValueError(f'{path} lists no cell')
+    return out
+
+
+def count_cells(bins, cells, sim, cpu, args):
+    """Print a line for every BIN and cell; 2 when any cell's runs failed."""
+    failed = False
+    with tempfile.TemporaryDirectory() as td:
+        o1, o2 = os.path.join(td, 'n.out'), os.path.join(td, '2n.out')
+        for b in bins:
+            for mode, name, n in cells:
+                a = list(args) + MODES[mode]
+                try:
+                    c1 = run(b, name, n, sim, o1, cpu, a)
+                    c2 = run(b, name, 2 * n, sim, o2, cpu, a)
+                except (ValueError, OSError) as e:
+                    print(e, file=sys.stderr)
+                    print(f'{b}\t{mode}\t{name}\t{n}\t-', flush=True)
+                    failed = True
+                    continue
+                ins, cyc = per_call(c1, c2, n)
+                print(f'{b}\t{mode}\t{name}\t{n}\t{ins:.2f}'
+                      + (f'\t{cyc:.2f}' if cyc is not None else ''),
+                      flush=True)
+    return 2 if failed else 0
+
+
 def main(argv):
     if argv == ['--self-test']:
         return self_test()
     sim = '--no-cache-sim' not in argv
     argv = [a for a in argv if a != '--no-cache-sim']
-    if len(argv) != 3 or not argv[2].isdigit() or int(argv[2]) < 1:
+    cpu, cells, args = None, None, []
+    while argv[:1] in (['--cpu'], ['--cells'], ['--arg']):
+        if len(argv) < 2:
+            print(f'{argv[0]} needs a value', file=sys.stderr)
+            return 2
+        if argv[0] == '--cpu':
+            cpu = argv[1]
+        elif argv[0] == '--cells':
+            cells = argv[1]
+        else:
+            args.append(argv[1])
+        argv = argv[2:]
+    single = len(argv) == 3 and argv[2].isdigit() and int(argv[2]) >= 1
+    if (cells is None and not single) or (cells is not None and not argv):
         print(__doc__.split('\n\n')[1], file=sys.stderr)
         return 2
+    for t in [VALGRIND[0]] + (['taskset'] if cpu is not None else []):
+        if shutil.which(t) is None:
+            print(f'{t} is not on PATH; nothing measured', file=sys.stderr)
+            return 2
+    if cells is not None:
+        try:
+            got = read_cells(cells)
+        except (ValueError, OSError) as e:
+            print(e, file=sys.stderr)
+            return 2
+        return count_cells(argv, got, sim, cpu, args)
     binary, name, n = argv[0], argv[1], int(argv[2])
-    if shutil.which(VALGRIND[0]) is None:
-        print('valgrind is not on PATH; nothing measured', file=sys.stderr)
-        return 2
     with tempfile.TemporaryDirectory() as td:
         try:
-            c1 = run(binary, name, n, sim, os.path.join(td, 'n.out'))
-            c2 = run(binary, name, 2 * n, sim, os.path.join(td, '2n.out'))
+            c1 = run(binary, name, n, sim, os.path.join(td, 'n.out'), cpu,
+                     args)
+            c2 = run(binary, name, 2 * n, sim, os.path.join(td, '2n.out'), cpu,
+                     args)
         except (ValueError, OSError) as e:
             print(e, file=sys.stderr)
             return 2

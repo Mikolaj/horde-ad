@@ -5781,6 +5781,160 @@
    "expect_absent": "Traceback",
    "bug_exit": 1,
    "bug_text": "FileNotFoundError"
+  },
+  {
+   "id": "cg-read-01",
+   "program": "cg-read.py",
+   "name": "the region reader swept objdump linearly from the first executed address of a symbol's code, and a sweep through one of GHC's info tables falls out of step with the code after it, so executed instructions went missing and info-table bytes were printed as instructions",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "an executed instruction after an info table inside one symbol's code, the table's bytes decoding as an instruction that runs into it",
+   "ok": "the disassembly restarted at every executed address a sweep missed, every executed instruction printed; the region's totals equal the by-symbol reader's",
+   "bug": "on one pair of builds the traverseA row's diff summed 149 and 173 instructions a call of the true 174 and 188, and info-table bytes were printed as instructions",
+   "proved": "asserted",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-16 in the study script the reader was ported from, and fixed there before the port as cg-read.py's region and seq; the bug figures are that fix's, not re-run. The case's fixture holds a two-byte table whose movabs reading swallows the first four bytes of the movq after it; the mutant 'cg-read sweep not restarted at a missed address' reproduces the bug, the region's sum 5.50 a call for the true 6.50.",
+   "no_audit": "other:fixed-before-the-program-entered-this-tree",
+   "plant_cmd": "cat > fix.s <<'EOF_FIX_S'\n        .text\n        .globl _start\n_start:\n        nop\n        ret\n        .org 0x100, 0x90\n        .globl pkgzm1zi0zminplace_ModA_foo_info\npkgzm1zi0zminplace_ModA_foo_info:\n        add $0x10, %r12\n        .org 0x110, 0x90\n        movq $pkgzm1zi0zminplace_ModA_bar_info, -0x8(%r12)\n        .org 0x120, 0x90\n        jmp 1f\n        # An info table's bytes, which a linear sweep decodes as a movabs\n        # taking the first four bytes of the movq after it.\n        .org 0x13a, 0x90\n        .byte 0x48, 0xb8\n        .org 0x140, 0x00\n1:      movq $basezm4zi0_GHCziBase_baz_info, -0x10(%r12)\n        .org 0x150, 0x90\n        add $-0x18, %r12\n        .org 0x160, 0x90\n        mov %rbx, %rax\n        .org 0x170, 0x90\n        ret\n        .org 0x200, 0x90\npkgzm1zi0zminplace_ModA_bar_info:\n        add $0x20, %r12\n        .org 0x210, 0x90\n        ret\n        .org 0x300, 0x90\nbasezm4zi0_GHCziBase_baz_info:\n        ret\n        .org 0x400, 0x90\nstg_gc_noregs:\n        ret\nEOF_FIX_S\nas -o fix.o fix.s && ld -static -Ttext=0x401000 -e _start -o fix fix.o\ncat > a.cg <<'EOF_A_CG'\n# callgrind format\nversion: 1\ncreator: callgrind-3.22.0\ncmd: ./fix --iters 10\npart: 1\n\npositions: instr line\nevents: Ir\nsummary: 1\n\nob=(1) /lib/libc.so.6\nfn=memcpy\n0x401100 0 7777\nob=(2) fix\nfl=???\nfn=foo\n0x401000 0 1\n0x401100 0 10\n0x401110 0 10\n0x401120 0 10\n0x401140 0 10\n0x401150 0 5\n0x401160 0 10\n0x401170 0 10\ncalls=10 0x401200 0\n0x401170 0 9999\n0x401200 0 10\n0x401210 0 10\n0x401300 0 1\n0x401400 0 3\nob=(1)\n0x401110 0 7777\nob=(2)\n0x7000000 0 50\nEOF_A_CG",
+   "invoke": [
+    "region",
+    "{tmp}/fix",
+    "{tmp}/a.cg",
+    "{tmp}/fix",
+    "{tmp}/a.cg",
+    "foo_info",
+    "10"
+   ],
+   "expect_exit": 0,
+   "expect_text": "executed instructions (count a call, summed): 6.50 6.50"
+  },
+  {
+   "id": "cg-read-02",
+   "program": "cg-read.py",
+   "name": "the allocation reader swept objdump linearly over each range of executed addresses, so a range running through an info table left the bumps and info-pointer stores after it uncounted, and the bytes a call it printed were too few",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "a heap-pointer bump executed after an info table within a range of executed addresses",
+   "ok": "every executed bump and store decoded from its own address: 826.2 bytes a call on a callgrind output of orthotope's Ranked/rerank/empty/dense/boxed at 20000 calls",
+   "bug": "116.0 bytes a call on the same run; in one range the sweep decoded 52 of the 73 addresses executed at least half as often as the calls, an add $0x38,%r12 run 2.01 times a call at OpsShaped_opsBEmpty_info+0x3560 among those lost",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "generalisation",
+   "notes": "Found 2026-10-17 porting the study script that read allocations into cg-read.py, by asking where else cg-read-01's linear sweep stood; the original and the port were run over one callgrind output of orthotope's specialisation benchmark and its binary. The original also counted executed addresses under the threshold that happened to lie inside a range; the port counts those executed at least C times a call alone. Which figures of the campaign rested on the original was not traced.",
+   "no_audit": "other:fixed-before-the-program-entered-this-tree",
+   "plant_cmd": "cat > fix.s <<'EOF_FIX_S'\n        .text\n        .globl _start\n_start:\n        nop\n        ret\n        .org 0x100, 0x90\n        .globl pkgzm1zi0zminplace_ModA_foo_info\npkgzm1zi0zminplace_ModA_foo_info:\n        add $0x10, %r12\n        .org 0x110, 0x90\n        movq $pkgzm1zi0zminplace_ModA_bar_info, -0x8(%r12)\n        .org 0x120, 0x90\n        jmp 1f\n        # An info table's bytes, which a linear sweep decodes as a movabs\n        # taking the first four bytes of the movq after it.\n        .org 0x13a, 0x90\n        .byte 0x48, 0xb8\n        .org 0x140, 0x00\n1:      movq $basezm4zi0_GHCziBase_baz_info, -0x10(%r12)\n        .org 0x150, 0x90\n        add $-0x18, %r12\n        .org 0x160, 0x90\n        mov %rbx, %rax\n        .org 0x170, 0x90\n        ret\n        .org 0x200, 0x90\npkgzm1zi0zminplace_ModA_bar_info:\n        add $0x20, %r12\n        .org 0x210, 0x90\n        ret\n        .org 0x300, 0x90\nbasezm4zi0_GHCziBase_baz_info:\n        ret\n        .org 0x400, 0x90\nstg_gc_noregs:\n        ret\nEOF_FIX_S\nas -o fix.o fix.s && ld -static -Ttext=0x401000 -e _start -o fix fix.o\ncat > a.cg <<'EOF_A_CG'\n# callgrind format\nversion: 1\ncreator: callgrind-3.22.0\ncmd: ./fix --iters 10\npart: 1\n\npositions: instr line\nevents: Ir\nsummary: 1\n\nob=(1) /lib/libc.so.6\nfn=memcpy\n0x401100 0 7777\nob=(2) fix\nfl=???\nfn=foo\n0x401000 0 1\n0x401100 0 10\n0x401110 0 10\n0x401120 0 10\n0x401140 0 10\n0x401150 0 5\n0x401160 0 10\n0x401170 0 10\ncalls=10 0x401200 0\n0x401170 0 9999\n0x401200 0 10\n0x401210 0 10\n0x401300 0 1\n0x401400 0 3\nob=(1)\n0x401110 0 7777\nob=(2)\n0x7000000 0 50\nEOF_A_CG",
+   "invoke": [
+    "allocs",
+    "{tmp}/fix",
+    "{tmp}/a.cg",
+    "10"
+   ],
+   "expect_exit": 0,
+   "expect_text": [
+    "bytes a call by %r12 bumps: 36.0",
+    "obj   1.00  GHCziBase_baz_info"
+   ]
+  },
+  {
+   "id": "cachegrind-per-call-01",
+   "program": "cachegrind-per-call.py",
+   "name": "exact instructions a call by callgrind were divided in shell integers, truncating, and the large ravel cell was run at 20 calls, few enough for a collection to move its count",
+   "family": "other:truncating-arithmetic",
+   "fix_rev": "self",
+   "trigger": "a cell whose instructions between N and 2N calls are not a multiple of N; Dynamic ravel large Storable at 20 calls",
+   "ok": "the quotient exact to two decimals; ravel counted at 100 calls",
+   "bug": "the quotient truncated to an integer, a cell's figure low by up to one instruction a call, and ravel's off by tens at 20 calls",
+   "proved": "asserted",
+   "harm": "fired",
+   "discovery": null,
+   "notes": "Found 2026-10-16 in the study script its cells were ported from, and fixed there before the port as cachegrind-per-call.py's --cells; the bug figures are that fix's. A cell's N is now the cells file's, so the 100 calls of a cell of large arrays is the docstring's advice and no check.",
+   "no_audit": "other:fixed-before-the-program-entered-this-tree",
+   "plant_cmd": "mkdir shim && cat > shim/valgrind <<'EOF'\n#!/usr/bin/env python3\nimport sys\na = sys.argv\nout = [x for x in a if x.startswith('--cachegrind-out-file=')][0].split('=', 1)[1]\niters = int(a[a.index('--iters') + 1])\nper = (15 * iters) // 2 if '--summed' in a else 7 * iters\nwith open(out, 'w') as fh:\n    fh.write('events: Ir\\nsummary: ' + str(1000 + per) + '\\n')\nEOF\nchmod +x shim/valgrind\nprintf 'summed g/y 10\\n' > cells",
+   "env": {
+    "PATH": "{tmp}/shim:/usr/bin:/bin"
+   },
+   "invoke": [
+    "--cells",
+    "{tmp}/cells",
+    "{tmp}/A",
+    "--no-cache-sim"
+   ],
+   "expect_exit": 0,
+   "expect_text": "\tsummed\tg/y\t10\t7.50"
+  },
+  {
+   "id": "row-core-01",
+   "program": "row-core.py",
+   "name": "the indented continuation lines of GHC's wrapped `-- RHS size` comments were kept when comment lines were dropped one at a time, so a binding's text ended with the size of the binding after it, and a size changing anywhere marked the binding before it as changed",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "two dumps alike but for the size comment of the binding after a row's forced function, wrapped over four lines in one",
+   "ok": "the whole comment removed when a dump is loaded; the row same in all four verdicts",
+   "bug": "the row's forced function differs; on one pair of stage builds 334 rows were marked differing, 37 of them rows whose Call count differs between the trees, only false differences and never a hidden one",
+   "proved": "asserted",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found and fixed 2026-10-16 in the study script row-core.py was ported from, before the port; the bug figures are that fix's. The mutant 'row-core wrapped size comments left in' reproduces the bug on the self-test's fixture.",
+   "no_audit": "other:fixed-before-the-program-entered-this-tree",
+   "plant_cmd": "mkdir A B src\ncat > A/OpsDynamic.dump-simpl <<'EOF_A'\n\n==================== Tidy Core ====================\n2026-10-17 10:00:00.000000 UTC\n\nResult size of Tidy Core\n  = {terms: 99, types: 9, coercions: 0, joins: 0/0}\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nf3 :: Int -> Int\nf3\n  = \\ (x :: Int) -> x\n\n-- RHS size: {terms: 2,382,\n              types: 1,005,\n              coercions: 10,\n              joins: 87/113}\nbig :: Int\nbig\n  = 7#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nname3 :: Addr#\nname3\n  = \"r3\"#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ncall3 :: Call\ncall3\n  = Call.Call\n      @Int\n      @Int\n      dNF1\n      dNF2\n      ghc-internal:GHC.Internal.Classes.$fEqInt\n      ghc-internal:GHC.Internal.Show.$fShowInt\n      dTy\n      name3\n      f3\n      x1\n      g1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndNF1 :: NFData Int\ndNF1\n  = lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndNF2 :: NFData Int\ndNF2\n  = lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndTy :: Typeable Int\ndTy\n  = lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nx1 :: Int\nx1\n  = 3#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ng1 :: Int -> Int\ng1\n  = \\ (y :: Int) -> y\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nlvl1 :: Int\nlvl1\n  = 3#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nopsBSmall :: [Call]\nopsBSmall\n  = : @Call call3 ([] @Call)\n\nEOF_A\ncat > B/OpsDynamic.dump-simpl <<'EOF_B'\n\n==================== Tidy Core ====================\n2026-10-17 10:00:00.000000 UTC\n\nResult size of Tidy Core\n  = {terms: 99, types: 9, coercions: 0, joins: 0/0}\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nf3 :: Int -> Int\nf3\n  = \\ (x :: Int) -> x\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nbig :: Int\nbig\n  = 7#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nname3 :: Addr#\nname3\n  = \"r3\"#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ncall3 :: Call\ncall3\n  = Call.Call\n      @Int\n      @Int\n      dNF1\n      dNF2\n      ghc-internal:GHC.Internal.Classes.$fEqInt\n      ghc-internal:GHC.Internal.Show.$fShowInt\n      dTy\n      name3\n      f3\n      x1\n      g1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndNF1 :: NFData Int\ndNF1\n  = lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndNF2 :: NFData Int\ndNF2\n  = lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndTy :: Typeable Int\ndTy\n  = lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nx1 :: Int\nx1\n  = 3#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ng1 :: Int -> Int\ng1\n  = \\ (y :: Int) -> y\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nlvl1 :: Int\nlvl1\n  = 3#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nopsBSmall :: [Call]\nopsBSmall\n  = : @Call call3 ([] @Call)\n\nEOF_B",
+   "invoke": [
+    "rows",
+    "{tmp}/A",
+    "{tmp}/B",
+    "{tmp}/src"
+   ],
+   "expect_exit": 0,
+   "expect_text": "OpsDynamic\tsmall\tB\tr3\tsame\tsame\tsame\tsame",
+   "expect_absent": "differs"
+  },
+  {
+   "id": "row-core-02",
+   "program": "row-core.py",
+   "name": "the binders each binding reaches were cached by binder name alone across modules and trees, so a module's ops list was followed through another module's binding of the same name, and rows were given sizes and kinds whose lists do not reach them",
+   "family": "other:cache-keyed-without-its-scope",
+   "fix_rev": "self",
+   "trigger": "two modules binding one name, the second's ops list reaching its Call through that binding and the first's binding reaching no Call",
+   "ok": "each module's binders read from its own bindings; on the dumps of two orthotope commits, 2546 calls in each tree",
+   "bug": "2902 and 3022 calls on that pair, 339 forced or summed full verdicts `differs` that are not and 9 row keys that do not exist; no difference hidden there",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "review",
+   "notes": "Found 2026-10-17 reading the study script for the port: the names_of cache it took from another study script is keyed by binder name and never cleared. The port run over the pair differs in 429 lines from the study script's output on it; the port with one cache shared across modules and trees and the modules in os.walk's order reproduces that output exactly. A census whose cells came from such output counted the extra rows' cells, at a cost in time and no false figure. The 37 rows of row-core-01's observation whose Call count differed between the trees have this defect's shape, which row-core-01's cannot produce, a size comment changing no binder a list reaches; that observation was not re-run.",
+   "no_audit": "other:fixed-before-the-program-entered-this-tree",
+   "plant_cmd": "mkdir -p A/Data/Array B/Data/Array src/bench src/Data/Array\ncat > A/OpsDynamic.dump-simpl <<'EOF_A_0'\n\n==================== Tidy Core ====================\n2026-10-17 10:00:00.000000 UTC\n\nResult size of Tidy Core\n  = {terms: 99, types: 9, coercions: 0, joins: 0/0}\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nf1 :: Int -> Int\nf1\n  = \\ (x :: Int) -> L.foo x\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nname1 :: Addr#\nname1\n  = \"r1\"#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ncall1 :: Call\ncall1\n  = Call.Call\n      @Int\n      @Int\n      dNF1\n      dNF2\n      ghc-internal:GHC.Internal.Classes.$fEqInt\n      ghc-internal:GHC.Internal.Show.$fShowInt\n      dTy\n      name1\n      f1\n      x1\n      g1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nf2 :: Int -> Int\nf2\n  = \\ (x :: Int) -> ghc-internal:GHC.Internal.Prim.+# x 1#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nname2 :: Addr#\nname2\n  = \"r2\"#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ncall2 :: Call\ncall2\n  = Call.Call\n      @Int\n      @Int\n      dNF1\n      dNF2\n      ghc-internal:GHC.Internal.Classes.$fEqInt\n      ghc-internal:GHC.Internal.Show.$fShowInt\n      dTy\n      name2\n      f2\n      x1\n      g1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nf3 :: Int -> Int\nf3\n  = \\ (x :: Int) -> x\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nbig :: Int\nbig\n  = 7#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nname3 :: Addr#\nname3\n  = \"r3\"#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ncall3 :: Call\ncall3\n  = Call.Call\n      @Int\n      @Int\n      dNF1\n      dNF2\n      ghc-internal:GHC.Internal.Classes.$fEqInt\n      ghc-internal:GHC.Internal.Show.$fShowInt\n      dTy\n      name3\n      f3\n      x1\n      g1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nf4 :: Int -> Int\nf4\n  = \\ (x :: Int) -> L.foo x\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nname4 :: Addr#\nname4\n  = \"r4\"#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ncall4 :: Call\ncall4\n  = Call.Call\n      @Int\n      @Int\n      dNF1\n      dNF2\n      ghc-internal:GHC.Internal.Classes.$fEqInt\n      ghc-internal:GHC.Internal.Show.$fShowInt\n      dTy\n      name4\n      f4\n      x1\n      g1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndNF1 :: NFData Int\ndNF1\n  = Control.DeepSeq.C:NFData @Int lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndNF2 :: NFData Int\ndNF2\n  = Control.DeepSeq.C:NFData @Int lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndTy :: Typeable Int\ndTy\n  = lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nx1 :: Int\nx1\n  = ghc-internal:GHC.Internal.Types.I# 3#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ng1 :: Int -> Int\ng1\n  = \\ (y :: Int) -> y\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nlvl1 :: Int\nlvl1\n  = 3#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nopsBSmall :: [Call]\nopsBSmall\n  = : @Call call1 (: @Call call2 (: @Call call3 (: @Call OpsDynamic.call4 ([] @Call))))\n\nEOF_A_0\ncat > A/OpsRanked.dump-simpl <<'EOF_A_1'\n\n==================== Tidy Core ====================\n2026-10-17 10:00:00.000000 UTC\n\nResult size of Tidy Core\n  = {terms: 99, types: 9, coercions: 0, joins: 0/0}\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nf9 :: Int -> Int\nf9\n  = \\ (x :: Int) -> x\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nname9 :: Addr#\nname9\n  = \"r9\"#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ncall9 :: Call\ncall9\n  = Call.Call\n      @Int\n      @Int\n      OpsDynamic.dNF1\n      OpsDynamic.dNF2\n      ghc-internal:GHC.Internal.Classes.$fEqInt\n      ghc-internal:GHC.Internal.Show.$fShowInt\n      OpsDynamic.dTy\n      name9\n      f9\n      OpsDynamic.x1\n      OpsDynamic.g1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nlvl1 :: [Call]\nlvl1\n  = : @Call call9 ([] @Call)\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nopsUEmpty :: [Call]\nopsUEmpty\n  = ++ @Call lvl1 lvl1\n\nEOF_A_1\ncat > A/Data/Array/Lib.dump-simpl <<'EOF_A_2'\n\n==================== Tidy Core ====================\n2026-10-17 10:00:00.000000 UTC\n\nResult size of Tidy Core\n  = {terms: 99, types: 9, coercions: 0, joins: 0/0}\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nfoo :: Int -> Int\nfoo\n  = \\ (y :: Int) -> y\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nbar :: Int -> Int\nbar\n  = \\ (y :: Int) -> ghc-internal:GHC.Internal.Prim.*# y y\n\nEOF_A_2\ncat > B/OpsDynamic.dump-simpl <<'EOF_B_0'\n\n==================== Tidy Core ====================\n2026-10-17 10:00:00.000000 UTC\n\nResult size of Tidy Core\n  = {terms: 99, types: 9, coercions: 0, joins: 0/0}\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nf1 :: Int -> Int\nf1\n  = \\ (x :: Int) -> L.foo x\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nname1 :: Addr#\nname1\n  = \"r1\"#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ncall1 :: Call\ncall1\n  = Call.Call\n      @Int\n      @Int\n      dNF1\n      dNF2\n      ghc-internal:GHC.Internal.Classes.$fEqInt\n      ghc-internal:GHC.Internal.Show.$fShowInt\n      dTy\n      name1\n      f1\n      x1\n      g1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nf2 :: Int -> Int\nf2\n  = \\ (x :: Int) -> ghc-internal:GHC.Internal.Prim.+# x 1#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nname2 :: Addr#\nname2\n  = \"r2\"#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ncall2 :: Call\ncall2\n  = Call.Call\n      @Int\n      @Int\n      dNF1\n      dNF2\n      ghc-internal:GHC.Internal.Classes.$fEqInt\n      ghc-internal:GHC.Internal.Show.$fShowInt\n      dTy\n      name2\n      f2\n      x1\n      g1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nf3 :: Int -> Int\nf3\n  = \\ (x :: Int) -> x\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nbig :: Int\nbig\n  = 7#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nname3 :: Addr#\nname3\n  = \"r3\"#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ncall3 :: Call\ncall3\n  = Call.Call\n      @Int\n      @Int\n      dNF1\n      dNF2\n      ghc-internal:GHC.Internal.Classes.$fEqInt\n      ghc-internal:GHC.Internal.Show.$fShowInt\n      dTy\n      name3\n      f3\n      x1\n      g1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nf4 :: Int -> Int\nf4\n  = \\ (x :: Int) -> L.foo x\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nname4 :: Addr#\nname4\n  = \"r4\"#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ncall4 :: Call\ncall4\n  = Call.Call\n      @Int\n      @Int\n      dNF1\n      dNF2\n      ghc-internal:GHC.Internal.Classes.$fEqInt\n      ghc-internal:GHC.Internal.Show.$fShowInt\n      dTy\n      name4\n      f4\n      x1\n      g1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndNF1 :: NFData Int\ndNF1\n  = Control.DeepSeq.C:NFData @Int lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndNF2 :: NFData Int\ndNF2\n  = Control.DeepSeq.C:NFData @Int lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndTy :: Typeable Int\ndTy\n  = lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nx1 :: Int\nx1\n  = ghc-internal:GHC.Internal.Types.I# 3#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ng1 :: Int -> Int\ng1\n  = \\ (y :: Int) -> y\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nlvl1 :: Int\nlvl1\n  = 3#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nopsBSmall :: [Call]\nopsBSmall\n  = : @Call call1 (: @Call call2 (: @Call call3 (: @Call OpsDynamic.call4 ([] @Call))))\n\nEOF_B_0\ncat > B/OpsRanked.dump-simpl <<'EOF_B_1'\n\n==================== Tidy Core ====================\n2026-10-17 10:00:00.000000 UTC\n\nResult size of Tidy Core\n  = {terms: 99, types: 9, coercions: 0, joins: 0/0}\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nf9 :: Int -> Int\nf9\n  = \\ (x :: Int) -> x\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nname9 :: Addr#\nname9\n  = \"r9\"#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ncall9 :: Call\ncall9\n  = Call.Call\n      @Int\n      @Int\n      OpsDynamic.dNF1\n      OpsDynamic.dNF2\n      ghc-internal:GHC.Internal.Classes.$fEqInt\n      ghc-internal:GHC.Internal.Show.$fShowInt\n      OpsDynamic.dTy\n      name9\n      f9\n      OpsDynamic.x1\n      OpsDynamic.g1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nlvl1 :: [Call]\nlvl1\n  = : @Call call9 ([] @Call)\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nopsUEmpty :: [Call]\nopsUEmpty\n  = ++ @Call lvl1 lvl1\n\nEOF_B_1\ncat > B/Data/Array/Lib.dump-simpl <<'EOF_B_2'\n\n==================== Tidy Core ====================\n2026-10-17 10:00:00.000000 UTC\n\nResult size of Tidy Core\n  = {terms: 99, types: 9, coercions: 0, joins: 0/0}\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nfoo :: Int -> Int\nfoo\n  = \\ (y :: Int) -> y\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nbar :: Int -> Int\nbar\n  = \\ (y :: Int) -> ghc-internal:GHC.Internal.Prim.*# y y\n\nEOF_B_2\nprintf 'module OpsDynamic where\\nimport qualified Data.Array.Lib as L\\n' > src/bench/OpsDynamic.hs\nprintf 'module OpsRanked where\\nimport OpsDynamic\\n' > src/bench/OpsRanked.hs\nprintf 'module Data.Array.Lib where\\n' > src/Data/Array/Lib.hs",
+   "invoke": [
+    "rows",
+    "{tmp}/A",
+    "{tmp}/B",
+    "{tmp}/src"
+   ],
+   "expect_exit": 0,
+   "expect_text": "OpsRanked\tempty\tU\tr9\tsame\tsame\tsame\tsame",
+   "expect_absent": "\t?\t?\tr9"
+  },
+  {
+   "id": "pragma-map-01",
+   "program": "pragma-map.py",
+   "name": "INLINE stood first in the pattern's alternation with no word's end after it, so INLINEABLE h was read as an INLINE pragma of a name ABLE",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "{-# INLINEABLE h #-}",
+   "ok": "an INLINABLE pragma of h",
+   "bug": "an INLINE pragma of ABLE",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "selftest",
+   "notes": "Present in the study scripts the tool was ported from; the port's self-test failed on it on 2026-10-17. Orthotope's source spells no pragma INLINEABLE.",
+   "no_audit": "other:fixed-before-the-program-entered-this-tree",
+   "plant_cmd": "mkdir a b && printf 'module X where\\nh :: Int\\nh = 1\\n' > a/X.hs && printf 'module X where\\n{-# INLINEABLE h #-}\\nh :: Int\\nh = 1\\n' > b/X.hs",
+   "invoke": [
+    "{tmp}/a",
+    "{tmp}/b"
+   ],
+   "expect_exit": 0,
+   "expect_text": "X.hs [top] h#1: none -> INLINABLE",
+   "expect_absent": "ABLE#1"
   }
  ]
 }
