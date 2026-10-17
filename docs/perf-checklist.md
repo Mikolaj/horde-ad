@@ -801,7 +801,7 @@ not count.
 **Catches** hand-tuned shapes that a reader would tidy back into the slow form:
 
 - a loop written by index where a combinator exists;
-- an argument order, or a `case` in place of `<>`;
+- an argument order;
 - a cursor stepped twice, or a literal where the value would read better;
 - `GHC.Exts` primitives, `lazy`, `oneShot`, `inline`, or NOINLINE on a helper;
 - a bang's placement, a wrapper and worker split, or a route recognised again

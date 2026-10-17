@@ -12,9 +12,10 @@ For each module it sums the `time=` and `alloc=` of every pass GHC reports,
 the `.dyn` dump of `-dynamic-too`'s second code generation included, and
 prints both builds' milliseconds and gigabytes, the time ratio B/A and the
 module's Core verdict from tools/core-diff.py: `same`, `literals` or
-`differs`. A module whose `.dump-timings` holds no compiler pass, as the
-`.inc`-including benchmark modules' held only `systool:hs-cpp` on GHC HEAD
-10.1.20260918, is named as untimed and left out of what follows. Then the pooled ratios --- summed B over summed A --- of the
+`differs`. A module whose `.dump-timings` holds no compiler pass, as a CPP
+module's holds only `systool:hs-cpp` after a second `ghc --make` run that
+recompiled nothing, which Cabal makes for every component but the library,
+is named as untimed and left out of what follows. Then the pooled ratios --- summed B over summed A --- of the
 controls, the modules whose Core is the same in both builds, of the modules
 whose Core differs, and of all; and the controls' per-module time ratios,
 over those taking at least MS milliseconds in A (default 1000).
