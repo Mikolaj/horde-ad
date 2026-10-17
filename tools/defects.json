@@ -5914,6 +5914,32 @@
    "expect_absent": "\t?\t?\tr9"
   },
   {
+   "id": "row-core-03",
+   "program": "row-core.py",
+   "name": "local binders were renamed by their order of first appearance in a binding's text, not by their binding site, so a binding whose local names one build reused in scopes apart and the other numbered apart differed, though its Core was the same up to renaming",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "two dumps alike but for a row's forced function, which in one names a join point and its argument alike in two case alternatives and in the other numbers the second pair apart",
+   "ok": "each name renamed by the binding site it refers to; the row same in all four verdicts",
+   "bug": "the row's forced function differs; orthotope's Dynamic small boxed maximumA was marked so between two builds, its text differing only in a join point renamed $w$j_2 in one and $w$j_1 in the other",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-17 reading the rows marked differing between the builds with update INLINE and INLINABLE, and fixed at Mikolaj's word the same day. On that pair, an orthotope tip's dumps against those of its variant with update INLINABLE, the fixed program turns 36 rows from differs to same, Dynamic and Ranked boxed and Storable maximumA, maximumA.one, maximumA.rank5 and minimumA and Ranked boxed ravel and ravel.one at both sizes, and no row the other way; Dynamic small boxed maximumA and Ranked small boxed ravel, dumped by the program before the fix, compare equal with every local name cut to its base, their texts differing only in one join point's number at its binding site and its jumps. The error only ever marked a row differs, a renaming one to one within a text, so it cost cells counted and falsified no figure. The mutants 'row-core binding sites not used' and 'row-core a letrec's items open only from their own site' reproduce it, and a forward reference misread, on the self-test's fixtures.",
+   "plant_cmd": "mkdir A B src\ncat > A/OpsDynamic.dump-simpl <<'EOF_A'\n\n==================== Tidy Core ====================\n2026-10-17 10:00:00.000000 UTC\n\nResult size of Tidy Core\n  = {terms: 99, types: 9, coercions: 0, joins: 0/0}\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nf3 :: Int -> Int\nf3\n  = \\ (x :: Int) ->\n      case x of wild {\n        A -> join { $j (y :: Int) = y } in $j 1#;\n        B -> join { $j (y :: Int) = y } in $j 2#\n      }\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nbig :: Int\nbig\n  = 7#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nname3 :: Addr#\nname3\n  = \"r3\"#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ncall3 :: Call\ncall3\n  = Call.Call\n      @Int\n      @Int\n      dNF1\n      dNF2\n      ghc-internal:GHC.Internal.Classes.$fEqInt\n      ghc-internal:GHC.Internal.Show.$fShowInt\n      dTy\n      name3\n      f3\n      x1\n      g1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndNF1 :: NFData Int\ndNF1\n  = lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndNF2 :: NFData Int\ndNF2\n  = lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndTy :: Typeable Int\ndTy\n  = lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nx1 :: Int\nx1\n  = 3#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ng1 :: Int -> Int\ng1\n  = \\ (y :: Int) -> y\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nlvl1 :: Int\nlvl1\n  = 3#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nopsBSmall :: [Call]\nopsBSmall\n  = : @Call call3 ([] @Call)\n\nEOF_A\ncat > B/OpsDynamic.dump-simpl <<'EOF_B'\n\n==================== Tidy Core ====================\n2026-10-17 10:00:00.000000 UTC\n\nResult size of Tidy Core\n  = {terms: 99, types: 9, coercions: 0, joins: 0/0}\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nf3 :: Int -> Int\nf3\n  = \\ (x :: Int) ->\n      case x of wild {\n        A -> join { $j (y :: Int) = y } in $j 1#;\n        B -> join { $j1 (y1 :: Int) = y1 } in $j1 2#\n      }\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nbig :: Int\nbig\n  = 7#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nname3 :: Addr#\nname3\n  = \"r3\"#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ncall3 :: Call\ncall3\n  = Call.Call\n      @Int\n      @Int\n      dNF1\n      dNF2\n      ghc-internal:GHC.Internal.Classes.$fEqInt\n      ghc-internal:GHC.Internal.Show.$fShowInt\n      dTy\n      name3\n      f3\n      x1\n      g1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndNF1 :: NFData Int\ndNF1\n  = lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndNF2 :: NFData Int\ndNF2\n  = lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndTy :: Typeable Int\ndTy\n  = lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nx1 :: Int\nx1\n  = 3#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ng1 :: Int -> Int\ng1\n  = \\ (y :: Int) -> y\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nlvl1 :: Int\nlvl1\n  = 3#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nopsBSmall :: [Call]\nopsBSmall\n  = : @Call call3 ([] @Call)\n\nEOF_B",
+   "invoke": [
+    "rows",
+    "{tmp}/A",
+    "{tmp}/B",
+    "{tmp}/src"
+   ],
+   "expect_exit": 0,
+   "expect_text": "OpsDynamic\tsmall\tB\tr3\tsame\tsame\tsame\tsame",
+   "expect_absent": "differs",
+   "bug_exit": 0,
+   "bug_text": "OpsDynamic\tsmall\tB\tr3\tdiffers"
+  },
+  {
    "id": "pragma-map-01",
    "program": "pragma-map.py",
    "name": "INLINE stood first in the pattern's alternation with no word's end after it, so INLINEABLE h was read as an INLINE pragma of a name ABLE",

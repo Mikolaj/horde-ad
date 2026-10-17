@@ -30,17 +30,12 @@ A top-level binding's hash covers its text --- comments dropped, among
 them GHC's `-- RHS size` comments, whose wrapped continuation lines would
 otherwise end the binding above with the size of the one after it
 (row-core-01); `Rec {` markers and layout dropped; a local binder renamed
-by its base and its order of first appearance --- refined over its
-references to other dumped bindings for 40 rounds; references outside the
-dumps stay literal. Which binders a binding reaches is read per module, a
-binder of one module never standing for another's of the same name
-(row-core-02). The renaming follows a binder's first appearance, not its
-binding site, so two builds whose dumps name local binders apart in one
-and alike in the other can mark a row `differs` though its Core is the same
-up to renaming: orthotope's Dynamic small boxed `maximumA`, its text
-differing only in a join point renamed `$w$j_2` in one build and
-`$w$j_1` in the other. Within a text the renaming is one to one,
-so this error makes a row `differs` and never `same`.
+by its base and the order of its binding site, each name referring to it
+alike, so that a build reusing a name in scopes apart and one numbering
+them apart compare the same (row-core-03) --- refined over its references
+to other dumped bindings for 40 rounds; references outside the dumps stay
+literal. Which binders a binding reaches is read per module, a binder of
+one module never standing for another's of the same name (row-core-02).
 
 rows prints a TSV line per row: module, size, kind, name, and for the
 forced and the summing function `same`, `literals` (equal with numeric
@@ -67,12 +62,15 @@ not be: a tree with no `.dump-simpl` dump, dumps with no `Call.Call`, a
 row or a node not found, or an unreadable input.
 """
 
+import bisect
 import collections
 import contextlib
 import difflib
+import functools
 import hashlib
 import importlib.util
 import io
+import math
 import os
 import re
 import sys
@@ -266,15 +264,169 @@ def sha(s):
     return hashlib.sha1(s.encode()).hexdigest()[:16]
 
 
+# The binding forms of a binding's text, whitespace collapsed.
+EVENT = re.compile(r'[(){}\[\];"]|->|\\ | = ')
+LOCAL = re.compile(r"[a-z_$][\w$'#]*")
+# A binder in parentheses with its type, a type binder's `(@(a :: k))`
+# among them.
+BINDER = re.compile(r"\((?:@\()?@?([a-z_$][\w$'#]*) ::")
+BARE = re.compile(r"@?([a-z_$][\w$'#]*)")
+CASEOF = re.compile(r"\bof (?:([a-z_$][\w$'#]*) )?\{")
+GROUP = re.compile(r'\b(letrec|joinrec|let|join) \{')
+FORALL = re.compile(r'\bforall ([^.]*)\.')
+STRING = re.compile(r'"(?:[^"\\]|\\.)*"')
+KEYWORDS = frozenset(('case', 'of', 'let', 'letrec', 'in', 'join', 'joinrec',
+                      'forall', '__DEFAULT'))
+
+
+def structure(text):
+    """(close, inner, kids): where each bracket opening at a position
+    closes, the opening of the innermost bracket around each event and
+    name (-1 at the top), and each bracket's events directly inside it;
+    string literals skipped."""
+    close, inner, kids, stack = {}, {}, collections.defaultdict(list), []
+    marks = sorted([(m.start(), m.group(0)) for m in EVENT.finditer(text)]
+                   + [(m.start(), '') for m in NAME.finditer(text)],
+                   key=lambda x: x[0])
+    skip = -1
+    for p, e in marks:
+        if p < skip:
+            continue
+        inner[p] = stack[-1] if stack else -1
+        if e:
+            kids[inner[p]].append((p, e))
+        if e == '"':
+            s = STRING.match(text, p)
+            skip = s.end() if s else len(text)
+        elif e in ('(', '{', '['):
+            stack.append(p)
+        elif e in (')', '}', ']') and stack:
+            close[stack.pop()] = p
+    for p in stack:
+        close[p] = len(text)
+    return close, inner, kids
+
+
+@functools.lru_cache(maxsize=None)
+def binding_sites(text):
+    """Position of each local name of text -> the position of the binding
+    site it refers to, a site mapping to itself: the latest site of its name
+    whose scope is open there. A site is a lambda's binder, a case binder,
+    a name in an alternative's pattern, an item of a let, letrec, join or
+    joinrec group or a join point's argument, or a forall's binder; its
+    scope runs to the end of the bracket around its binding form, a group's
+    items to the end of the bracket around the group, its `in` included,
+    and a letrec's or joinrec's from its brace on. GHC's tidied Core reuses
+    a term binder's name only in scopes apart, so the latest open site is
+    the binder; a type variable sharing a term variable's name in one scope
+    is not told apart from it."""
+    close, inner, kids = structure(text)
+    toks = {m.start(): m.group(0) for m in NAME.finditer(text)
+            if m.start() in inner and LOCAL.fullmatch(m.group(0))}
+    pos = sorted(toks)
+
+    def names(a, b):
+        return pos[bisect.bisect_right(pos, a):bisect.bisect_left(pos, b)]
+    sites = []
+    for m in re.finditer(r'\\ ', text):
+        if m.start() not in inner:
+            continue
+        e = close.get(inner[m.start()], len(text))
+        i = m.end()
+        while i < len(text):
+            while text[i:i + 1] == ' ':
+                i += 1
+            if text.startswith('->', i):
+                break
+            b = BINDER.match(text, i)
+            if b:
+                sites.append((b.group(1), b.start(1), b.start(1), e))
+                i = close.get(i, len(text)) + 1
+                continue
+            b = BARE.match(text, i)
+            if not b:
+                break
+            sites.append((b.group(1), b.start(1), b.start(1), e))
+            i = b.end()
+    for m in CASEOF.finditer(text):
+        g = m.end() - 1
+        if g not in close or g not in inner:
+            continue
+        e = close[g]
+        if m.group(1):
+            sites.append((m.group(1), m.start(1), m.start(1), e))
+        arrows = [p for p, x in kids[g] if x == '->']
+        for s in [g] + [p for p, x in kids[g] if x == ';']:
+            k = bisect.bisect_right(arrows, s)
+            if k < len(arrows):
+                sites += [(toks[q], q, q, e) for q in names(s, arrows[k])
+                          if toks[q] not in KEYWORDS]
+    for m in GROUP.finditer(text):
+        g = m.end() - 1
+        if g not in close or g not in inner:
+            continue
+        outer = close.get(inner[g], len(text))
+        rec = m.group(1) in ('letrec', 'joinrec')
+        eqs = [p for p, x in kids[g] if x == ' = ']
+        for s in [g] + [p for p, x in kids[g] if x == ';']:
+            k = bisect.bisect_right(pos, s)
+            if k == len(pos) or pos[k] >= close[g] or inner[pos[k]] != g:
+                continue
+            q = pos[k]
+            sites.append((toks[q], q, g if rec else q, outer))
+            j = bisect.bisect_right(eqs, s)
+            eq = eqs[j] if j < len(eqs) else close[g]
+            for p, x in kids[g]:
+                b = BINDER.match(text, p) if s < p < eq and x == '(' else None
+                if b:
+                    sites.append((b.group(1), b.start(1), b.start(1),
+                                  close[g]))
+    for m in FORALL.finditer(text):
+        if m.start() in inner:
+            e = close.get(inner[m.start()], len(text))
+            sites += [(toks[q], q, q, e) for q in names(m.start(1) - 1,
+                                                        m.end(1))
+                      if toks[q] not in KEYWORDS]
+    by = collections.defaultdict(list)
+    for nm, site, start, e in sites:
+        by[nm].append((start, site, e))
+    for v in by.values():
+        v.sort()
+    own = {site for _, site, _, _ in sites}
+    out = {}
+    for q, tok in toks.items():
+        if q in own:
+            out[q] = q
+            continue
+        v = by.get(tok, [])
+        k = bisect.bisect_right(v, (q, math.inf, 0))
+        while k > 0:
+            k -= 1
+            if q < v[k][2]:
+                out[q] = v[k][1]
+                break
+    return out
+
+
 def shape(m, text, resolve, follow=None):
     """The text with resolved references replaced, and the references; a
-    reference follow refuses is written `@Module.base` instead; an
-    unqualified name left, a local binder, keyword or type variable, is
-    renamed to its base, its trailing digits dropped, and its order of first
-    appearance among the names of that base, GHC numbering local binders
-    across the whole module."""
+    reference follow refuses is written `@Module.base` instead. An
+    unqualified name left is a local binder, a keyword or a type variable:
+    a binder is renamed to its base, its trailing digits dropped, and its
+    binding site's order among the sites of that base (binding_sites), each
+    name referring to it renamed alike; a keyword stays; a name whose site
+    is not found is renamed to its base and its order of first appearance
+    among such names of that base, apart from the sites' names. GHC numbers
+    local binders across the whole module and reuses a name in scopes apart,
+    so neither the numbers nor the reuse carries over between builds."""
     refs, parts, i = [], [], 0
     local, per_base = {}, collections.Counter()
+    sites = binding_sites(text)
+    named, per_site = {}, collections.Counter()
+    for s in sorted(set(sites.values())):
+        base = re.sub(r'\d+$', '', NAME.match(text, s).group(0))
+        named[s] = f'{base}_{per_site[base]}'
+        per_site[base] += 1
     for mt in NAME.finditer(text):
         tok = mt.group(0)
         r = resolve(m, tok)
@@ -287,11 +439,18 @@ def shape(m, text, resolve, follow=None):
             i = mt.end()
             refs.append(r)
         elif not QUAL.fullmatch(tok):
-            if tok not in local:
-                base = re.sub(r'\d+$', '', tok)
-                local[tok] = f'{base}_{per_base[base]}'
-                per_base[base] += 1
-            parts.append(text[i:mt.start()] + local[tok])
+            s = sites.get(mt.start())
+            if s is not None:
+                new = named[s]
+            elif tok in KEYWORDS:
+                new = tok
+            else:
+                if tok not in local:
+                    base = re.sub(r'\d+$', '', tok)
+                    local[tok] = f'{base}~{per_base[base]}'
+                    per_base[base] += 1
+                new = local[tok]
+            parts.append(text[i:mt.start()] + new)
             i = mt.end()
     parts.append(text[i:])
     return ''.join(parts), refs
@@ -568,12 +727,12 @@ def norm(t, deep=False):
     t = re.sub(r'\b(ww|ipv|bx|wild|ds|eta|x|y|s|unbx|lvl|sat|a|b|n|xs|ys|go'
                r'|fail|exit|v)(_\d+)?\b', r'\1', t)
     t = re.sub(r'\$(w|s)*(j|go|wgo|lvl|lvl\d+)(_?\d+)?\b', '$J', t)
-    return re.sub(r'_\d+\b', '', t)
+    return re.sub(r'[_~]\d+\b', '', t)
 
 
 def shown(t):
     """A node's text as printed: unit qualifiers and binder numbers gone."""
-    t = UNITQ.sub('', re.sub(r'_0\b', '', t))
+    t = UNITQ.sub('', re.sub(r'[_~]0\b', '', t))
     return t.replace('GHC.Internal.Prim.', '').replace('GHC.Internal.Types.',
                                                        '')
 
@@ -791,6 +950,31 @@ def checks(bad, td):
             or not got[1].endswith('@Data.Array.Lib.foo x') \
             or not got[2].endswith('@Data.Array.Lib.bar x'):
         bad.append(f'tokens of f4: {got}')
+    # Local names renamed by binding site (row-core-03): a join point and
+    # its argument reused in two alternatives in one build and numbered apart
+    # in the other are alike; two join points in one scope, one called or
+    # the other, differ; and a letrec's forward reference is to its own
+    # item, not to the binder of that name in an alternative still open.
+    def shaped(t):
+        return shape('M', t, lambda m, tok: None)[0]
+    reuse = ('\\ (x :: Int) -> case x of wild { A -> join { $j (y :: Int) = y }'
+             ' in $j 1#; B -> join { $j (y :: Int) = y } in $j 2# }')
+    apart = reuse.replace('$j (y :: Int) = y } in $j 2#',
+                          '$j1 (y1 :: Int) = y1 } in $j1 2#')
+    if shaped(reuse) != shaped(apart):
+        bad.append(f'renumbered binders differ: {shaped(reuse)!r}'
+                   f' {shaped(apart)!r}')
+    two = ('join { $j (y :: Int) = y } in join { $j1 (z :: Int) = z } in'
+           ' $j 1#')
+    if shaped(two) == shaped(two.replace('in $j 1#', 'in $j1 1#')):
+        bad.append(f'a call of another join point alike: {shaped(two)!r}')
+    rec = ('case a of { K g -> g; L -> letrec { f = \\ (x :: Int) -> g x;'
+           ' g = \\ (y :: Int) -> f y; } in f }')
+    tyb = shaped('\\ (@(a :: [Nat])) (x :: a) -> x')
+    if '(x_0 :: a_0) -> x_0' not in tyb:
+        bad.append(f"a lambda's binders after a type binder missed: {tyb!r}")
+    if shaped(rec) != shaped(rec.replace('-> g x; g =', '-> g1 x; g1 =')):
+        bad.append(f"a letrec's forward reference misread: {shaped(rec)!r}")
     t = ('f @(Vector (Maybe Int)) (x `cast` (Sym (N:V <Int>_N) :: V ~R# W))'
          ' primitive_0-0.9.1.0-abc_0:Data.Primitive.foo ww_3 #12')
     if norm(t, True) != 'f @T (x) Data.Primitive.foo ww #':
@@ -827,7 +1011,11 @@ def self_test():
     here: a row whose library callee changed, one changing in a literal, one
     after whose forced function a wrapped size comment changed, one calling
     another library function, and one in a second module that reaches its
-    row through a binder whose name the first module binds too."""
+    row through a binder whose name the first module binds too; and the
+    renaming by binding site over texts written here, of a join point
+    reused in two alternatives against one numbered apart, of a call
+    of another join point, of a letrec's forward reference and of
+    a lambda's binders after a type binder."""
     bad = []
     try:
         with tempfile.TemporaryDirectory() as td:

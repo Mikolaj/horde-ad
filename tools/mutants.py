@@ -1637,6 +1637,17 @@ MUTANTS = [
     ('row-core unit qualifiers kept by tokens', 'row-core.py',
      "        t = UNITQ.sub('', t)\n",
      '', ST),
+    # row-core-03 (2026-10-17): local names renamed by binding site; each
+    # watched failing its self-test before it was written down here.
+    ('row-core binding sites not used', 'row-core.py',
+     '            s = sites.get(mt.start())\n',
+     '            s = None\n', ST),
+    ("row-core a type binder ends a lambda's binders", 'row-core.py',
+     'BINDER = re.compile(r"\\((?:@\\()?@?([a-z_$][\\w$\'#]*) ::")\n',
+     'BINDER = re.compile(r"\\(@?([a-z_$][\\w$\'#]*) ::")\n', ST),
+    ("row-core a letrec's items open only from their own site", 'row-core.py',
+     '            sites.append((toks[q], q, g if rec else q, outer))\n',
+     '            sites.append((toks[q], q, q, outer))\n', ST),
     # census (2026-10-17): the census scripts ported; each watched failing
     # its self-test before it was written down here.
     ('census large rows timed a call, not an element', 'census.py',
