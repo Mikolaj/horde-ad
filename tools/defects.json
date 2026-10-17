@@ -5735,6 +5735,31 @@
    "expect_text": "3 ->       3  Data.Array.Internal.sumT",
    "bug_exit": 0,
    "bug_text": "0 ->       3  Data.Array.Internal.sumT"
+  },
+  {
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "id": "pragma-calls-16",
+   "program": "pragma-calls.py",
+   "name": "per module, a file the diff deletes was opened in the worktree to name its module, so a pragma removed with its module crashed the run with a traceback and exit 1",
+   "family": "error-as-value",
+   "trigger": "INLINE f removed from M.hs and N.hs, which also carried INLINE f, deleted",
+   "ok": "per-module verdicts printed, exit 0",
+   "bug": "FileNotFoundError on N.hs, exit 1",
+   "notes": "The crash half of the review's item 19: pragma-calls-12 named a deleted file by its old path, which per-module mode then opened.",
+   "plant_cmd": "export GIT_AUTHOR_DATE='1000000000 +0000' GIT_COMMITTER_DATE='1000000000 +0000' && g() { git -c user.email=t@t -c user.name=t -c commit.gpgsign=false \"$@\"; } && mkdir W && printf 'module M where\\n{-# INLINE f #-}\\nf x = x\\n' > W/M.hs && printf 'module N where\\n{-# INLINE f #-}\\nf x = x\\n' > W/N.hs && g -C W init -q && g -C W add M.hs N.hs && g -C W commit -qm base && rm W/N.hs && printf 'module M where\\nf x = x\\n' > W/M.hs && mkdir -p A/src B/src && for d in A B; do printf 'f = \\\\ x -> x\\n' > $d/src/M.dump-simpl; printf 'f = \\\\ x -> x\\n' > $d/src/N.dump-simpl; done",
+   "invoke": [
+    "{tmp}/A",
+    "{tmp}/B",
+    "{tmp}/W"
+   ],
+   "expect_exit": 0,
+   "expect_text": "N.hs\tf (per module)\t",
+   "expect_absent": "Traceback",
+   "bug_exit": 1,
+   "bug_text": "FileNotFoundError"
   }
  ]
 }

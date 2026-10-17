@@ -37,7 +37,9 @@ an imported function excepted; where its qualifier is an alias the importing
 module's source binds to M or to a module re-exporting it, one that imports M
 and binds no such name; and where it stands unqualified in a module importing
 M, or such a re-exporter, unqualified and binding no such name itself. A name
-removed twice in one module is marked, its counts covering both.
+removed twice in one module is marked, its counts covering both. A module
+the diff deletes is absent from the worktree's sources, so only the tokens
+it qualifies count towards its binding.
 
 The token counts of each dump tree are cached beside it, in
 DUMPS.tokens.pickle, since tokenising 1.5 GB of Core takes a minute. The
@@ -785,13 +787,24 @@ def main(argv):
 
 def per_args(argv, names):
     """verdicts' per for a run over two dump trees and a worktree, or None
-    where no name is removed in more than one module."""
+    where no name is removed in more than one module. A file the diff
+    deletes is named by its text at HEAD, where opening it in the worktree
+    crashed (pragma-calls-16)."""
     if len({n for _, n in names}) == len(set(names)):
         return None
     srcs, mods = sources(argv[2]), {}
     for f, _ in names:
-        with open(os.path.join(argv[2], f), errors='replace') as fh:
-            m = MODULE.search(fh.read())
+        path = os.path.join(argv[2], f)
+        if os.path.exists(path):
+            with open(path, errors='replace') as fh:
+                txt = fh.read()
+        else:
+            # answered dropped-status: the diff against HEAD named f as
+            # deleted, so HEAD holds it.
+            txt = subprocess.run(['git', '-C', argv[2], 'show', 'HEAD:' + f],
+                                 capture_output=True, text=True,
+                                 errors='replace', env=common.git_env()).stdout
+        m = MODULE.search(txt)
         mods[f] = m.group(1) if m else 'Main'
     return (load(argv[0], raw=True), load(argv[1], raw=True), srcs, mods,
             argv[0], argv[1])
