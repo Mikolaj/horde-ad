@@ -38,6 +38,11 @@
 # only this one needs it -- the rest carry no extension this checker reads
 # as a path, so they stay unclassified.
 .mcp.json
+# Two files written in a working checkout, by Claude Code and by cabal, and
+# ignored by git, so a fresh clone lacks them; pinned, as `.mcp.json` is, so
+# that the verdict is the same in both.
+.claude/settings.local.json
+dist-newstyle/cache/plan.json
 # Every upstream issue document under docs/, GHC's and vector's, tells
 # its reader to save the reproducer under this name, so it never lands
 # in this repo.
