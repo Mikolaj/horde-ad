@@ -162,10 +162,16 @@ def body(binds, nm):
     return b[k:] if k >= 0 else b
 
 
+def mask(text):
+    """text with each string literal's contents blanked, positions kept, so
+    that a word in an error string is no name (row-core-04)."""
+    return STRING.sub(lambda m: '"' + ' ' * (len(m.group(0)) - 2) + '"', text)
+
+
 def reach(binds, text, cache):
-    """Top-level binders of binds reached from text; cache holds each
-    binder's names, and is the module's own."""
-    names = set(NAME.findall(text))
+    """Top-level binders of binds reached from text, no string literal
+    naming any; cache holds each binder's names, and is the module's own."""
+    names = set(NAME.findall(mask(text)))
     seen, todo = set(), [n for n in names if n in binds]
     while todo:
         n = todo.pop()
@@ -173,7 +179,7 @@ def reach(binds, text, cache):
             continue
         seen.add(n)
         if n not in cache:
-            cache[n] = set(NAME.findall(body(binds, n)))
+            cache[n] = set(NAME.findall(mask(body(binds, n))))
         todo.extend(m for m in cache[n] if m in binds and m not in seen)
     return seen
 
@@ -418,7 +424,8 @@ def shape(m, text, resolve, follow=None):
     is not found is renamed to its base and its order of first appearance
     among such names of that base, apart from the sites' names. GHC numbers
     local binders across the whole module and reuses a name in scopes apart,
-    so neither the numbers nor the reuse carries over between builds."""
+    so neither the numbers nor the reuse carries over between builds. A
+    string literal is kept as it is, its words no names."""
     refs, parts, i = [], [], 0
     local, per_base = {}, collections.Counter()
     sites = binding_sites(text)
@@ -427,7 +434,7 @@ def shape(m, text, resolve, follow=None):
         base = re.sub(r'\d+$', '', NAME.match(text, s).group(0))
         named[s] = f'{base}_{per_site[base]}'
         per_site[base] += 1
-    for mt in NAME.finditer(text):
+    for mt in NAME.finditer(mask(text)):
         tok = mt.group(0)
         r = resolve(m, tok)
         if r and follow is not None and not follow(r):
@@ -975,6 +982,15 @@ def checks(bad, td):
         bad.append(f"a lambda's binders after a type binder missed: {tyb!r}")
     if shaped(rec) != shaped(rec.replace('-> g x; g =', '-> g1 x; g1 =')):
         bad.append(f"a letrec's forward reference misread: {shaped(rec)!r}")
+    # A word in a string literal is no name (row-core-04): it reaches no
+    # top-level binder, and the renaming leaves it as it is.
+    sb = {'l': '\nl\n  = 5#\n', 'k': '\nk\n  = error "see l"#\n'}
+    got = reach(sb, 'error "contract: l /= n"# k', {})
+    if got != {'k'}:
+        bad.append(f"a string's word reached a binder: {sorted(got)}")
+    sl = shaped('\\ (l :: Int) -> error "bad l"# l')
+    if '"bad l"#' not in sl:
+        bad.append(f"a string's word renamed: {sl!r}")
     t = ('f @(Vector (Maybe Int)) (x `cast` (Sym (N:V <Int>_N) :: V ~R# W))'
          ' primitive_0-0.9.1.0-abc_0:Data.Primitive.foo ww_3 #12')
     if norm(t, True) != 'f @T (x) Data.Primitive.foo ww #':
@@ -1015,7 +1031,8 @@ def self_test():
     renaming by binding site over texts written here, of a join point
     reused in two alternatives against one numbered apart, of a call
     of another join point, of a letrec's forward reference and of
-    a lambda's binders after a type binder."""
+    a lambda's binders after a type binder; and a string literal's words
+    reaching no binder and left unrenamed."""
     bad = []
     try:
         with tempfile.TemporaryDirectory() as td:

@@ -5940,6 +5940,32 @@
    "bug_text": "OpsDynamic\tsmall\tB\tr3\tdiffers"
   },
   {
+   "id": "row-core-04",
+   "program": "row-core.py",
+   "name": "a word inside a string literal was taken for a reference to the top-level binding of that name, so a row whose function's string named a binding one build had floated to top level and the other had not differed, though its Core was the same",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "two dumps alike but for a top-level binding l in one, which only a string literal in the row's function names",
+   "ok": "names matched with string literals blanked; the row same in all four verdicts",
+   "bug": "the row's forced function differs; orthotope's 158b67bc with the Ranked transpose banged against its control had 568 OpsRanked rows marked so where the Core differs at nine, the error string \"routeT: violated contract: l /= product sh, or too few strides\" naming the control's floated l",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-18 by a session measuring bangs on arguments forced anyway in orthotope, whose copy of the tool blanked each string literal's contents before names were matched in reach and shape, positions kept; that change is the fix. Where it fired it marked rows differs that are not, so it cost cells counted and falsified no figure.",
+   "plant_cmd": "mkdir A B src\ncat > A/OpsDynamic.dump-simpl <<'EOF_A'\n\n==================== Tidy Core ====================\n2026-10-17 10:00:00.000000 UTC\n\nResult size of Tidy Core\n  = {terms: 99, types: 9, coercions: 0, joins: 0/0}\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nf3 :: Int -> Int\nf3\n  = \\ (x :: Int) ->\n      case x of wild {\n        A -> ghc-internal:GHC.Internal.Err.error @Int \"contract: l /= n\"#;\n        B -> x\n      }\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nl :: Int\nl\n  = 5#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nbig :: Int\nbig\n  = 7#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nname3 :: Addr#\nname3\n  = \"r3\"#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ncall3 :: Call\ncall3\n  = Call.Call\n      @Int\n      @Int\n      dNF1\n      dNF2\n      ghc-internal:GHC.Internal.Classes.$fEqInt\n      ghc-internal:GHC.Internal.Show.$fShowInt\n      dTy\n      name3\n      f3\n      x1\n      g1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndNF1 :: NFData Int\ndNF1\n  = lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndNF2 :: NFData Int\ndNF2\n  = lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndTy :: Typeable Int\ndTy\n  = lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nx1 :: Int\nx1\n  = 3#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ng1 :: Int -> Int\ng1\n  = \\ (y :: Int) -> y\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nlvl1 :: Int\nlvl1\n  = 3#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nopsBSmall :: [Call]\nopsBSmall\n  = : @Call call3 ([] @Call)\n\nEOF_A\ncat > B/OpsDynamic.dump-simpl <<'EOF_B'\n\n==================== Tidy Core ====================\n2026-10-17 10:00:00.000000 UTC\n\nResult size of Tidy Core\n  = {terms: 99, types: 9, coercions: 0, joins: 0/0}\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nf3 :: Int -> Int\nf3\n  = \\ (x :: Int) ->\n      case x of wild {\n        A -> ghc-internal:GHC.Internal.Err.error @Int \"contract: l /= n\"#;\n        B -> x\n      }\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nbig :: Int\nbig\n  = 7#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nname3 :: Addr#\nname3\n  = \"r3\"#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ncall3 :: Call\ncall3\n  = Call.Call\n      @Int\n      @Int\n      dNF1\n      dNF2\n      ghc-internal:GHC.Internal.Classes.$fEqInt\n      ghc-internal:GHC.Internal.Show.$fShowInt\n      dTy\n      name3\n      f3\n      x1\n      g1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndNF1 :: NFData Int\ndNF1\n  = lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndNF2 :: NFData Int\ndNF2\n  = lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ndTy :: Typeable Int\ndTy\n  = lvl1\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nx1 :: Int\nx1\n  = 3#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\ng1 :: Int -> Int\ng1\n  = \\ (y :: Int) -> y\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nlvl1 :: Int\nlvl1\n  = 3#\n\n-- RHS size: {terms: 2, types: 0, coercions: 0, joins: 0/0}\nopsBSmall :: [Call]\nopsBSmall\n  = : @Call call3 ([] @Call)\n\nEOF_B",
+   "invoke": [
+    "rows",
+    "{tmp}/A",
+    "{tmp}/B",
+    "{tmp}/src"
+   ],
+   "expect_exit": 0,
+   "expect_text": "OpsDynamic\tsmall\tB\tr3\tsame\tsame\tsame\tsame",
+   "expect_absent": "differs",
+   "bug_exit": 0,
+   "bug_text": "OpsDynamic\tsmall\tB\tr3\tdiffers"
+  },
+  {
    "id": "pragma-map-01",
    "program": "pragma-map.py",
    "name": "INLINE stood first in the pattern's alternation with no word's end after it, so INLINEABLE h was read as an INLINE pragma of a name ABLE",

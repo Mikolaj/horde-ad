@@ -1677,6 +1677,17 @@ MUTANTS = [
     ("row-core a letrec's items open only from their own site", 'row-core.py',
      '            sites.append((toks[q], q, g if rec else q, outer))\n',
      '            sites.append((toks[q], q, q, outer))\n', ST),
+    # row-core-04 (2026-10-18): string literals blanked before names are
+    # matched; each watched failing its self-test before it was written here.
+    ("row-core a string's words reached from a row", 'row-core.py',
+     '    names = set(NAME.findall(mask(text)))\n',
+     '    names = set(NAME.findall(text))\n', ST),
+    ("row-core a string's words reached from a binder", 'row-core.py',
+     '            cache[n] = set(NAME.findall(mask(body(binds, n))))\n',
+     '            cache[n] = set(NAME.findall(body(binds, n)))\n', ST),
+    ("row-core a string's words renamed", 'row-core.py',
+     '    for mt in NAME.finditer(mask(text)):\n',
+     '    for mt in NAME.finditer(text):\n', ST),
     # census (2026-10-17): the census scripts ported; each watched failing
     # its self-test before it was written down here.
     ('census large rows timed a call, not an element', 'census.py',
