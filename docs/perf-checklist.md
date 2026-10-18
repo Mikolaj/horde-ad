@@ -645,7 +645,12 @@ min/max loop allocated more than vector's own until its reads were forced,
 
 **Read:** a bang changes semantics where an element may be boxed and undefined.
 Force only unboxed elements there (vector's `elemseq`), or record the change
-in the CHANGELOG.
+in the CHANGELOG. A bang costs, too, where the function is inlined and a caller
+passes the argument a list a `build` produces, or a constant: it is a `case`
+in the caller, which blocks `foldr/build` fusion and can keep work
+on the constant from running once at top level. In orthotope on GHC HEAD
+(2026-10-18) the Unboxed `vUnsafeConcatN` banged on its list cost up to 824
+bytes a call, and the Ranked `transpose` banged on its permutation 136.
 
 ### L2. Captured values unboxed per iteration, and lazy element reads and writes
 
