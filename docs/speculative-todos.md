@@ -18,7 +18,7 @@ Unvetted ideas from a 2026-08-14 review of the documentation-and-verification sy
 
 8. **Test the guidance itself, so the corpus can shrink.** The user-scope `CLAUDE.md` is a layer that dies with each model generation, but it only grows. Point the blind-walk instrument at rules: run a fresh session through a recorded failure scenario without the bullet and see whether the current model still errs; a bullet the model no longer needs retires with evidence. Residency is the system's largest recurring cost and this is its only principled deletion mechanism so far.
 
-9. **A CI step running the citation checker.** Of the mechanical passes, `tools/check-plan-citations.py` is the one CI can run --- self-contained on git and the tree, needing neither the sibling checkouts nor wrap80 --- so a seconds-cheap step in `lint-and-test-suites.yml` over the stamped documents would catch an orphaned or stale stamp at push time, from any machine. This is the narrow, do-now member of item 4's family: the git-hook variants cover only the machine that installs them.
+9. **A CI step running the citation checker.** Of the mechanical passes, `tools/check-plan-citations.py` is the one CI can run --- self-contained on git and the tree, needing neither the sibling checkouts nor wrap80, nor the GHC clone for a document citing no GHC source --- so a seconds-cheap step in `lint-and-test-suites.yml` over the stamped documents would catch an orphaned or stale stamp at push time, from any machine. This is the narrow, do-now member of item 4's family: the git-hook variants cover only the machine that installs them.
 
 If only two: item 1 for accuracy per unit effort, item 3 for making the anti-re-proposal goal --- the one the rulings genre exists for --- nearly deterministic.
 

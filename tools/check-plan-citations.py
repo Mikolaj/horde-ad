@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that file:line citations in a planning document still resolve.
+"""Check that file:line citations and permalinks in a document still resolve.
 
 Usage: python3 tools/check-plan-citations.py [DOC ...]
 DOC defaults to CLAUDE.md. Runs from anywhere in the repository. --restamp takes one
@@ -35,10 +35,9 @@ Pinned GitHub permalinks (`https://github.com/.../blob/<commit>/<path>#L12`
 or `#L12-L34`) are also checked, against the pinned commit via
 `git show <commit>:<path>` --- they never drift, so this catches typos,
 wrong ranges and links whose commit or path is not in this repository.
-This repository is the GitHub one that PUBLISHED_REF's remote names; a link
-into any other is listed as not checked, there being nothing local to check
-it against, and with no GitHub remote every link is taken for this
-repository's.
+This repository is the GitHub one that PUBLISHED_REF's remote names, and
+with no GitHub remote every link is taken for this repository's; a link into
+another is listed as not checked unless FOREIGN names a clone of it.
 
 `git show` proves only that the commit is in *this* clone's object
 database, which an unpushed or squashed-away commit is too --- such a link
@@ -48,6 +47,26 @@ and one that is not fails as UNPUBLISHED; if that ref is absent the
 document is BLOCKED (exit 2, unless another document of the run failed)
 rather than degraded to the weaker check, as check-doc-refs.py does for
 an unmounted sibling.
+
+FOREIGN, in the per-repo block, maps the URL prefix of another repository's
+permalinks to a local clone of it, GHC's GitLab to `ghc` here, and such a
+link is checked in the clone the same way: a GitLab range reads `#L12-34`, a
+link with no line names the whole file, and published means that one of the
+clone's remote-tracking refs holds the commit. A clone or a commit missing
+here makes the document BLOCKED (exit 2, unless something failed), stderr
+saying which is missing. `--foreign=PREFIX=CLONE` adds a mapping for one
+run.
+
+A document's links are checked for their own claims too. A `[text][label]`
+with no definition renders as plain text and fails. A permalink's link text
+shaped like a path must be the end of its URL, and a `#L` one must continue
+the file the paragraph's last path-shaped one named. And of the names written
+beside a permalink in its clause --- backticked code, a `Note [...]`, a
+quotation of twelve characters or more, the link text included --- those
+the cited file does not hold as a whole word are dropped, and one of the
+rest must occur within NAME_WINDOW lines of the cited ones or in a
+definition or Note enclosing them. The drop is what lets a clause name the
+program a draft is about, while a link whose lines moved still fails.
 
 The document's own stamp gets the same treatment, split by severity,
 because the two states differ in whether they can heal. A stamp naming a
@@ -72,7 +91,10 @@ an unpublished commit -- and a control document holding every failing kind
 beside its passing controls, asserts each verdict and the exact failure
 count, and then walks --restamp through its refusal table: the rewrite, the
 already-current no-op, the unresolved-citation, dirty-cited-file, no-stamp,
-two-stamp and no-citation refusals, and the unpublished-anchor advisory. The
+two-stamp and no-citation refusals, and the unpublished-anchor advisory. A
+second scratch repository stands in for a foreign clone, a published commit
+and an unpublished one in it, for the FOREIGN and link rows and both BLOCKED
+stops. The
 AMBIGUOUS kind gets its first live control there too: two files of one basename
 under different search roots, with no copy at the repo root to shadow them. Its
 line-zero, backwards-range and second-document rows were added for three
@@ -97,10 +119,10 @@ the same permalink document must exit 2 there, a failing document named
 after it in the same run must still be checked with the run at 1, and
 the permalink must pass once the ref exists. The stop sits inside the
 permalink loop, so in a repo whose
-documents pin no permalink a bogus PUBLISHED_REF stays silent -- true of
-this repo's tracked documents, the pattern `blob/[0-9a-f]{7,40}/`
-matching this file and four `.hs` sources but no document, the README's
-whole-file pointers being deliberately `blob/master`.
+documents pin no permalink of its own a bogus PUBLISHED_REF stays silent --
+true of this repo's tracked documents, whose pinned links all point into
+other repositories, the README's whole-file pointers being deliberately
+`blob/master`.
 
 Scope limits, deliberate: prose-style citations ("config.ui.default line
 67") are not extracted, nor is a range left dangling from its filename
@@ -246,8 +268,8 @@ reaching the ambiguity branch, so the root `CLAUDE.md` shadows the pair
 and `CLAUDE.md:1` resolves ok -- a live row needs a basename duplicated
 under the search roots with no copy at the repo root, which the
 self-test builds. The two copies of this script differ only in
-SEARCH_ROOTS; `tools/check-twin-sync.py` compares them whenever both
-checkouts are mounted.
+SEARCH_ROOTS and the per-repo block; `tools/check-twin-sync.py` compares
+them whenever both checkouts are mounted.
 """
 
 import datetime
@@ -270,8 +292,14 @@ SEARCH_ROOTS = ["src", "test", "bench", "example", "tools", ".github", "."]
 # so without this a link or stamp naming an unpushed or squashed-away
 # commit resolves here and nowhere else.
 PUBLISHED_REF = "origin/master"
-
-
+# --- per-repo configuration -----------------------------------------
+# Permalinks into another repository that a local clone can check, keyed by
+# the URL up to the commit: the clone's path from the root. A commit there
+# counts as published when one of the clone's remote-tracking refs holds it.
+FOREIGN = {"https://gitlab.haskell.org/ghc/ghc/-/blob/": "ghc"}
+# --- end per-repo configuration --------------------------------------
+# FOREIGN with this run's --foreign= additions, which main() sets.
+FOREIGN_RUN = dict(FOREIGN)
 
 # The extensions are check-doc-refs.py's PATH_EXT: that pass skips every
 # backticked `path:NN` token as this one's, so an extension missing here is
@@ -284,6 +312,28 @@ CITE_RE = re.compile(
 URL_RE = re.compile(
     r"https://github\.com/([\w.-]+/[\w.-]+)/blob/([0-9a-f]{7,40})/"
     r"([A-Za-z0-9_./-]+)#L(\d+)(?:-L(\d+))?")
+# A reference definition, `[g1]: URL`, and a link written either way,
+# `[text][label]` or `[text](URL)`, one level of brackets allowed inside the
+# text; code spans are blanked before the links are looked for.
+DEF_RE = re.compile(r"^ {0,3}\[([^\]\n]+)\]:[ \t]*<?([^\s>]+)>?[ \t]*$")
+LINK_RE = re.compile(r"\[((?:[^\[\]\n]|\[[^\[\]\n]*\])*)\]"
+                     r"(?:\[([^\[\]\n]*)\]|\(([^()\s]+)\))")
+CODE_RE = re.compile(r"(`+)(.+?)\1", re.S)
+# Link text that names a file and line rather than saying something:
+# `compiler/GHC/X.hs#L12`, `X.hs`, `#L40`.
+PATHISH_RE = re.compile(r"[A-Za-z0-9_./+-]*(?:#L\d+(?:-L?\d+)?)?")
+# The names beside a link that say what its line holds: code, a Note, or a
+# quotation of the source.
+NAME_RE = re.compile(r"`([^`\n]+)`|Note \[([^\]\n]+)\]|\"([^\"\n]{12,})\"")
+IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_']{2,}")
+# How far from the cited lines a name beside the link may sit.
+NAME_WINDOW = 15
+# Words of Haskell's own that a code span beside a link holds and that say
+# nothing about which line it cites.
+KEYWORDS = frozenset(
+    "case class data default deriving else forall foreign import infix"
+    " infixl infixr instance let module newtype qualified then type where"
+    .split())
 # The document's own stamp, in either shape the documents use: an inline
 # `hash` or a blockquoted **hash**, always followed by an ISO date in
 # parentheses. The date is what keeps this from matching the other commit
@@ -339,6 +389,260 @@ def own_slug():
 def published(sha):
     """Is sha reachable from PUBLISHED_REF? None if that ref is absent."""
     return reachable_from(sha, PUBLISHED_REF)
+
+
+def foreign_res(foreign):
+    """One URL pattern per foreign repository: commit, path, and a line or
+    range in either host's spelling, GitLab's `#L12-34` or GitHub's
+    `#L12-L34`; a link with no line names the whole file."""
+    return [(clone, re.compile(re.escape(prefix)
+                               + r"([0-9a-f]{7,40})/([^\s#)>\]]+)"
+                               r"(?:#L(\d+)(?:-L?(\d+))?)?"))
+            for prefix, clone in sorted(foreign.items())]
+
+
+@functools.lru_cache(maxsize=None)
+def is_clone(clone):
+    """Is CLONE a git repository here?"""
+    return subprocess.run(["git", "-C", clone, "rev-parse", "--git-dir"],
+                          capture_output=True).returncode == 0
+
+
+@functools.lru_cache(maxsize=None)
+def blob_lines(clone, sha, path):
+    """PATH's lines at SHA in CLONE: None when the commit is not there,
+    False when the path is not."""
+    if subprocess.run(["git", "-C", clone, "cat-file", "-e",
+                       f"{sha}^{{commit}}"], capture_output=True).returncode:
+        return None
+    p = subprocess.run(["git", "-C", clone, "show", f"{sha}:{path}"],
+                       capture_output=True, text=True, errors="replace")
+    return p.stdout.splitlines() if p.returncode == 0 else False
+
+
+@functools.lru_cache(maxsize=None)
+def foreign_published(clone, sha):
+    """Does one of CLONE's remote-tracking refs hold SHA?"""
+    p = subprocess.run(["git", "-C", clone, "for-each-ref", "--count=1",
+                        "--contains", sha, "refs/remotes"],
+                       capture_output=True, text=True)
+    return p.returncode == 0 and bool(p.stdout.strip())
+
+
+def permalink(url, own, foreign):
+    """(clone, sha, path, lo, hi) of a permalink this run checks, "." being
+    this repository and lo None for a whole file; None for any other URL."""
+    m = URL_RE.match(url)
+    if m and (own is None or m.group(1).lower() == own):
+        return (".", m.group(2), m.group(3), int(m.group(4)),
+                int(m.group(5) or m.group(4)))
+    for clone, rx in foreign_res(foreign):
+        m = rx.match(url)
+        if m:
+            lo = int(m.group(3)) if m.group(3) else None
+            return (clone, m.group(1), m.group(2), lo,
+                    int(m.group(4) or m.group(3)) if lo is not None else None)
+    return None
+
+
+def paragraphs(text):
+    """The document's paragraphs outside fenced code."""
+    out, cur = [], []
+    for line, kind, _info in common.fence_scan(text.split("\n")):
+        if kind is None and line.strip():
+            cur.append(line)
+            continue
+        if cur:
+            out.append("\n".join(cur))
+        cur = []
+    if cur:
+        out.append("\n".join(cur))
+    return out
+
+
+def norm_label(label):
+    """A reference label as Markdown matches it: case and spacing folded."""
+    return " ".join(label.split()).lower()
+
+
+def trailing_end(masked, end, stop):
+    """Where the words after a link that are about it end: a parenthesis
+    opening right after it, else the clause it closes, up to a `;`, `:` or
+    `. `, a parenthesis the link sits in closing, or STOP, the next link."""
+    j = end
+    while j < stop and masked[j] == " ":
+        j += 1
+    depth = 0
+    for k in range(j, stop):
+        ch = masked[k]
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth < 0:
+                return k
+            if depth == 0 and k > j and masked[j] == "(":
+                return k + 1
+        elif depth == 0 and (ch in ";:" or masked[k:k + 2] == ". "):
+            return k
+    return stop
+
+
+def described(par, masked, uses, i):
+    """The text that says what link I points at: its clause before it, back
+    to the last `;`, `:` or `. ` since the previous link, and the words after
+    it up to trailing_end. Words between two links count for both, the any
+    of the check being lenient; a separator keeps a neighbour's clause out."""
+    start, end = uses[i][0], uses[i][1]
+    nxt = uses[i + 1][0] if i + 1 < len(uses) else len(masked)
+    lo = uses[i - 1][1] if i else 0
+    cuts = [m.end() for m in re.finditer(r"[;:] |\. ", masked[lo:start])]
+    left = lo + (cuts[-1] if cuts else 0)
+    return par[left:end] + " " + par[end:trailing_end(masked, end, nxt)]
+
+
+def indent(ln):
+    return len(ln) - len(ln.lstrip(" "))
+
+
+def enclosing(lines, lo):
+    """What names the cited line from above: the header of each definition
+    it sits in, local ones included, and the title of the Note it sits in."""
+    out = []
+    level = indent(lines[lo - 1]) if lines[lo - 1].strip() else 10 ** 6
+    for j in range(lo - 2, max(-1, lo - 2 - 400), -1):
+        ln = lines[j]
+        if ln.strip() and indent(ln) < level and not ln.lstrip().startswith(
+                ("--", "{-", "-}", "#", ")", "]", "}", ",", "|", "~")):
+            out.append(ln)
+            level = indent(ln)
+            if level == 0:
+                break
+    for j in range(lo, min(len(lines), lo + 200)):
+        if re.match(r"[a-z_][\w']*\b[^=]*(?:::|=)", lines[j]):
+            out.append(lines[j])        # the definition a comment documents
+            break
+    for j in range(lo - 1, -1, -1):
+        if (re.match(r"\s*(?:\{-\s*)?Note \[[^\]]+\]\s*$", lines[j])
+                and j + 1 < len(lines)
+                and lines[j + 1].strip().startswith("~~~")):
+            out.append(lines[j])
+            break
+    return out
+
+
+def name_keys(code, note, quote):
+    """What to look for in the source for one name beside a link: its
+    identifiers of three letters or more, a flag also as the `Opt_` constant
+    it sets, a Note's title, a quotation's words; nothing for a name too
+    short to tell anything apart."""
+    if note:
+        return [note]
+    if quote:
+        return [" ".join(quote.split())]
+    m = re.fullmatch(r"-[fdW](?:no-)?([a-z][a-z0-9-]*)(?:=.*)?", code)
+    if m:
+        return ["flag:" + m.group(1).replace("-", "")]
+    return [k for k in IDENT_RE.findall(code) if k not in KEYWORDS]
+
+
+def word_in(key, text):
+    """Is KEY in TEXT as a whole identifier, or, a phrase, at all?"""
+    if " " in key or not key[0].isalpha() and key[0] != "_":
+        return key in text
+    return re.search(r"(?<![\w'])" + re.escape(key) + r"(?![\w'])",
+                     text) is not None
+
+
+def check_links(text, own, foreign):
+    """The links' own claims, apart from where their targets are: every
+    label used is defined; a path-like link text is the end of its
+    permalink; a `#L` continuation stays in the file its paragraph last
+    named; and at least one name beside a permalink occurs near the line it
+    cites. Returns the failures."""
+    defs = {}
+    for line, kind, _info in common.fence_scan(text.split("\n")):
+        m = DEF_RE.match(line) if kind is None else None
+        if m:
+            defs.setdefault(norm_label(m.group(1)), m.group(2))
+    failures = 0
+    for par in paragraphs(text):
+        masked = CODE_RE.sub(lambda m: " " * len(m.group(0)), par)
+        uses = []
+        for m in LINK_RE.finditer(masked):
+            shown = par[m.start(1):m.end(1)]
+            url = m.group(3)
+            if url is None:
+                label = m.group(2) or shown
+                url = defs.get(norm_label(label))
+                if url is None:
+                    print(f"FAIL [{shown}][{m.group(2)}] --- no definition"
+                          f" of [{label}], so it renders as plain text")
+                    failures += 1
+                    continue
+            uses.append((m.start(), m.end(), shown, url))
+        last = None
+        for i, (start, end, shown, url) in enumerate(uses):
+            t = permalink(url, own, foreign)
+            if t is None:
+                continue
+            clone, sha, path, lo, hi = t
+            if PATHISH_RE.fullmatch(shown) and ("#" in shown or "/" in shown
+                                                or "." in shown):
+                cut = len(url) - len(shown)
+                if not url.endswith(shown) or not (
+                        shown.startswith("#") or url[cut - 1] == "/"):
+                    print(f"FAIL [{shown}] --- the link text is not the end"
+                          f" of its URL, {url}")
+                    failures += 1
+                if shown.startswith("#"):
+                    if last is not None and path != last:
+                        print(f"FAIL [{shown}] --- a continuation into {path},"
+                              f" where its paragraph last named {last}")
+                        failures += 1
+                else:
+                    last = path
+            if lo is None:
+                continue
+            lines = blob_lines(clone, sha, path)
+            if not lines:
+                continue                  # reported where the URL is checked
+            names = [(name, name_keys(*name)) for name in
+                     NAME_RE.findall(described(par, masked, uses, i))]
+            # A name the file does not hold, or holds in its imports alone,
+            # is about something else, the program a draft describes most
+            # often, and says nothing about the line.
+            body = "\n".join(ln for ln in lines
+                              if not ln.startswith("import "))
+            body_squashed = re.sub(r"[^a-z0-9]", "", body.lower())
+            names = [(name, [k for k in keys if (
+                k[5:] in body_squashed if k.startswith("flag:")
+                else word_in(k, " ".join(body.split()) if " " in k
+                             else body))]) for name, keys in names]
+            names = [(name, keys) for name, keys in names if keys]
+            if not names:
+                continue
+            near = "\n".join(lines[max(0, lo - 1 - NAME_WINDOW):
+                                   hi + NAME_WINDOW]
+                             + enclosing(lines, lo))
+            flat = " ".join(near.split())
+            squashed = re.sub(r"[^a-z0-9]", "", near.lower())
+            # Near is a substring, case folded, where in the file is a whole
+            # word: a name passes by sitting anywhere near the line, and
+            # leniency there costs only a missed catch.
+            folded = flat.lower()
+            if not any(k[5:] in squashed if k.startswith("flag:") else
+                       k.lower() in folded
+                       for _name, keys in names for k in keys):
+                said = ", ".join(f"`{c}`" if c else
+                                 f"Note [{n}]" if n else f'"{q}"'
+                                 for (c, n, q), _keys in names)
+                span = f"L{lo}" if lo == hi else f"L{lo}-L{hi}"
+                print(f"FAIL {path}#{span} @ {sha[:9]} --- none of {said}"
+                      f" beside the link is within {NAME_WINDOW} lines of"
+                      f" it")
+                failures += 1
+    return failures
 
 
 @functools.lru_cache(maxsize=None)
@@ -660,6 +964,100 @@ def self_test():
             if "**\n> (" not in after:
                 bad.append("wrapped stamp rewritten without its line break:"
                            f" {after!r}")
+
+            # A foreign repository checked through a local clone, mapped by
+            # --foreign= so that these rows run whatever FOREIGN configures:
+            # a published commit and a local-only one, one document holding
+            # every failing kind beside its passing controls, and the two
+            # stops, a commit and a clone missing here.
+            src = (["module M where", "", "-- | foo's comment",
+                    "foo :: Int", "foo = 1", ""]
+                   + ["filler %d" % k for k in range(14)]
+                   + ["bar :: Int -> Int", "bar x ="]
+                   + ["    + %d" % k for k in range(20)]
+                   + ["", "{- Note [Some note]", "~~~~~~~~~~~~~~~~~~",
+                      "The note body says hello there."]
+                   + ["more note %d" % k for k in range(20)]
+                   + ["-}", "", "baz :: Int", "baz = 2"])
+
+            def at(text):
+                return src.index(text) + 1
+
+            os.makedirs("fx/src")
+            open("fx/src/M.hs", "w").write("\n".join(src) + "\n")
+            open("fx/src/N.hs", "w").write("module N where\n")
+
+            def fgit(*a):
+                git("-C", "fx", *a)
+            fgit("init", "-q")
+            fgit("config", "user.email", "t@t")
+            fgit("config", "user.name", "t")
+            fgit("config", "commit.gpgsign", "false")
+            fgit("add", "-A")
+            fgit("commit", "-qm", "f1")
+            fa = subprocess.run(["git", "-C", "fx", "rev-parse", "HEAD"],
+                                capture_output=True, text=True,
+                                check=True).stdout.strip()
+            fgit("update-ref", "refs/remotes/origin/main", fa)
+            open("fx/src/N.hs", "a").write("-- local\n")
+            fgit("commit", "-aqm", "f2")
+            fb = subprocess.run(["git", "-C", "fx", "rev-parse", "HEAD"],
+                                capture_output=True, text=True,
+                                check=True).stdout.strip()
+            pre = "https://example.org/fx/-/blob/"
+            fmap = "--foreign=" + pre + "=fx"
+            deep = at("    + 19")
+            note = at("more note 19")
+            hello = at("The note body says hello there.")
+            defs = {"f1": f"{fa}/src/M.hs#L{at('foo :: Int')}",
+                    "f2": f"{fa}/src/M.hs",
+                    "f3": f"{fa}/src/Nope.hs#L1",
+                    "f4": f"{fa}/src/M.hs#L99999",
+                    "f5": f"{fb}/src/N.hs#L1",
+                    "f6": f"{fa}/src/M.hs#L4-5",
+                    "f7": f"{fa}/src/N.hs#L1",
+                    "f8": f"{fa}/src/M.hs#L{deep}",
+                    "f9": f"{fa}/src/M.hs#L{note}",
+                    "fa": f"{fa}/src/M.hs#L{hello}"}
+            open("f.md", "w").write(
+                "Ok, `foo` at [src/M.hs#L4][f1]; the file, [src/M.hs][f2];"
+                " a GitLab range, [src/M.hs#L4-5][f6] (`foo`).\n\n"
+                "A missing path [src/Nope.hs#L1][f3], a range [x][f4],"
+                " an unpublished commit [src/N.hs#L1][f5].\n\n"
+                "An undefined label [y][nosuch]. Text naming another line,"
+                " [src/M.hs#L5][f1].\n\n"
+                "[src/M.hs#L4][f1] and then [#L1][f7], into another file.\n\n"
+                "A far name: [src/M.hs#L4][f1] (`baz`). A name the file does"
+                " not hold says nothing: [src/M.hs#L4][f1] (`Repro`).\n\n"
+                "Inside `bar`, [src/M.hs#L%d][f8]; inside Note [Some note],"
+                " [src/M.hs#L%d][f9]; quoted, \"says hello there\""
+                " [src/M.hs#L%d][fa].\n\n" % (deep, note, hello)
+                + "".join(f"[{k}]: {pre}{v}\n" for k, v in defs.items()))
+            p = run("f.md", fmap)
+            expect("foreign kitchen sink fails", p.returncode, 1)
+            contains("foreign kitchen sink", p.stdout,
+                     "ok   src/M.hs#L4 @", "ok   src/M.hs @",
+                     "ok   src/M.hs#L4-L5 @",
+                     "no such path in fx", "OUT-OF-RANGE", "UNPUBLISHED",
+                     "no definition of [nosuch]",
+                     "[src/M.hs#L5] --- the link text is not the end",
+                     "[#L1] --- a continuation into src/N.hs",
+                     "none of `baz`", "7 failed")
+            for quiet in ("`Repro`", f"#L{deep} @ {fa[:9]} --- none",
+                          f"#L{note} @ {fa[:9]} --- none",
+                          f"#L{hello} @ {fa[:9]} --- none"):
+                if quiet in p.stdout:
+                    bad.append(f"foreign kitchen sink: {quiet!r} reported")
+            open("fb.md", "w").write(
+                f"[src/M.hs#L1][z]\n\n[z]: {pre}{'0' * 40}/src/M.hs#L1\n")
+            p = run("fb.md", fmap)
+            expect("a commit missing from the clone blocks", p.returncode, 2)
+            contains("a commit missing from the clone blocks", p.stderr,
+                     "is not in fx")
+            p = run("fb.md", "--foreign=" + pre + "=nowhere")
+            expect("a clone missing here blocks", p.returncode, 2)
+            contains("a clone missing here blocks", p.stderr,
+                     "nowhere is not a git repository")
         finally:
             os.chdir(prev)
     for b in bad:
@@ -670,12 +1068,22 @@ def self_test():
 
 
 def main():
-    flags = {a for a in sys.argv[1:] if a.startswith("--")}
+    global FOREIGN_RUN
+    FOREIGN_RUN = dict(FOREIGN)
+    for a in sys.argv[1:]:
+        if a.startswith("--foreign="):
+            prefix, _, clone = a[len("--foreign="):].partition("=")
+            if not prefix or not clone:
+                print("--foreign takes PREFIX=CLONE", file=sys.stderr)
+                sys.exit(2)
+            FOREIGN_RUN[prefix] = clone
+    flags = {a for a in sys.argv[1:]
+             if a.startswith("--") and not a.startswith("--foreign=")}
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     unknown = flags - {"--restamp", "--self-test"}
     if unknown:
         print(f"unknown flag(s): {' '.join(sorted(unknown))};"
-              f" only --restamp and --self-test are understood",
+              f" only --restamp, --self-test and --foreign= are understood",
               file=sys.stderr)
         sys.exit(2)
     # From the root before anything, the self-test included, as every
@@ -787,6 +1195,57 @@ def check(doc, do_restamp):
         span = f"L{lo}" if lo == hi else f"L{lo}-L{hi}"
         print(f"ok   {path}#{span} @ {sha[:9]}"
               f" | {lines[lo - 1].strip()[:70]}")
+    # Permalinks into a repository a local clone here can check, by the same
+    # verdicts on that clone. A clone or a commit missing here is no verdict
+    # on the document, so it blocks rather than fails.
+    foreign = sorted({(clone, m.group(1), m.group(2), m.group(3) or "",
+                       m.group(4) or m.group(3) or "")
+                      for clone, rx in foreign_res(FOREIGN_RUN)
+                      for m in rx.finditer(text)})
+    absent = {}
+    for clone, sha, path, lo, hi in foreign:
+        where = path + (f"#L{lo}" + (f"-L{hi}" if hi != lo else "")
+                        if lo else "")
+        if not is_clone(clone):
+            absent.setdefault((clone, None), 0)
+            absent[(clone, None)] += 1
+            continue
+        lines = blob_lines(clone, sha, path)
+        if lines is None:
+            absent.setdefault((clone, sha), 0)
+            absent[(clone, sha)] += 1
+            continue
+        if lines is False:
+            print(f"FAIL {where} @ {sha[:9]} --- no such path in {clone} at"
+                  f" that commit")
+            failures += 1
+            continue
+        lo, hi = (int(lo), int(hi)) if lo else (None, None)
+        if lo is not None and (lo < 1 or lo > hi or hi > len(lines)):
+            print(f"FAIL {where} @ {sha[:9]} --- OUT-OF-RANGE (file has"
+                  f" {len(lines)} lines at that commit)")
+            failures += 1
+            continue
+        if not foreign_published(clone, sha):
+            print(f"FAIL {where} @ {sha[:9]} --- UNPUBLISHED (in {clone}, but"
+                  f" no remote-tracking ref there holds it, so the link"
+                  f" 404s for everyone else)")
+            failures += 1
+            continue
+        print(f"ok   {where} @ {sha[:9]}"
+              + (f" | {lines[lo - 1].strip()[:70]}" if lo else
+                 f" ({len(lines)} lines)"))
+    for (clone, sha), n in sorted(absent.items(), key=str):
+        blocked = True
+        if sha is None:
+            print(f"BLOCKED: {clone} is not a git repository here, so {n}"
+                  f" permalink(s) into it were not checked", file=sys.stderr)
+        else:
+            print(f"BLOCKED: commit {sha[:10]} is not in {clone}, so {n}"
+                  f" permalink(s) pinning it were not checked; fetch it,"
+                  f" `git -C {clone} fetch origin`, and re-run",
+                  file=sys.stderr)
+    failures += check_links(text, own, FOREIGN_RUN)
     # Counted apart from citation failures: --restamp is gated on those,
     # and an orphaned stamp is the very thing it repairs, so folding it in
     # would make a bad stamp block its own fix.
@@ -812,7 +1271,7 @@ def check(doc, do_restamp):
             print(f"note stamp @ {sha[:9]} --- not on {PUBLISHED_REF} yet;"
                   f" sound only if this branch is pushed without"
                   f" rewriting that commit")
-    print(f"\n{len(cites) + len(urlcites)} citations checked,"
+    print(f"\n{len(cites) + len(urlcites) + len(foreign)} citations checked,"
           f" {failures} failed"
           f" --- now eyeball the snippets against the document's claims.")
     if do_restamp:

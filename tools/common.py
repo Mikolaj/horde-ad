@@ -6,10 +6,11 @@ sys.path, which running it does anyway and importing it by path does not.
 chdir_root serves the checkers whose configuration is root-relative;
 require_readable the four that kept a copy of it each, check-doc-examples.py,
 check-doc-refs.py, check-plan-citations.py and heading-outline.py; and
-fence_scan the four that must tell fenced code from prose:
-check-doc-examples.py, check-doc-refs.py, check-doc-wrap.py and
-heading-outline.py. Each of the four once kept its own fence tracker, and
-each tracker was fixed for the same defects separately (check-doc-refs-05,
+fence_scan those that must tell fenced code from prose:
+check-doc-examples.py, check-doc-refs.py, check-doc-wrap.py,
+heading-outline.py and check-plan-citations.py. The first four once kept a
+fence tracker each, and each tracker was fixed for the same defects
+separately (check-doc-refs-05,
 check-doc-wrap-06, heading-outline-03), one of them never
 (check-doc-examples-06).
 

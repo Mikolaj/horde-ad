@@ -322,6 +322,25 @@ MUTANTS = [
     # document was checked
     ('check-plan-citations only the first document checked', 'check-plan-citations.py',
      "    for doc in docs:\n        if len(docs) > 1:\n", "    for doc in docs[:1]:\n        if len(docs) > 1:\n", ST),
+    # check-plan-citations: the foreign-permalink rows of 2026-10-19, one mutant a
+    # verdict: no foreign URL checked, every commit taken for published, and each
+    # of the link checks switched off
+    ('check-plan-citations foreign permalinks unchecked', 'check-plan-citations.py',
+     "    for clone, sha, path, lo, hi in foreign:\n",
+     "    for clone, sha, path, lo, hi in []:\n", ST),
+    ('check-plan-citations foreign publication short-circuited', 'check-plan-citations.py',
+     "    return p.returncode == 0 and bool(p.stdout.strip())\n", "    return True\n", ST),
+    ('check-plan-citations undefined label passes', 'check-plan-citations.py',
+     "                if url is None:\n                    print(f\"FAIL [{shown}][{m.group(2)}] --- no definition\"\n",
+     "                if False:\n                    print(f\"FAIL [{shown}][{m.group(2)}] --- no definition\"\n", ST),
+    ('check-plan-citations link text never compared with its URL', 'check-plan-citations.py',
+     "                if not url.endswith(shown) or not (\n", "                if False and not (\n", ST),
+    ('check-plan-citations continuation never compared', 'check-plan-citations.py',
+     "                    if last is not None and path != last:\n", "                    if False:\n", ST),
+    ('check-plan-citations names beside a link never checked', 'check-plan-citations.py',
+     "            if not names:\n                continue\n", "            if True:\n                continue\n", ST),
+    ('check-plan-citations enclosing definitions and Notes ignored', 'check-plan-citations.py',
+     "                             + enclosing(lines, lo))\n", "                             + [])\n", ST),
     # check-twin-sync: "a comparable() that returns the empty string for every script"
     # (2026-08-14)
     ('check-twin-sync comparable() returns the empty string for every script', 'check-twin-sync.py',
