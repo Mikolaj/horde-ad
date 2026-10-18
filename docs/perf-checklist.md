@@ -227,6 +227,11 @@ throughout, its own flags reaching no user's build.
   every change to the pragmas kept or their notes, and before measuring;
   an `INLINE` the rule requires, on a forwarder, a thin wrapper or on a binding
   F1's recipe or A3 confirms, is not released on a measurement.
+- **Local bindings** (Mikolaj's ruling of 2026-10-18): a binding in a `where`
+  or a `let` takes `INLINE` wherever these rules give it to a top-level binding
+  and is held to nothing else in them: no rule here takes its `INLINE` away
+  or requires a comment for it, such pragmas being needed far more often
+  in local bindings than at top level, and often measured.
 - **Measuring a pragma change:** a pragma added, removed or changed is measured
   with the binding's calls in I1's terms, point-free and with its arguments
   named, and with the library's own calls of it as written and all saturated
@@ -524,7 +529,8 @@ and ran `toList` 8 to 10 times slower (2026-10-11).
   with no comment in P's form citing F1, the bindings taking or returning
   a marked sum with no comment in P's form naming it and citing A3, and each
   declaration whose `but` leaves out a binding of another pragma in its scope
-  or names one it should not.
+  or names one it should not. It lists no local binding, so one lacking
+  an `INLINE` P gives it is found by reading.
 - `python3 $T/pragma-census.py --write SRC` writes into a tree under P's second
   half each pragma the rule adds or strengthens, round after round until
   the census requires none more; with `--release` it weakens and removes them
