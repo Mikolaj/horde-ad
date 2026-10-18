@@ -68,7 +68,7 @@ P's reason, need it, and so, to a fixed point, does each forwarder. A
 binding wants INLINE where it is a thin wrapper too: the right-hand side
 of each of its equations, unguarded and holding no local binding,
 comprehension, case, conditional or do block, makes at most one call, its
-constructors, the fields of the tree's newtypes, `$` and `.` aside, any other
+constructors, the fields of the tree's newtypes, `coerce`, `$` and `.` aside, any other
 operator, a backticked name and a range each counting as one. A
 binding whose comment names F1 but whose body hands a list of its type to a
 tree binding is listed too: the innermost binding should carry it; and so is
@@ -98,11 +98,18 @@ cites one of the checks I1, I2, I3, F1, A3, S2, W3 and W4, a GHC version,
 HEAD included, with a date, or, saying see, another comment.
 
 A declaration is a comment saying INLINE throughout, INLINABLE (or
-INLINEABLE) throughout or No pragma throughout. In the module's header,
-above its `module` line, it covers each binding of the module carrying
-that pragma, or none; directly above an instance or class, each of its
-methods, overriding the module's there. A binding carrying another pragma
-is held to the rule and its own comment.
+INLINEABLE) throughout or No pragma throughout, and it may go on with `but`
+and the names it leaves out, a method's as `Class.method` or `method`, up to
+a colon, a semicolon or a full stop: `INLINE throughout but rotate and
+window:`. In the module's header, above its `module` line, it covers each
+binding of the module carrying that pragma, or none, that it does not name;
+directly above an instance or class, each of its methods, overriding the
+module's there. A binding it names is held to the rule and to its own
+comment, or to the declaration's where that cites what P's reason does, F1
+for a directly fusing one. It lists each binding of a declaration's scope
+that carries another pragma and is not named there; each name that is no
+binding of that scope, or only of ones carrying the declared pragma; and each
+word after the `but` that is no name.
 
 `--write` writes into SRC the pragmas `--rule` lists as differing, round
 after round until a round has none to write, then prints what `--rule`
@@ -624,18 +631,49 @@ def reasoned(lines, i, has):
     return lead == has and bool(cited)
 
 
-DECL = re.compile(r'\b(INLINE|INLINABLE|INLINEABLE|[Nn]o pragma) throughout\b')
+# Its exceptions run to a colon, a semicolon or a full stop, a dot inside
+# a qualified name not ending them.
+DECL = re.compile(r'\b(INLINE|INLINABLE|INLINEABLE|[Nn]o pragma) throughout\b'
+                  r'(?:\s+but\s+((?:[^:;.]|\.(?=\S))*))?')
+EXCEPTION = re.compile(r"^(?:[A-Z][\w']*\.)?(?:[a-z_][\w']*|" + OP + r")$")
 
 
-def declared(comments):
-    """The pragma a declaration among comment lines covers, `none` for
-    No pragma throughout, or None where they make no declaration."""
-    for x in comments:
-        m = DECL.search(x)
-        if m:
-            return {'INLINEABLE': 'INLINABLE', 'No pragma': 'none',
-                    'no pragma': 'none'}.get(m.group(1), m.group(1))
-    return None
+class Decl:
+    """A declaration: the pragma it covers, `none` for No pragma throughout;
+    the names it leaves out after its `but`, a method's as `Class.method` or
+    `method`, and the words there that are no name; whether its text cites
+    what P's reason does, and F1; its line, from 1."""
+
+    def __init__(self, pragma, but, bad, cited, f1, line):
+        self.pragma, self.but, self.bad = pragma, but, bad
+        self.cited, self.f1, self.line = cited, f1, line
+
+    def names(self, name):
+        return name in self.but or name.rsplit('.', 1)[-1] in self.but
+
+    def covers(self, name, has):
+        return has == self.pragma and not self.names(name)
+
+
+def declared(comments, line=0):
+    """The declaration among comment lines, read joined, or None where they
+    make none."""
+    text = ' '.join(re.sub(r'^\s*--\s?', '', x) for x in comments)
+    m = DECL.search(text)
+    if not m:
+        return None
+    pragma = {'INLINEABLE': 'INLINABLE', 'No pragma': 'none',
+              'no pragma': 'none'}.get(m.group(1), m.group(1))
+    words = [x.strip().strip('`') for x in
+             re.split(r',\s*(?:and\s+)?|\s+and\s+', (m.group(2) or '').strip())
+             if x.strip()]
+    words = [x[1:-1] if x.startswith('(') and x.endswith(')') else x
+             for x in words]
+    cited = bool(CITE.search(text) or (VERSION.search(text)
+                                       and DATE.search(text)))
+    return Decl(pragma, [x for x in words if EXCEPTION.match(x)],
+                [x for x in words if not EXCEPTION.match(x)], cited,
+                bool(F1NOTE.search(text)), line)
 
 
 def class_methods(text):
@@ -785,8 +823,8 @@ def thin(eqs, fields=frozenset()):
     """Whether a binding is a thin wrapper: it has equations, and the
     right-hand side of each, unguarded and holding no local binding,
     comprehension, case, conditional or do block, makes at most one call, its
-    constructors, its newtype fields, `$` and `.` aside, any other operator,
-    a backticked name and a range each counting as one."""
+    constructors, its newtype fields, `coerce`, `$` and `.` aside, any other
+    operator, a backticked name and a range each counting as one."""
     if not eqs:
         return False
     for pats, rest in eqs:
@@ -810,7 +848,8 @@ def thin(eqs, fields=frozenset()):
             elif t[0].isalpha() or t[0] == '_':
                 name = t.split('.')[-1]
                 calls += not (name[0].isupper() or name == '_'
-                              or name in bound or name in fields)
+                              or name in bound or name in fields
+                              or name == 'coerce')
             elif t[0] in "!#$%&*+./<=>?@\\^|~:-" and t not in FREE_OPS:
                 calls += t[0] != ':'
             if calls > 1:
@@ -1146,17 +1185,23 @@ def rule_check(text, classes, fwd=None, fus=None, marked=(),
                 kinds[m.group(3)] = (m.group(1), bool(m.group(2)))
     start = next((n for n, x in enumerate(lines) if re.match(r'module\b', x)),
                  0)
-    mdecl = declared([x for x in lines[:start] if x.lstrip().startswith('--')])
-    off, rec, unknown = [], [], []
+    mdecl = declared([x for x in lines[:start] if x.lstrip().startswith('--')],
+                     next((n + 1 for n, x in enumerate(lines[:start])
+                           if 'throughout' in x), 0))
+    off, rec, unknown, judged = [], [], [], []
 
     def judge(n, name, has, phased, ty, over, notes, extra=(), decl=mdecl,
               key=None, eqs=()):
         key = key or (mod, name)
-        if phased:
-            return
         has = {'INLINEABLE': 'INLINABLE', 'SPECIALISE': 'INLINABLE',
                'SPECIALIZE': 'INLINABLE'}.get(has, has)
-        if key in fus and not fun_arg(ty) and has != decl and not any(
+        if decl is not None:
+            judged.append((decl, n + 1, name, has))
+        if phased:
+            return
+        covered = decl is not None and decl.covers(name, has)
+        if key in fus and not fun_arg(ty) and not covered and not (
+                decl is not None and decl.names(name) and decl.f1) and not any(
                 reasoned(lines, x, has) and noted(lines, x, F1NOTE)
                 for x in notes):
             unmarked.append((n + 1, name))
@@ -1183,7 +1228,8 @@ def rule_check(text, classes, fwd=None, fus=None, marked=(),
             if has == 'INLINE':
                 rec.append((n + 1, name, has))
             return
-        if has != w and not note and has != decl:
+        if has != w and not note and not covered and not (
+                decl is not None and decl.names(name) and decl.cited):
             off.append((n + 1, name, has, w, why))
 
     recursive_here = {}
@@ -1205,7 +1251,7 @@ def rule_check(text, classes, fwd=None, fus=None, marked=(),
             continue
         if re.match(r'^class\b', line):
             cls, dm, k = defaults(lines, i)
-            cdecl = declared(plain_lines(lines, i))
+            cdecl = declared(plain_lines(lines, i), i + 1)
             for n, name, sn, p in dm:
                 has, phased = p or ('none', False)
                 judge(n, f'{cls}.{name}', has, phased,
@@ -1227,7 +1273,7 @@ def rule_check(text, classes, fwd=None, fus=None, marked=(),
                 for b in code(lines[i:k]):
                     for p in KINDS.finditer(b):
                         pk[p.group(3)] = (p.group(1), bool(p.group(2)))
-                hdecl = declared(plain_lines(lines, i))
+                hdecl = declared(plain_lines(lines, i), i + 1)
                 isigs = body_signatures(lines, j, k)
                 seen = set()
                 for n, b in body:
@@ -1252,7 +1298,35 @@ def rule_check(text, classes, fwd=None, fus=None, marked=(),
             i = k
             continue
         i += 1
-    return off, rec, unknown, unmarked, unbuilt
+    return off, rec, unknown, unmarked, unbuilt, undeclared(judged)
+
+
+def undeclared(judged):
+    """What the declarations of a module claim and its bindings do not bear
+    out: [(line, name, has, pragma, decl_line)] of the bindings a declaration's
+    scope holds that carry another pragma and that it does not name, and
+    [(decl_line, word, why)] of the words after its but that are no name,
+    name no binding of its scope or name only ones carrying its pragma."""
+    scope, order = {}, []
+    for d, n, name, has in judged:
+        if id(d) not in scope:
+            scope[id(d)] = (d, [])
+            order.append(id(d))
+        scope[id(d)][1].append((n, name, has))
+    out, bad = [], []
+    for k in order:
+        d, items = scope[k]
+        out += [(n, name, has, d.pragma, d.line) for n, name, has in items
+                if has != d.pragma and not d.names(name)]
+        for w in d.but:
+            hits = [has for _, name, has in items
+                    if name == w or name.rsplit('.', 1)[-1] == w]
+            if not hits:
+                bad.append((d.line, w, 'names no binding there'))
+            elif all(has == d.pragma for has in hits):
+                bad.append((d.line, w, f'carries {d.pragma}'))
+        bad += [(d.line, w, 'not a name') for w in d.bad]
+    return out, bad
 
 
 SKIP = frozenset()  # paths relative to SRC that --skip leaves out
@@ -1280,21 +1354,26 @@ def rule_findings(src):
     fwd, fus, shallow = forwarding(texts, classes)
     marked, fields = marked_types(texts), newtype_fields(texts)
     off, rec, unknown, unmarked, unbuilt = [], [], [], [], []
+    undecl, badbut = [], []
     for path in files:
         rel = os.path.relpath(path, src)
-        o, r, u, f, b = rule_check(texts[path], classes, fwd, fus, marked,
-                                   fields)
+        o, r, u, f, b, (ud, bb) = rule_check(texts[path], classes, fwd, fus,
+                                             marked, fields)
         off += [(rel, *x) for x in o]
         rec += [(rel, *x) for x in r]
         unknown += [(rel, *x) for x in u]
         unmarked += [(rel, *x) for x in f]
         unbuilt += [(rel, *x) for x in b]
-    return files, off, rec, unknown, unmarked, unbuilt, shallow
+        undecl += [(rel, *x) for x in ud]
+        badbut += [(rel, *x) for x in bb]
+    return (files, off, rec, unknown, unmarked, unbuilt, shallow, undecl,
+            badbut)
 
 
 def report_rule(src):
     """(lines, number of findings, number of .hs files read) of --rule."""
-    files, off, rec, unknown, unmarked, unbuilt, shallow = rule_findings(src)
+    (files, off, rec, unknown, unmarked, unbuilt, shallow, undecl,
+     badbut) = rule_findings(src)
     out = ['== pragma unlike the rule and no comment above in its form'
            ' (file:line name: has -> wants [why])']
     out += [f'  {rel}:{n} {name}: {has} -> {w} [{", ".join(why)}]'
@@ -1318,8 +1397,17 @@ def report_rule(src):
                ' (file:line name: sums)')
     out += [f'  {rel}:{n} {name}: {", ".join(ts)}'
             for rel, n, name, ts in unbuilt]
+    out.append('== a declaration\'s scope holding a binding of another pragma'
+               ' that its but does not name (file:line name: has, declared'
+               ' pragma at line)')
+    out += [f'  {rel}:{n} {name}: {has}, {p} throughout at {dl}'
+            for rel, n, name, has, p, dl in undecl]
+    out.append('== a declaration\'s but naming what it should not'
+               ' (file:line word: why)')
+    out += [f'  {rel}:{dl} {w}: {why}' for rel, dl, w, why in badbut]
     return out, (len(off) + len(rec) + len(unknown) + len(shallow)
-                 + len(unmarked) + len(unbuilt)), len(files)
+                 + len(unmarked) + len(unbuilt) + len(undecl)
+                 + len(badbut)), len(files)
 
 
 RANK = {'none': 0, 'INLINABLE': 1, 'INLINE': 2}
@@ -1800,7 +1888,7 @@ def self_test_rule():
            '    :: (a -> b) -> v a -> v b\n'
            'instance Vec3 T where\n'
            '  v3 = mapT\n')
-    layer = ('-- These are INLINE throughout, their callers being INLINABLE.\n'
+    layer = ('-- These are INLINE throughout but g2: their callers are INLINABLE.\n'
              'module L where\n'
              '{-# INLINE g1 #-}\n'
              'g1 :: Num a => T a -> a\n'
@@ -1810,7 +1898,7 @@ def self_test_rule():
              'instance Num a => Num (T a) where\n'
              '  {-# INLINE (+) #-}\n'
              '  (+) = zipT (+)\n')
-    nopr = ('-- No pragma throughout: a reference implementation.\n'
+    nopr = ('-- No pragma throughout but n3, n4, n5 and n6: a reference implementation.\n'
             'module N where\n'
             'n1 :: Num a => T a -> a\n'
             'n1 = sumT\n'
@@ -1826,9 +1914,11 @@ def self_test_rule():
             '{-# INLINE n5 #-}\n'
             'n5 :: (a -> b) -> T a -> T b\n'
             'n5 = mapT\n'
+            'n6 :: Num a => T a -> a\n'
+            'n6 = sumT . id\n'
             'nfl :: [a] -> T a\n'
             'nfl xs = T (V.fromList (filter (const True) xs))\n'
-            '-- INLINE throughout: the instance a measured exception.\n'
+            '-- INLINE throughout but fmap: the instance a measured exception.\n'
             'instance Functor T where\n'
             '  fmap = mapT\n')
     decl = ('module V where\n'
@@ -1837,17 +1927,17 @@ def self_test_rule():
             'class Vec2 v where\n'
             '  vm :: (a -> b) -> v a -> v b\n'
             '  vs :: Num a => v a -> a\n'
-            '-- No pragma throughout: the reference instance.\n'
+            '-- No pragma throughout but vs: the reference instance.\n'
             'instance Vec2 [] where\n'
             '  vm = map\n'
             '  {-# INLINE vs #-}\n'
             '  vs = sum . id\n'
-            '-- INLINABLE throughout: measured faster.\n'
+            '-- INLINABLE throughout but vs: measured faster.\n'
             'instance Vec2 T where\n'
             '  {-# INLINABLE vm #-}\n'
             '  vm = mapT\n'
             '  vs = sumT . id\n'
-            '-- INLINEABLE throughout: each pragma measured.\n'
+            '-- INLINEABLE throughout but dc2: each pragma measured.\n'
             'class Dc a where\n'
             '  dc1 :: (a -> a) -> a\n'
             '  {-# INLINABLE dc1 #-}\n'
@@ -2059,6 +2149,8 @@ def self_test_rule():
              'th14, th15 :: T a -> Int\n'
              'th14 = lenT\n'
              'th15 = lenT\n'
+             'th16 :: [Bx a] -> Int\n'
+             'th16 = lenL . coerce\n'
              'class Sz t where\n'
              '  szz :: t -> Int\n'
              'instance Sz (T a) where\n'
@@ -2077,12 +2169,14 @@ def self_test_rule():
             '  Api.hs top: none -> INLINE [forwards to Mid.mid]',
             '  Api.hs top3: none -> INLINE [forwards to Mid.mid]',
             '  Api.hs top4: none -> INLINE [forwards to Mid.mid]',
+            '  Dx.hs d4: none -> INLINABLE [class constraint]',
             '  L.hs g2: none -> INLINABLE [class constraint]',
             '  Low.hs rootV: INLINE -> none [no class constraint]',
             '  Mid.hs mid2: INLINABLE -> INLINE [forwards to Low.rootT]',
             '  Mid.hs mid4: INLINABLE -> INLINE [forwards to Low.rootT]',
             '  Mid.hs mid7: none -> INLINE [forwards to Low.rootU]',
             '  N.hs n3: INLINABLE -> none [no class constraint]',
+            '  N.hs n6: none -> INLINABLE [class constraint]',
             '  N.hs Functor.fmap: none -> INLINE [function argument]',
             '  R.hs f1: none -> INLINE [function argument]',
             '  R.hs f3: INLINABLE -> none [no class constraint]',
@@ -2128,6 +2222,7 @@ def self_test_rule():
             '  Th.hs th13: none -> INLINE [thin wrapper]',
             '  Th.hs th14: none -> INLINE [thin wrapper]',
             '  Th.hs th15: none -> INLINE [thin wrapper]',
+            '  Th.hs th16: none -> INLINE [thin wrapper]',
             '  Th.hs Sz.szz: none -> INLINE [thin wrapper]',
             '  Th.hs Sz.szz: INLINE -> none [no class constraint]',
             '  U.hs u1: none -> INLINE [takes or returns Rt (A3)]',
@@ -2164,20 +2259,53 @@ def self_test_rule():
             '  U.hs u3: Rt',
             '  U.hs u4: Rg, Rt',
             '  U.hs u11: Mb',
-            '  U.hs u12: Ml']
+            '  U.hs u12: Ml',
+            '== a declaration\'s scope holding a binding of another pragma'
+            ' that its but does not name (file:line name: has, declared'
+            ' pragma at line)',
+            '  Dx.hs d4: none, INLINE throughout at 1',
+            '== a declaration\'s but naming what it should not'
+            ' (file:line word: why)',
+            '  Dx.hs d9: carries INLINE',
+            '  Dx.hs h0: names no binding there',
+            '  Dx.hs no name: not a name',
+            '  N.hs n6: carries none']
+    # A declaration naming its exceptions: d2 named and carrying another
+    # pragma, as it should; d4 carrying another unnamed; d9 named but carrying
+    # the declared one; h0 naming nothing, and two words no name. Its text
+    # cites a GHC version with a date and F1, so it excuses d5, departing
+    # from the rule, and df, directly fusing, both named.
+    declx = ('-- INLINE throughout but d2, d5, d9, df, h0 and no name: on GHC\n'
+             '-- HEAD (2026-10-18), measured; df, F1.\n'
+             'module Dx where\n'
+             '{-# INLINE d1 #-}\n'
+             'd1 :: Num a => a -> a\n'
+             'd1 x = x + x * x\n'
+             '{-# INLINABLE d2 #-}\n'
+             'd2 :: Num a => a -> a\n'
+             'd2 x = x + x * x\n'
+             'd4 :: Num a => a -> a\n'
+             'd4 x = x + x * x\n'
+             'd5 :: Num a => a -> a\n'
+             'd5 x = x + x * x\n'
+             '{-# INLINE d9 #-}\n'
+             'd9 :: Num a => a -> a\n'
+             'd9 x = x + x * x\n'
+             'df :: a -> [a]\n'
+             'df n = build (\\c z -> c n (c n z))\n')
     bad = []
     with tempfile.TemporaryDirectory() as td:
         for name, text in (('R.hs', src), ('L.hs', layer), ('Low.hs', low),
                            ('Mid.hs', mid), ('Api.hs', api), ('Fac.hs', fac),
                            ('N.hs', nopr), ('V.hs', decl), ('W.hs', fusw),
-                           ('U.hs', unbuilt), ('Th.hs', thinw),
+                           ('U.hs', unbuilt), ('Th.hs', thinw), ('Dx.hs', declx),
                            ('Bk.hs', 'module Bk where\n{- commented out\n'
                                      'bk :: Num a => a -> a\nbk x = x\n-}\n')):
             with open(os.path.join(td, name), 'w') as fh:
                 fh.write(text)
         got, nbad, _ = report_rule(td)
         got = [re.sub(r'^(  \S+\.hs):\d+', r'\1', x) for x in got]
-        if got != want or nbad != 74:
+        if got != want or nbad != 82:
             bad.append(f'--rule ({nbad}):\n  ' + '\n  '.join(got))
         if main(['--rule', td]) != 1:
             bad.append('--rule with findings did not exit 1')
@@ -2186,7 +2314,7 @@ def self_test_rule():
         SKIP = frozenset(['U.hs'])
         got, nbad, _ = report_rule(td)
         SKIP = frozenset()
-        if in_u == 0 or any('U.hs' in x for x in got) or nbad != 74 - in_u:
+        if in_u == 0 or any('U.hs' in x for x in got) or nbad != 82 - in_u:
             bad.append(f'--skip U.hs left it in ({nbad}): '
                        + '; '.join(x for x in got if 'U.hs' in x))
         if main(['--rule', '--skip', 'Nope.hs', td]) != 2:

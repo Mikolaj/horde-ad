@@ -278,8 +278,8 @@ not for orthotope's fill, which had no pragma at all (S1's variant C).
   on a measured gain rather than on fusion, a marked sum or a function argument,
   wraps it, the call heading its body, so that the gain reaches the caller
   through every link. **So does a thin wrapper**, a binding whose right-hand
-  side is constructors, newtype fields, `$` and `.` around at most one call:
-  the thin wrappers whose release cost nothing at GHC's default thresholds
+  side is constructors, newtype fields, `coerce`, `$` and `.` around at most one
+  call: the thin wrappers whose release cost nothing at GHC's default thresholds
   were mostly ones GHC inlined anyway, and with the package's own modules built
   `-funfolding-creation-threshold=30`, where it no longer does, some
   of orthotope's were left out of line and cost up to a kilobyte a call.
@@ -304,10 +304,12 @@ not for orthotope's fill, which had no pragma at all (S1's variant C).
   `INLINE throughout`, `INLINABLE throughout` or `No pragma throughout`,
   with its reason, covers each binding carrying that pragma, or none,
   in the module whose header holds it or among the methods of the instance
-  or class it stands directly above, where it overrides the module's; a binding
-  carrying another pragma is held to this rule and its own comment as before.
-  `INLINE throughout` suits a layer whose callers are `INLINABLE`, as I3 allows.
-  I4 checks a tree against this.
+  or class it stands directly above, where it overrides the module's. After
+  a `but` it names every binding there that carries another pragma,
+  `INLINE throughout but rotate and window:`, and their reasons go in it too:
+  a binding it names is held to this rule, and to the declaration's citation
+  or its own comment. `INLINE throughout` suits a layer whose callers
+  are `INLINABLE`, as I3 allows. I4 checks a tree against this.
 - **Where their speed is tradable,** a pragma is a trade like any other and pays
   for itself or goes, as in the half above. Opting a module out
   of `-fexpose-overloaded-unfoldings` is itself such a trade: compile time saved
@@ -519,8 +521,10 @@ and ran `toList` 8 to 10 times slower (2026-10-11).
   `INLINE`, the methods of classes whose method types it cannot determine,
   the bindings whose comment names F1 but which pass their list to a tree
   binding, the innermost being the one to carry it, the directly fusing bindings
-  with no comment in P's form citing F1, and the bindings taking or returning
-  a marked sum with no comment in P's form naming it and citing A3.
+  with no comment in P's form citing F1, the bindings taking or returning
+  a marked sum with no comment in P's form naming it and citing A3, and each
+  declaration whose `but` leaves out a binding of another pragma in its scope
+  or names one it should not.
 - `python3 $T/pragma-census.py --write SRC` writes into a tree under P's second
   half each pragma the rule adds or strengthens, round after round until
   the census requires none more; with `--release` it weakens and removes them
