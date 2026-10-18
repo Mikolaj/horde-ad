@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that paths, build targets and flags named in a document exist.
+"""Check that paths, build targets, flags and links named in a document exist.
 
 Usage: python3 tools/check-doc-refs.py [DOC ...]
 DOC defaults to CLAUDE.md. Runs from anywhere in the repository.
@@ -20,7 +20,7 @@ path. Porting this to another repository should mean editing that block
 and nothing else, and each setting may be left empty, which switches its
 check off rather than breaking the run.
 
-Only six unambiguous shapes are checked, and anything else is counted as
+Only these unambiguous shapes are checked, and anything else is counted as
 unclassified rather than guessed at:
 
   paths    a backticked, space-free token that resolves --- directly, as a
@@ -69,9 +69,23 @@ unclassified rather than guessed at:
   flags    file(s). Upgrade-only like modules, because prose reaches for a
            leading plus too --- a size column reading "small (+spike)" must
            not be read as a flag that has gone missing.
+  links    a link outside code, inline or by reference definition, into
+           this repository: a relative path, a `#anchor`, or a GitHub
+           `blob/` URL of origin's repository carrying an anchor, read at
+           the commit it pins and a branch in the working tree. The file
+           must exist and, if Markdown, have a heading with the link's
+           anchor as github-slugger makes it, from ATX headings, a repeat
+           numbered -1, -2. A line anchor (`#L12`) names no heading: a
+           relative link's file is still checked, a GitHub link carrying
+           one is pass 1's where it pins a commit.
+  contents a section headed Contents or Table of contents links to the
+           document's later headings in their order, every one at a level
+           it links to.
 
-Exit 1 for an unresolved path, an unknown `make` target or an unknown
-cabal target --- the kinds that are unambiguously this repo's own drift.
+Exit 1 for an unresolved path, an unknown `make` target, an unknown cabal
+target, a link to a missing file or heading, or a Contents section out of
+step with the headings --- the kinds that are unambiguously this repo's own
+drift.
 Exit 2 means the run did not happen at all: a document that cannot be
 read, an absent sibling checkout, or no repository to run in. Nothing else
 fails the run.
@@ -106,7 +120,10 @@ document and its expected verdicts live in the configuration block (the
 SELF_TEST_* settings), repo-specific like the rest of it; the engine below
 asserts the failure count, every FAIL and ok row, the unclassified tail, the
 missing-document exit, the --without-siblings degradation and the liveness of
-the absent-sibling stop. The controls matter as much as the failures: without
+the absent-sibling stop. The link and Contents rows need nothing of this
+repository's tree, so they sit below the block, in anchors_self_test, on a
+scratch repository of their own.
+The controls matter as much as the failures: without
 them an extractor that silently matches nothing would look like a clean
 document. The two upstream rows prove the sibling policy resolves a real file
 by both its spellings, path and module. And the must-stay-unclassified rows
@@ -161,6 +178,7 @@ code below the block and nothing else.
 
 import contextlib
 import fnmatch
+import functools
 import glob
 import io
 import os
@@ -169,6 +187,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import urllib.parse
 
 # Beside this file, which a path import (a defect case's unit) leaves off
 # sys.path.
@@ -712,6 +731,254 @@ def read_doc(doc):
     return text, unwrapped(text)
 
 
+# A heading as GitHub anchors it: ATX, indented at most three spaces, a
+# closing run of `#` dropped only after a space. No document here has a
+# Setext heading.
+HEADING_RE = re.compile(r" {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$")
+# A code span, opened and closed by backtick runs of one length, which a
+# link inside it is not.
+CODE_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`).*?(?<!`)\1(?!`)")
+# An inline link's or image's destination, or a reference definition's; a
+# footnote's `[^n]:` is no definition.
+LINK_RE = re.compile(r"\]\(\s*<?([^\s)>]+)|^ {0,3}\[(?!\^)[^\]]+\]:\s*<?([^\s>]+)")
+CONTENTS = ("contents", "table of contents")
+
+
+def heading_text(raw):
+    """A heading's text as GitHub renders it: a link keeps its text, code
+    its content and bold its words."""
+    t = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", raw)
+    t = re.sub(r"\[([^\]]*)\]\[[^\]]*\]", r"\1", t)
+    t = t.replace("`", "")
+    return re.sub(r"[*_]{2}(.+?)[*_]{2}", r"\1", t).strip()
+
+
+def github_slug(text):
+    """TEXT's anchor as github-slugger makes it: lower case, each ASCII
+    character but a letter, a digit, `_`, `-` and space dropped, each space
+    a `-`."""
+    s = re.sub(r"[\x00-\x1f!-,./:-@\[-^`{-\x7f]", "", text.lower())
+    return s.replace(" ", "-")
+
+
+def doc_headings(text):
+    """[(line, level, anchor, text)] of TEXT's headings outside fenced code,
+    lines counted from 0. A repeated anchor gets -1, -2, ..., passing over
+    one a heading already has, as github-slugger does."""
+    seen, out = {}, []
+    for i, (line, kind, _) in enumerate(common.fence_scan(text.split("\n"))):
+        m = HEADING_RE.match(line) if kind is None else None
+        if not m:
+            continue
+        title = heading_text(m.group(2) or "")
+        base = anchor = github_slug(title)
+        while anchor in seen:
+            seen[base] += 1
+            anchor = f"{base}-{seen[base]}"
+        seen[anchor] = 0
+        out.append((i, len(m.group(1)), anchor, title))
+    return out
+
+
+def own_repo():
+    """OWNER/REPO, lower-cased, of origin on GitHub; None otherwise."""
+    # answered dropped-status: a failed lookup prints no URL, which matches
+    # nothing, so this repository's GitHub links are then left unchecked
+    url = subprocess.run(["git", "remote", "get-url", "origin"],
+                         capture_output=True, text=True).stdout.strip()
+    m = re.search(r"github\.com[:/]([\w.-]+/[\w.-]+?)(?:\.git)?/?$", url)
+    return m.group(1).lower() if m else None
+
+
+def link_target(url, doc, own, root):
+    """(rev, path, anchor) of a link into this repository: rev the commit a
+    permalink pins, None for the working tree; path relative to ROOT;
+    anchor None for none, a line anchor (`#L12`) included. None for a link
+    elsewhere and for a GitHub link of this repository naming no heading,
+    which pass 1 reads where it pins a commit."""
+    base, hashed, anchor = url.partition("#")
+    anchor = urllib.parse.unquote(anchor) if hashed else None
+    line = anchor is not None and re.fullmatch(r"L\d+(?:-L?\d+)?", anchor)
+    m = re.match(r"https://github\.com/([\w.-]+/[\w.-]+)/blob/([^?]+)$", base)
+    if m:
+        if anchor is None or line or m.group(1).lower() != own:
+            return None
+        ref, *parts = urllib.parse.unquote(m.group(2)).split("/")
+        if re.fullmatch(r"[0-9a-f]{7,40}", ref):
+            return ref, "/".join(parts), anchor
+        # A branch is read as the working tree, the document linking to the
+        # branch it is published on; the branch's name may hold a slash.
+        for k in range(len(parts)):
+            if os.path.exists(os.path.join(root, *parts[k:])):
+                return None, "/".join(parts[k:]), anchor
+        return None, "/".join(parts), anchor
+    if re.match(r"[A-Za-z][A-Za-z0-9+.-]*:", base):
+        return None
+    if line:
+        anchor = None
+    path = urllib.parse.unquote(base)
+    if not path:
+        return None, os.path.normpath(doc), anchor
+    if path.startswith("/"):
+        return None, os.path.normpath(path.lstrip("/")), anchor
+    return None, os.path.normpath(os.path.join(os.path.dirname(doc), path)), \
+        anchor
+
+
+@functools.lru_cache(maxsize=None)
+def target_anchors(root, rev, path):
+    """The anchors of PATH's headings, at REV or for None in ROOT's working
+    tree; an empty set for a file that is not Markdown, None for no file."""
+    if rev is None:
+        full = os.path.join(root, path)
+        if not os.path.exists(full):
+            return None
+        if not path.endswith(".md") or not os.path.isfile(full):
+            return frozenset()
+        with open(full, encoding="utf-8", errors="replace") as f:
+            text = f.read()
+    else:
+        p = subprocess.run(["git", "-C", root, "show", f"{rev}:{path}"],
+                           capture_output=True, text=True, errors="replace",
+                           env=common.git_env())
+        if p.returncode:
+            return None
+        if not path.endswith(".md"):
+            return frozenset()
+        text = p.stdout
+    return frozenset(h[2] for h in doc_headings(text))
+
+
+def check_anchors(doc, flat, own, root="."):
+    """Check each link of one document, given unwrapped, into this
+    repository: its file exists, a heading of its Markdown file has its
+    anchor, and a Contents section lists the document's own headings in
+    their order, every later one at a level it lists. Returns failures."""
+    heads = doc_headings(flat)
+    mine = {h[2]: k for k, h in enumerate(heads)}
+    failures = ok = 0
+    toc = []                  # (line, heading) of each link to a heading here
+    for i, (line, kind, _) in enumerate(common.fence_scan(flat.split("\n"))):
+        if kind is not None:
+            continue
+        for m in LINK_RE.finditer(CODE_SPAN_RE.sub("", line)):
+            url = m.group(1) or m.group(2)
+            t = link_target(url, doc, own, root)
+            if t is None:
+                continue
+            rev, path, anchor = t
+            here = rev is None and path == os.path.normpath(doc)
+            anchors = mine if here else target_anchors(root, rev, path)
+            if anchors is None:
+                print(f"FAIL link   {url} --- no such file"
+                      + (f" at {rev}" if rev else ""))
+                failures += 1
+            elif anchor is not None and path.endswith(".md") \
+                    and anchor not in anchors:
+                print(f"FAIL anchor {url} --- no heading of {path} has it")
+                failures += 1
+            else:
+                ok += 1
+                if here and anchor is not None:
+                    toc.append((i, mine[anchor]))
+    for n, (start, level, _, title) in enumerate(heads):
+        if title.lower() not in CONTENTS:
+            continue
+        end = next((h[0] for h in heads[n + 1:] if h[1] <= level),
+                   len(flat.split("\n")))
+        listed = [k for i, k in toc if start < i < end]
+        last = -1
+        for k in listed:
+            if k < last:
+                print(f"FAIL contents #{heads[k][2]} --- listed after a"
+                      f" heading below it")
+                failures += 1
+            last = max(last, k)
+        levels = {heads[k][1] for k in listed}
+        for k, (line, lvl, anchor, _) in enumerate(heads):
+            if line >= end and lvl in levels and k not in listed:
+                print(f"FAIL contents #{anchor} --- a heading the Contents"
+                      f" section does not list")
+                failures += 1
+    if ok:
+        print(f"ok   links  {ok} resolved in this repository")
+    return failures
+
+
+def anchors_self_test():
+    """The link and Contents checks on a scratch repository: what failed to
+    behave, as a list."""
+    a_doc = """\
+# Title
+
+## Contents
+
+- [First](#first)
+- [First again](#first-1)
+- [Second](https://github.com/x/y/blob/main/a.md#second)
+- [Gone](#gone)
+
+## First
+
+[b](sub/b.md#b-heading) and [nope](sub/b.md#nope) and [none](none.md) and
+[line](sub/b.md#L3) and [else](https://github.com/z/w/blob/main/a.md#nope)
+and [third](#third) and `[code](#in-code)` and
+[pinned](https://github.com/x/y/blob/%(sha)s/sub/b.md#b-heading) and
+[pinned later](https://github.com/x/y/blob/%(sha)s/sub/b.md#later).
+
+```
+[fence](#in-fence)
+```
+
+[r]: sub/b.md
+
+[^n]: a footnote, not a link
+
+## Second
+
+## First
+
+### Sub
+
+## Third ##
+"""
+    want_fail = ["link   none.md", "anchor #gone", "anchor sub/b.md#nope",
+                 "/sub/b.md#later", "contents #second", "contents #third"]
+    bad = []
+    with tempfile.TemporaryDirectory() as root:
+        def git(*a):
+            subprocess.run(["git", "-C", root] + list(a), check=True,
+                           capture_output=True, env=common.git_env())
+        os.makedirs(os.path.join(root, "sub"))
+        with open(os.path.join(root, "sub", "b.md"), "w") as f:
+            f.write("# B heading\n")
+        git("init", "-q")
+        git("add", "sub/b.md")
+        git("-c", "user.email=t@t", "-c", "user.name=t", "-c",
+            "commit.gpgsign=false", "commit", "-qm", "c1")
+        sha = subprocess.run(["git", "-C", root, "rev-parse", "HEAD"],
+                             capture_output=True, text=True, check=True,
+                             env=common.git_env()).stdout.strip()
+        with open(os.path.join(root, "sub", "b.md"), "a") as f:
+            f.write("\n## Later\n")
+        text = a_doc % {"sha": sha}
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            n = check_anchors("a.md", unwrapped(text), "x/y", root)
+        output = buf.getvalue()
+    fails = [l for l in output.splitlines() if l.startswith("FAIL")]
+    if n != len(want_fail) or len(fails) != n:
+        bad.append(f"links: expected {len(want_fail)} failures, got {n}:"
+                   f" {fails}")
+    for w in want_fail:
+        if not any(w in l for l in fails):
+            bad.append(f"links: no FAIL line names {w!r}")
+    if "ok   links  8 resolved" not in output:
+        bad.append("links: not every control resolved: "
+                   + repr(output.splitlines()[-1:]))
+    return bad
+
+
 def self_path():
     """This script relative to the root, which chdir_root made the cwd:
     what the flag search excludes."""
@@ -730,7 +997,7 @@ def self_test():
               + ", ".join(missing) + "), and the self-test's sibling rows"
               " need them; mount and re-run")
         return 2
-    bad = []
+    bad = anchors_self_test()
     fd, doc = tempfile.mkstemp(suffix=".md")
     os.write(fd, SELF_TEST_DOC.encode("utf-8"))
     os.close(fd)
@@ -894,6 +1161,7 @@ def main():
               " resolved here.\n")
 
     me = self_path()
+    own = own_repo()
     for doc in docs:
         if len(docs) > 1:
             print(f"\n=== {doc} ===")
@@ -903,6 +1171,7 @@ def main():
                               bool(SIBLING_ROOTS) and not no_siblings, out)
         failures += check_commands(text, flat, targets, stanzas, ours,
                                    allow_make, allow_cabal, me, out)
+        failures += check_anchors(doc, flat, own)
 
     for label, items, always in (
             ("UNVERIFIED --- would have been resolved against the sibling"
