@@ -339,6 +339,10 @@ MUTANTS = [
      "                    if last is not None and path != last:\n", "                    if False:\n", ST),
     ('check-plan-citations names beside a link never checked', 'check-plan-citations.py',
      "            if not names:\n                continue\n", "            if True:\n                continue\n", ST),
+    # check-plan-citations-15: the cited file's own path read as a name of its lines
+    ("check-plan-citations file's own name read as a name of the lines", 'check-plan-citations.py',
+     '    return bool(code) and ("/" + path).endswith("/" + code)\n',
+     '    return False\n', ST),
     ('check-plan-citations enclosing definitions and Notes ignored', 'check-plan-citations.py',
      "                             + enclosing(lines, lo))\n", "                             + [])\n", ST),
     # check-twin-sync: "a comparable() that returns the empty string for every script"

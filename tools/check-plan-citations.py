@@ -62,11 +62,12 @@ with no definition renders as plain text and fails. A permalink's link text
 shaped like a path must be the end of its URL, and a `#L` one must continue
 the file the paragraph's last path-shaped one named. And of the names written
 beside a permalink in its clause --- backticked code, a `Note [...]`, a
-quotation of twelve characters or more, the link text included --- those
-the cited file does not hold as a whole word are dropped, and one of the
-rest must occur within NAME_WINDOW lines of the cited ones or in a
-definition or Note enclosing them. The drop is what lets a clause name the
-program a draft is about, while a link whose lines moved still fails.
+quotation of twelve characters or more, the link text included --- the
+cited file's own path and those the file does not hold as a whole word are
+dropped, and one of the rest must occur within NAME_WINDOW lines of the
+cited ones or in a definition or Note enclosing them. The drop is what lets
+a clause name the program a draft is about, while a link whose lines moved
+still fails.
 
 The document's own stamp gets the same treatment, split by severity,
 because the two states differ in whether they can heal. A stamp naming a
@@ -554,6 +555,12 @@ def word_in(key, text):
                      text) is not None
 
 
+def names_path(code, path):
+    """Is CODE the cited PATH, or its end after a slash? Such a name says
+    which file a link cites, not which of its lines."""
+    return bool(code) and ("/" + path).endswith("/" + code)
+
+
 def check_links(text, own, foreign):
     """The links' own claims, apart from where their targets are: every
     label used is defined; a path-like link text is the end of its
@@ -608,7 +615,8 @@ def check_links(text, own, foreign):
             if not lines:
                 continue                  # reported where the URL is checked
             names = [(name, name_keys(*name)) for name in
-                     NAME_RE.findall(described(par, masked, uses, i))]
+                     NAME_RE.findall(described(par, masked, uses, i))
+                     if not names_path(name[0], path)]
             # A name the file does not hold, or holds in its imports alone,
             # is about something else, the program a draft describes most
             # often, and says nothing about the line.
@@ -986,6 +994,8 @@ def self_test():
             os.makedirs("fx/src")
             open("fx/src/M.hs", "w").write("\n".join(src) + "\n")
             open("fx/src/N.hs", "w").write("module N where\n")
+            open("fx/src/Words.hs", "w").write(
+                "alpha = 1\n" + "filler\n" * 19 + "-- Words here\n")
 
             def fgit(*a):
                 git("-C", "fx", *a)
@@ -1018,7 +1028,8 @@ def self_test():
                     "f7": f"{fa}/src/N.hs#L1",
                     "f8": f"{fa}/src/M.hs#L{deep}",
                     "f9": f"{fa}/src/M.hs#L{note}",
-                    "fa": f"{fa}/src/M.hs#L{hello}"}
+                    "fa": f"{fa}/src/M.hs#L{hello}",
+                    "fw": f"{fa}/src/Words.hs#L1"}
             open("f.md", "w").write(
                 "Ok, `foo` at [src/M.hs#L4][f1]; the file, [src/M.hs][f2];"
                 " a GitLab range, [src/M.hs#L4-5][f6] (`foo`).\n\n"
@@ -1032,6 +1043,7 @@ def self_test():
                 "Inside `bar`, [src/M.hs#L%d][f8]; inside Note [Some note],"
                 " [src/M.hs#L%d][f9]; quoted, \"says hello there\""
                 " [src/M.hs#L%d][fa].\n\n" % (deep, note, hello)
+                + "The file's own name, [`src/Words.hs`, line 1][fw].\n\n"
                 + "".join(f"[{k}]: {pre}{v}\n" for k, v in defs.items()))
             p = run("f.md", fmap)
             expect("foreign kitchen sink fails", p.returncode, 1)
@@ -1043,7 +1055,8 @@ def self_test():
                      "[src/M.hs#L5] --- the link text is not the end",
                      "[#L1] --- a continuation into src/N.hs",
                      "none of `baz`", "7 failed")
-            for quiet in ("`Repro`", f"#L{deep} @ {fa[:9]} --- none",
+            for quiet in ("`Repro`", "none of `src/Words.hs`",
+                          f"#L{deep} @ {fa[:9]} --- none",
                           f"#L{note} @ {fa[:9]} --- none",
                           f"#L{hello} @ {fa[:9]} --- none"):
                 if quiet in p.stdout:

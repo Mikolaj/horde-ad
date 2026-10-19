@@ -5533,6 +5533,29 @@
    "name": "the self-test's git calls and its runs of the checker inherited GIT_DIR, so its scratch repository's commits went to whatever repository the caller had set"
   },
   {
+   "id": "check-plan-citations-15",
+   "program": "check-plan-citations.py",
+   "name": "a backticked name that is the cited file's own path was read as a name of the cited lines, so a link written [`f.rst`, lines 1-2] failed wherever a word of the file's name occurs far from those lines",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "a permalink whose link text backticks the cited file's path, that file holding a word of its own name more than NAME_WINDOW lines from the cited ones",
+   "ok": "the file's name is dropped, the link passes, 0 failed",
+   "bug": "FAIL none of `Words.hs` beside the link is within 15 lines of it, exit 1",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "in-use",
+   "notes": "Found 2026-10-19 by the first run over docs/ghc-issue-doc-slips.md once the GHC clone held f93d523cf3: its links [`using-optimisation.rst`, lines 1815-1820] and [`pragmas.rst`, lines 566-571] cite the right lines and failed, `using` and `pragmas` occurring elsewhere in those files.",
+   "plant": "a scratch repository published on origin/master holding Words.hs, whose line 1 is cited and whose line 21 says Words, and a document citing line 1 as [`Words.hs`, line 1]",
+   "plant_cmd": "git init -q . && git remote add origin https://github.com/x/y.git && { echo 'alpha = 1'; for k in $(seq 19); do echo filler; done; echo '-- Words here'; } > Words.hs && git add Words.hs && git -c user.email=t@t -c user.name=t -c commit.gpgsign=false commit -qm base && git update-ref refs/remotes/origin/master HEAD && printf 'See [`Words.hs`, line 1][w].\\n\\n[w]: https://github.com/x/y/blob/%s/Words.hs#L1\\n' \"$(git rev-parse HEAD)\" > r.md",
+   "invoke": [
+    "r.md"
+   ],
+   "expect_exit": 0,
+   "expect_text": "0 failed",
+   "bug_exit": 1,
+   "bug_text": "none of `Words.hs` beside the link"
+  },
+  {
    "fix_rev": "self",
    "proved": "ran",
    "harm": "latent",
