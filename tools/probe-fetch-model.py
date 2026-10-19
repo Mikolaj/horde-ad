@@ -89,7 +89,6 @@ NAMES = ['cyc', 'blocks', 'l1btb', 'l2btb']
 REGS32 = ['%ecx', '%edx', '%esi', '%r8d', '%r9d', '%r10d', '%r11d', '%r12d',
           '%r13d', '%r14d', '%r15d', '%ebx']
 ELEMS = 1800000
-DEBUG = os.environ.get('FETCH_MODEL_DEBUG', '') not in ('', '0')
 
 PROLOGUE = '''
     .text
