@@ -3,7 +3,7 @@
 This is the record of one decision-making session for horde-ad, of late
 September 2026, and not a rule set: its findings were made on horde-ad's code,
 flags and GHC of that time, so they are no guide for another project, and they
-age as those move. The rules it applied are kept in `docs/perf-checklist.md`,
+age as those move. The rules it applied are kept in `../docs/perf-checklist.md`,
 section P.
 
 The question: in the modules that opt out of the package default
@@ -19,7 +19,7 @@ to five more modules, `OpsConcrete`, `CarriersConcrete`, `CommonRankedOps`,
 the library's peak memory, no benchmark slower. In the nine existing opt-out
 modules, exposure buys something in `AstSimplify` alone, so a pragma elsewhere
 has nothing to recover; the gain in `AstSimplify` is blocked by GHC behaviour
-recorded in `docs/ghc-issue-partial-specialisation-no-unfolding-comment.md`,
+recorded in `../docs/ghc-issue-partial-specialisation-no-unfolding-comment.md`,
 no pragma tried recovers it, and the only lever that does costs 1.8 times
 the package build.
 
@@ -36,8 +36,9 @@ directories on an otherwise idle machine; two library builds of the same tree,
 in the discarded semaphore series, differed by 0.8%.
 
 Speed was measured with three instruments, in this order of trust; the last two
-are `tools/cachegrind-per-call.py` and `tools/ab-time.py`, and the attribution
-below used `tools/ticky-diff.py` and `tools/core-diff.py`:
+are `../tools/cachegrind-per-call.py` and `../tools/ab-time.py`,
+and the attribution below used `../tools/ticky-diff.py`
+and `../tools/core-diff.py`:
 
 1. Allocation per iteration, from criterion's `--regress allocated:iters`
    with `+RTS -T`, on all four suites: `shortProdForCI`, `convVjpBench`,

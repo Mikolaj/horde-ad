@@ -2,12 +2,14 @@
 
 `{bin}` is the shared bin directory (`~/.claude/bin`), `{root}` this
 directory, `tools/`. What is here is the seconds-to-minutes half of
-CLAUDE.md's standing checks: every tool's self-test, the two linters over
-the Python and the shell here, the fresh-draw rule over the tracked Haskell,
-the mechanical document passes over every tracked `.md` but CHANGELOG.md,
-the defect records in both directions, the source lint and the mutants.
-The Haskell build, the test suites and hlint stay in CLAUDE.md's list: a
-build inside a command meant to run often makes it run rarely.
+CLAUDE.md's standing checks: this repository's tools' self-tests, the
+shared document checkers' self-tests over this repository's own rows, the
+two linters over the Python and the shell here, the fresh-draw rule over the
+tracked Haskell, the mechanical document passes over every tracked `.md` but
+CHANGELOG.md, the defect records in both directions, the source lint and the
+mutants. The shared tools in ~/slop/tools are checked there. The Haskell
+build, the test suites and hlint stay in CLAUDE.md's list: a build inside a
+command meant to run often makes it run rarely.
 
 A linter that cannot be found is a finding and not a skip: a probe decides
 and its silence fails the step by name. The reference check is BLOCKED at
@@ -17,7 +19,6 @@ as a check that did not happen, never as one that passed.
 """
 
 SCAN = ['.']
-# The mutants step compiles bang-lazy-check's probes for every one of its mutants.
 TIMEOUT = 3600
 
 # One run of the checker over every document: each takes the list and
@@ -32,50 +33,19 @@ TIMEOUT = 3600
 DOCS = ('cd "{root}/.." || { echo "cannot enter the repository root"; exit 2; }; '
         "readarray -t docs < <(git ls-files '*.md' ':!CHANGELOG.md'); "
         '[ ${#docs[@]} -gt 0 ] || { echo "git lists no tracked Markdown file, or could not be run; nothing checked"; exit 2; }; '
-        'python3 tools/%s "${docs[@]}"')
+        'python3 ../tools/%s "${docs[@]}"')
 
 STEPS = [
-    ('ab-time self-test', ['python3', '{root}/ab-time.py', '--self-test']),
-    ('bang-drops self-test', ['python3', '{root}/bang-drops.py', '--self-test']),
-    ('bang-lazy-check self-test', ['python3', '{root}/bang-lazy-check.py', '--self-test']),
-    ('bench-baseline self-test', ['python3', '{root}/bench-baseline.py', '--self-test']),
-    ('box-audit self-test', ['python3', '{root}/box-audit.py', '--self-test']),
-    ('cachegrind-per-call self-test', ['python3', '{root}/cachegrind-per-call.py', '--self-test']),
-    ('captured-unbox self-test', ['python3', '{root}/captured-unbox.py', '--self-test']),
-    ('census self-test', ['python3', '{root}/census.py', '--self-test']),
-    ('cg-read self-test', ['python3', '{root}/cg-read.py', '--self-test']),
     ('check-conv-bench-props self-test', ['python3', '{root}/check-conv-bench-props.py', '--self-test']),
-    ('check-doc-examples self-test', ['python3', '{root}/check-doc-examples.py', '--self-test']),
-    ('check-doc-refs self-test', ['python3', '{root}/check-doc-refs.py', '--self-test']),
-    ('check-doc-wrap self-test', ['python3', '{root}/check-doc-wrap.py', '--self-test']),
     ('check-fresh-draws self-test', ['python3', '{root}/check-fresh-draws.py', '--self-test']),
-    ('check-plan-citations self-test', ['python3', '{root}/check-plan-citations.py', '--self-test']),
-    ('check-twin-sync self-test', ['python3', '{root}/check-twin-sync.py', '--self-test']),
-    ('core-diff self-test', ['python3', '{root}/core-diff.py', '--self-test']),
-    ('ctime-diff self-test', ['python3', '{root}/ctime-diff.py', '--self-test']),
-    ('hascallstack self-test', ['python3', '{root}/hascallstack.py', '--self-test']),
-    ('heading-outline self-test', ['python3', '{root}/heading-outline.py', '--self-test']),
-    ('hpc-untaken self-test', ['python3', '{root}/hpc-untaken.py', '--self-test']),
-    ('lazy-reads self-test', ['python3', '{root}/lazy-reads.py', '--self-test']),
-    ('loop-reloads self-test', ['python3', '{root}/loop-reloads.py', '--self-test']),
-    ('one-shot self-test', ['python3', '{root}/one-shot.py', '--self-test']),
-    ('perf-per-call self-test', ['python3', '{root}/perf-per-call.py', '--self-test']),
-    ('pragma-calls self-test', ['python3', '{root}/pragma-calls.py', '--self-test']),
-    ('pragma-census self-test', ['python3', '{root}/pragma-census.py', '--self-test']),
-    ('pragma-map self-test', ['python3', '{root}/pragma-map.py', '--self-test']),
-    ('rewrite-check self-test', ['python3', '{root}/rewrite-check.py', '--self-test']),
-    ('rewrite-fold self-test', ['python3', '{root}/rewrite-fold.py', '--self-test']),
-    ('row-core self-test', ['python3', '{root}/row-core.py', '--self-test']),
-    ('rules-diff self-test', ['python3', '{root}/rules-diff.py', '--self-test']),
-    ('spec-audit self-test', ['python3', '{root}/spec-audit.py', '--self-test']),
-    ('src-attrib self-test', ['python3', '{root}/src-attrib.py', '--self-test']),
-    ('ticky-diff self-test', ['python3', '{root}/ticky-diff.py', '--self-test']),
-    ('workaround-cites self-test', ['python3', '{root}/workaround-cites.py', '--self-test']),
+    # The shared checkers over this repository's rows and README.
+    ('check-doc-refs self-test', ['python3', '{root}/../../tools/check-doc-refs.py', '--self-test'], '{root}/..'),
+    ('check-doc-examples self-test', ['python3', '{root}/../../tools/check-doc-examples.py', '--self-test'], '{root}/..'),
     ('pyflakes', ['bash', '-c',
                   'cd "{root}" && { python3 -m pyflakes --version >/dev/null 2>&1 || { echo "python3 -m pyflakes --version failed, so tools/*.py went unlinted"; exit 1; }; } && python3 -m pyflakes *.py']),
     ('shellcheck', ['bash', '-c',
                     'cd "{root}/.." && { command -v shellcheck >/dev/null || { echo "shellcheck is not on PATH (command -v shellcheck finds nothing), so the shell scripts went unlinted"; exit 1; }; } && files=$(git ls-files "*.sh") && if [ -z "$files" ]; then echo "no tracked shell script; nothing linted"; else shellcheck -S warning -f gcc $files; fi']),
-    ('fresh draws',            ['python3', '{root}/check-fresh-draws.py']),
+    ('fresh draws',            ['python3', '{root}/check-fresh-draws.py'], '{root}/..'),
     ('doc citations',          ['bash', '-c', DOCS % 'check-plan-citations.py']),
     ('doc refs',               ['bash', '-c', DOCS % 'check-doc-refs.py']),
     ('doc wrap',               ['bash', '-c', DOCS % 'check-doc-wrap.py']),
@@ -86,12 +56,3 @@ STEPS = [
     ('source lint',            ['python3', '{bin}/defect-lint.py', '{root}']),
     ('selftest mutants',       ['python3', '{bin}/selftest-mutants.py', '{root}']),
 ]
-
-UNCOVERED = {
-    'machine-busy.sh': 'the busy reading of orthotope micro-regime3\'s '
-                       'drivers, run-evening.sh\'s alarm among them, two '
-                       'reads of /proc/stat; no case of its own yet',
-    'probe-pageflags.py': 'a probe of a live process\'s page frames '
-                          'as root, an input to micro-regime3\'s '
-                          'README run by hand',
-}

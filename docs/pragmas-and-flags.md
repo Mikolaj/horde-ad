@@ -4,7 +4,7 @@ This is the record of one large decision-making session for horde-ad, of late
 September and early October 2026, and not a rule set: its findings were made
 on horde-ad's code, flags and GHC of that time, so they are no guide for another
 project, and they age as those move. The rules it applied are kept
-in `docs/perf-checklist.md`, section P.
+in `../docs/perf-checklist.md`, section P.
 
 The question: which of horde-ad's inlining and specialisation pragmas, and which
 of the package-wide optimisation flags in the `.cabal` file, are worth what they
@@ -38,7 +38,7 @@ of trust, plus one:
    `inlineMicroBench` and `shortMnistForCI`. Exact, and host independent ---
    but insensitive to some changes, below.
 2. Instructions and estimated cycles per call
-   from `tools/cachegrind-per-call.py`, on eight fixed rows: `gather48`
+   from `../tools/cachegrind-per-call.py`, on eight fixed rows: `gather48`
    and `scatter48`, `cnn-6x6` and `cnn-12x12` execution, `100/cgrad k list`,
    and three MNIST rows. Instructions decide: on `gather48` the cycle estimate
    moved by up to 9% between two builds whose instruction counts agreed
@@ -50,8 +50,8 @@ of trust, plus one:
    and the baseline figure below is their mean; a third build of the baseline
    library, the one in the example-`SPECIALISE` row below, took 6% longer still,
    so a difference under about 6% is not read as one.
-4. `tools/pragma-calls.py`, new with this work, which sorts the pragmas a diff
-   removes into those whose removal leaves every module's Core mentioning
+4. `../tools/pragma-calls.py`, new with this work, which sorts the pragmas
+   a diff removes into those whose removal leaves every module's Core mentioning
    the target the same number of times (DEAD) and those whose removal does
    not (MOVED), naming the modules that moved.
 
@@ -60,9 +60,9 @@ of trust, plus one:
 Pragmas were taken in groups, by module and role. For each group:
 
 1. Remove every pragma of the group and build with `-ddump-simpl` dumps.
-2. Run `tools/pragma-calls.py` against the baseline dumps. A DEAD pragma stays
-   whatever else happens, by the threshold rule: its target is inlined anyway,
-   or not inlined anyway, only at today's thresholds.
+2. Run `../tools/pragma-calls.py` against the baseline dumps. A DEAD pragma
+   stays whatever else happens, by the threshold rule: its target is inlined
+   anyway, or not inlined anyway, only at today's thresholds.
 3. Build the MOVED subset alone and screen its allocation. A regression above
    the margins is bisected until the pragmas carrying it are found; those stay.
 4. Measure instructions on the rows allocation cannot detect.
@@ -87,7 +87,7 @@ changed the verdict on one of them.
 
 "Core" is the size of the optimised Core summed over every module
 of the package, in terms, as a ratio against the baseline
-(`tools/core-diff.py`).
+(`../tools/core-diff.py`).
 
 The `OpsConcrete` pragmas removed are of two kinds. 105 are on the `Concrete`
 instance methods and helpers whose removal changed the Core, minus the index,
@@ -282,7 +282,7 @@ the figures.
 - A flag's build cost is not a constant: `-fworker-wrapper-cbv` cost 17%
   of the baseline's build and nothing measurable after the pragma removals,
   which took away most of the Core it worked on.
-- A DEAD verdict from `tools/pragma-calls.py` is weaker than identical Core.
+- A DEAD verdict from `../tools/pragma-calls.py` is weaker than identical Core.
   The `rsize` family was reported DEAD and still cost a micro-benchmark 78%:
   the `tsize` default method calls it through a dictionary, and what changed
   was the unfolding the default carried, not any call site the count covers.

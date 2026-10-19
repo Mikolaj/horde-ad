@@ -47,8 +47,30 @@ import re
 import subprocess
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from common import chdir_root  # noqa: E402
+
+# common.py's chdir_root as it stood when the shared tools left this
+# repository for ~/slop/tools, which this repository's tools do not
+# import: they live outside it, and this one must run in a checkout of
+# it alone.
+def chdir_root(paths=()):
+    """Run from the repository root whatever the cwd, the paths below being
+    root-relative, and return PATHS rebased to it; outside a repository, or
+    with no git to ask, exit 2, the run not happening."""
+    # answered dropped-status: an empty top is the failure, and the next line tests it
+    try:
+        top = subprocess.run(["git", "rev-parse", "--show-toplevel"],
+                             capture_output=True, text=True).stdout.strip()
+    except OSError:
+        top = ""
+    if not top:
+        print("not inside a git repository, or no git on PATH; the paths"
+              " this checker reads are root-relative, so nothing was checked",
+              file=sys.stderr)
+        sys.exit(2)
+    paths = [os.path.relpath(os.path.abspath(p), top) for p in paths]
+    os.chdir(top)
+    return paths
+
 
 DIRS = ('src', 'test', 'bench', 'example')
 DUPABLE = 'unsafeDupablePerformIO'

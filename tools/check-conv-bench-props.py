@@ -194,15 +194,77 @@ reads them, and that the self-test bites is mutants.py's to show.
 import contextlib
 import io
 import json
+import math
 import os
 import subprocess
 import sys
 import tempfile
+import types
 
-# Beside this file, which a path import (a defect case's unit) leaves off
-# sys.path.
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import common  # noqa: E402
+
+# The criterion reader, copied from ~/slop/tools/common.py, which this
+# repository's own tools do not import: the shared tools live outside the
+# repository, and CI runs this one in a checkout of it alone.
+class CriterionError(ValueError):
+    """A file that is not a usable criterion --json collection."""
+
+
+def finite(v):
+    """Is v a number, neither NaN nor infinite?"""
+    return (isinstance(v, (int, float)) and not isinstance(v, bool)
+            and math.isfinite(v))
+
+
+def criterion_reports(path):
+    """[(name, regressions, report)] of the criterion --json collection at
+    path, regressions mapping each fitted responder to its regression."""
+    try:
+        with open(path) as f:
+            reports = json.load(f)[2]
+        if not isinstance(reports, list):
+            raise TypeError("the third element is not a list of reports")
+    except (OSError, ValueError, LookupError, TypeError) as e:
+        raise CriterionError(f"{path}: not a readable criterion --json"
+                             f" collection ({type(e).__name__}: {e})")
+    out = []
+    for r in reports:
+        try:
+            name = r["reportName"]
+            regs = {g["regResponder"]: g
+                    for g in r["reportAnalysis"]["anRegress"]}
+        except (KeyError, TypeError) as e:
+            raise CriterionError(f"{path}: a report without {e} is not"
+                                 f" criterion's")
+        out.append((name, regs, r))
+    return out
+
+
+def estimate(path, name, reg, *keys):
+    """reg[keys[0]][keys[1]]... of benchmark name's regression, a finite
+    number; CriterionError naming what is missing or what is there."""
+    v = reg
+    try:
+        for k in keys:
+            v = v[k]
+    except (KeyError, TypeError) as e:
+        # The regression's own fields, which a guard on the report does
+        # not reach (bench-baseline-04, check-conv-bench-props-04).
+        raise CriterionError(f"{path}: the regressions of {name} lack {e}")
+    if not finite(v):
+        raise CriterionError(f"{path}: {name} has {v!r} at"
+                             f" {'/'.join(keys)}, not a finite number"
+                             f" (criterion writes a NaN as null)")
+    return v
+
+
+def slope(path, name, reg):
+    """The finite slope of a regression against the iteration count."""
+    return estimate(path, name, reg, "regCoeffs", "iters", "estPoint")
+
+
+common = types.SimpleNamespace(CriterionError=CriterionError,
+                               criterion_reports=criterion_reports,
+                               estimate=estimate, slope=slope)
 
 MIN_R2 = 0.95
 MIN_SAMPLES = 10

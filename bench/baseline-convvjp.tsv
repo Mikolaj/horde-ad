@@ -3,7 +3,7 @@
 # Taken 2026-08-28 on GHC 9.12.4 at -A32m -I0, ox-arrays 0.2.0.1, and the
 # orthotope sibling checkout on pr-mikolaj-toVectorListT at 3f8bd02, with the
 # three-file split recipe in tools/check-conv-bench-props.py.  Regenerate with
-# that recipe and tools/bench-baseline.py; refresh this file only from a run
+# that recipe and ../tools/bench-baseline.py; refresh this file only from a run
 # taken on a quiet machine.
 #
 # bytes_per_iter is the allocated-vs-iters OLS slope and is exact: every fit
