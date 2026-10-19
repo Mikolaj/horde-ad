@@ -24,7 +24,7 @@ under head_key's key, its whole head read to its `where` with the spaces
 normalised, which pragma-map keys an instance's pragmas by too, and a
 function under its name, so that two versions of a module can be compared
 definition by definition; the lines above the first definition are filed
-under no name and dropped. It reads the layout only, so a definition of an
+under no name and dropped. It parses the layout only, so a definition of an
 infix operator files under the definition above it.
 """
 

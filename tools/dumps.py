@@ -13,7 +13,7 @@ path, a `-dumpdir` tree kept every path whole, and two such trees shared no
 module (core-diff-02, pragma-calls-03).
 
 walk lists a tree's dumps of one kind, gzipped ones included, and read_text
-reads one. core cuts the specialisation rules GHC prints after a module's
+opens one. core cuts the specialisation rules GHC prints after a module's
 Core, whose left-hand sides name the functions the rules replace and are
 no code of the module: pragma-calls-06 cut them in pragma-calls alone, and
 row-core kept them in the last binding's text and spec-audit counted their

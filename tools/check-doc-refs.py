@@ -443,7 +443,7 @@ def command_text(text, flat):
     # The blocks are common.blocks', the fences fence_scan's: CommonMark
     # closes a block only with a fence of the same character at least as
     # long, so a backtick fence shown inside a tilde block is content. One
-    # boolean flipped by any fence line read it as the closer, and the phase
+    # boolean flipped by any fence line took it for the closer, and the phase
     # stayed inverted for the rest of the document (check-doc-refs-05).
     return "\n".join(TICK_RE.findall(flat) + [
         line for line, kind, _ in common.blocks(text.splitlines())

@@ -167,8 +167,8 @@ def fake_markers(text):
     starts a line with `2x.` or `C.` wherever the text has one
     (check-doc-wrap-09)."""
     # The blocks are common.blocks', the fences fence_scan's: one boolean
-    # flipped by any fence line read a backtick fence inside a tilde block
-    # as the closer (check-doc-wrap-06). Code is passed over, a shell `case`
+    # flipped by any fence line took a backtick fence inside a tilde block
+    # for the closer (check-doc-wrap-06). Code is passed over, a shell `case`
     # arm in an indented block once reported as an enumerator
     # (check-doc-wrap-07).
     return [(i, l.strip()) for i, (l, kind, starts)

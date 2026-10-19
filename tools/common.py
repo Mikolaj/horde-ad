@@ -27,7 +27,7 @@ run not having happened; so does an estimate that is not a finite number,
 criterion writing a NaN as null. measured_env is the environment of a
 measured run for ab-time.py, cachegrind-per-call.py and perf-per-call.py.
 
-GIT_LOCATION and git_env serve the git calls that must not answer for a
+GIT_LOCATION and git_env serve the git calls that must not run in a
 repository the caller set: check-doc-refs.py's, check-plan-citations.py's
 into a foreign clone, loop-offsets.py's, pragma-calls.py's,
 rewrite-check.py's and rewrite-fold.py's, which name theirs by -C, and
