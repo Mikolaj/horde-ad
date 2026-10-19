@@ -6596,6 +6596,54 @@
    "notes": "Added 2026-10-19 when constraints moved onto bracket_end: the loop before it stripped an opening parenthesis that never closed, giving (a. Compiling source holds no such context; the control says which reading was chosen.",
    "unit": "constraints('((a)')",
    "expect_text": "['((a)']"
+  },
+  {
+   "id": "box-audit-01",
+   "program": "box-audit.py",
+   "name": "a top-level binding's lambda was found by the first `= \\` anywhere in its right-hand side, so a binding that is no lambda but defines one locally had that lambda's binders read as its own arguments",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "a CAF `caf = let { go = \\ (p :: Pt) -> case p of { Pt bx bx1 -> ... } } in go M.pt0`",
+   "ok": "no line for caf, the lambda being go's",
+   "bug": "`caf arg 1 p unused Pt`, a box taken apart reported of a binding with no arguments",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "review",
+   "notes": "Found 2026-10-19 by a transcript pass over the session's changes, on a direct run of findings; the guard beside the search, for `let` right before the `=` found, never matches Tidy Core, which prints `let {`. Over orthotope's dumps of that day the unfixed program printed 6 such lines for the benchmark's modules and 312 for the test suite's, CAFs such as ShapedTest.test787, and the fixed one prints no line the unfixed did not. The fix was folded into the commit adding the program before it was pushed.",
+   "no_audit": "other:fixed-before-the-program-entered-this-tree",
+   "plant_cmd": "mkdir -p b/build/M && cat > b/build/M/M.dump-simpl <<'EOF_M'\n==================== Tidy Core ====================\n\n-- RHS size: {terms: 6, types: 3, coercions: 0, joins: 0/0}\ng :: Pt -> Int\ng = \\ (q :: Pt) -> case q of { Pt bx bx1 -> GHC.Internal.Types.I# bx }\n\n-- RHS size: {terms: 12, types: 6, coercions: 0, joins: 0/0}\ncaf :: Int\ncaf\n  = let {\n      go :: Pt -> Int\n      go\n        = \\ (p :: Pt) ->\n            case p of { Pt bx bx1 -> GHC.Internal.Types.I# bx1 } } in\n    go M.pt0\nEOF_M",
+   "invoke": [
+    "{tmp}"
+   ],
+   "expect_exit": 1,
+   "expect_text": "M/M\targ\tg\t1\tq\tunused\tPt",
+   "expect_absent": "\tcaf\t",
+   "bug_exit": 1,
+   "bug_text": "M/M\targ\tcaf\t1\tp\tunused\tPt"
+  },
+  {
+   "id": "box-audit-02",
+   "program": "box-audit.py",
+   "name": "a dump built without -dsuppress-idinfo, which the docstring allowed, was read as if built with it: a binding whose name line carries an inline pragma was skipped, and a binder carrying IdInfo dropped",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "a NOINLINE worker dumped as `M.$wf [InlPrag=NOINLINE] :: Pt -> Int` above `[GblId, ...]`",
+   "ok": "exit 2, the dump named as carrying IdInfo",
+   "bug": "exit 1 with the other bindings' lines and none for M.$wf, which takes its argument apart",
+   "proved": "ran",
+   "harm": "fired",
+   "discovery": "review",
+   "notes": "Found 2026-10-19 by a shape pass running B1's known positive verbatim: over the probe compiled without -dsuppress-idinfo the program printed no line for the NOINLINE worker, whose name line carries `[InlPrag=NOINLINE]`; and a one-shot lambda binder prints `(n [OS=OneShot] :: Int)`, which the binder parse dropped, shifting the later arguments' positions. The dump build of docs/perf-checklist.md, section D, suppresses IdInfo, as orthotope's dumps of that day did, so no output of theirs was affected. Fixed by refusing such a dump rather than parsing it, folded into the commit adding the program before it was pushed.",
+   "no_audit": "other:fixed-before-the-program-entered-this-tree",
+   "plant_cmd": "mkdir -p b/build/M && cat > b/build/M/M.dump-simpl <<'EOF_M'\n==================== Tidy Core ====================\n\n-- RHS size: {terms: 6, types: 3, coercions: 0, joins: 0/0}\ng :: Pt -> Int\n[GblId, Arity=1, Str=<1L>, Unf=OtherCon []]\ng = \\ (q :: Pt) -> case q of { Pt bx bx1 -> GHC.Internal.Types.I# bx }\n\n-- RHS size: {terms: 6, types: 3, coercions: 0, joins: 0/0}\nM.$wf [InlPrag=NOINLINE] :: Pt -> Int\n[GblId, Arity=1, Str=<1L>, Unf=OtherCon []]\nM.$wf = \\ (p :: Pt) -> case p of { Pt bx bx1 -> GHC.Internal.Types.I# bx1 }\nEOF_M",
+   "invoke": [
+    "{tmp}"
+   ],
+   "expect_exit": 2,
+   "expect_text": "-dsuppress-idinfo",
+   "bug_exit": 1,
+   "bug_text": "M/M\targ\tg\t1\tq\tunused\tPt",
+   "bug_absent": "$wf"
   }
  ]
 }

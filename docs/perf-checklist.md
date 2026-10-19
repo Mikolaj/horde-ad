@@ -29,30 +29,31 @@ with `T=~/r/horde-ad/tools`, wherever the session's wrapper mounts
    halves of I1, L1 and A3.
 3. The dump builds of the tip and, where a check compares, of the base (D
    below), backgrounded.
-4. The Core checks over those dumps: S1, S2, I1, I2, L1, L2 and C1, and the rule
-   counts of F1 and F2.
+4. The Core checks over those dumps: S1, S2, I1, I2, L1, L2, B1, B2 and C1,
+   and the rule counts of F1 and F2.
 5. The run-time checks, which need a criterion benchmark of the operations
-   and the conditions of M: I3, F1, F2, A1, A3 and W2, and any reading a Core
-   check raised.
+   and the conditions of M: I3, F1, F2, A1, A3, B1's allocation, B2's ranking
+   and W2, and any reading a Core check raised.
 6. Report one verified line per check, naming what was run and what it found,
    or why it did not run. A check needing a GHC option the cabal file lacks
    waits for Mikolaj's approval of that option.
 
 **D. The dump build.** One build feeds `spec-audit`, `pragma-calls`,
-`core-diff`, `rules-diff`, `captured-unbox` and `ctime-diff`, each in a fresh
-build directory, since cabal reports "Up to date" when only `-ddump-*` flags
-change:
+`core-diff`, `rules-diff`, `captured-unbox`, `box-audit`, `loop-reloads`
+and `ctime-diff`, each in a fresh build directory, since cabal reports "Up
+to date" when only `-ddump-*` flags change:
 
     cabal build all --enable-tests --enable-benchmarks -w GHC \
       --builddir=dist-dump-TIP --ghc-options="-ddump-simpl \
       -ddump-simpl-stats -ddump-timings -ddump-to-file -dsuppress-uniques \
       -dsuppress-idinfo"
 
-Add `-ddump-dmd-signatures` for L1. Build it alone where C1 will read
-its timings, and in horde-ad never beside another build of the test suites
-or benchmarks. Dump flags change no code; `-g1`, `-ticky`, `-fspec-constr`
-and the rest do, and are asked for one at a time, `-ticky` excepted (Mikolaj's
-ruling of 2026-10-16).
+Add `-ddump-dmd-signatures` for L1, `-ddump-cpr-signatures` for B1's results
+and `-ddump-asm` for B2. Build it alone where C1 will read its timings,
+and in horde-ad never beside another build of the test suites or benchmarks.
+Dump flags change no code; `-g1`, `-ticky`, `-fspec-constr` and the rest do,
+and are asked for one at a time, `-ticky` excepted (Mikolaj's ruling
+of 2026-10-16).
 
 ## M. Before any reading
 
@@ -352,7 +353,9 @@ into a wrapper and a worker with no unfolding, which no client could specialise.
 - on HEAD and each released GHC from 9.12 on, the project's specialisation test,
   where specialising depends on a flag one GHC defaults and another does not:
   `-fpolymorphic-specialisation` is on by default only on HEAD, and orthotope's
-  boxed modules ran up to 8 times slower on 9.12.4 without it.
+  boxed modules ran up to 8 times slower on 9.12.4 without it;
+- where the question is boxing as a whole, B1, which runs this audit as one
+  of its steps.
 
 **Read:** set aside dictionaries that feed `Show`, error messages and the test
 harness. Every other callee needs what P requires of its module, a pragma where
@@ -648,6 +651,9 @@ min/max loop allocated more than vector's own until its reads were forced,
   `python3 $T/core-diff.py dist-dump-A dist-dump-FLIP --verdicts` over every
   module. GHC's redundant-bang warnings are no evidence (GHC
   [#27862](https://gitlab.haskell.org/ghc/ghc/-/work_items/27862)).
+- Arguments left lazy that the final Core takes apart: B1's `box-audit.py`,
+  whose `unused` lines include each argument taken apart under a branch
+  and passed boxed.
 
 **Read:** a bang changes semantics where an element may be boxed and undefined.
 Force only unboxed elements there (vector's `elemseq`), or record the change
@@ -681,7 +687,8 @@ bytes a call, and the Ranked `transpose` banged on its permutation 136.
   the library at concrete element types.
 - In the source, `unsafeWrite` of an `unsafeIndex` read, and `generate` in boxed
   instances.
-- Allocation per element in a probe. A thunk is looked for in compiled code
+- Allocation per element: B1's allocation sweep over the benchmark, and a probe
+  for code no benchmark row runs. A thunk is looked for in compiled code
   and never in GHCi: GHCi showed boxed `iota` storing thunks where an `-O1`
   program showed values.
 - Keep a test comparing a built vector's elements with the source's
@@ -706,10 +713,10 @@ or that carries boxed state. **Seen:**
 
 **Recipe:**
 
-- `python3 $T/ticky-diff.py A.txt` lists one run's closures by allocation,
-  and `python3 $T/ticky-diff.py A.txt B.txt` those whose allocation moved
-  between two builds, from `+RTS -rFILE` runs at the same `--iters` of builds
-  made with `-ticky`.
+- B1's allocation sweep: `python3 $T/ticky-diff.py A.txt` lists one run's
+  closures by allocation, and `python3 $T/ticky-diff.py A.txt B.txt` those whose
+  allocation moved between two builds, from `+RTS -rFILE` runs at the same
+  `--iters` of builds made with `-ticky`.
 - `core-diff.py --module` names a `$wgo` or `go` that appeared.
 - In the dump, `letrec` where `joinrec` was meant, and `I#` or `D#` built
   in a loop's jumps.
@@ -753,6 +760,10 @@ allocating as much as with the `Range` built (2026-10-12).
 
 **Recipe:**
 
+- Find the candidates by B1's `box-audit.py`: it lists each binding that takes
+  a value apart though passed it boxed and, with `-ddump-cpr-signatures`
+  in the dump build, each returning one boxed, marked or not; a sum among them
+  is a candidate, a project's printed `sum` once `--sum` names its type.
 - Mark each such type: a plain comment directly above its haddock whose first
   line opens `-- Unmaterialized:`, saying where it is built and taken apart;
   a product too, such as orthotope's `Axes`, where it is meant to stay unboxed.
@@ -776,6 +787,105 @@ citing it. A value built once inside one binding and taken apart in several
 places, as at a join point, is built whatever the pragmas, as orthotope's
 `equalT` built a `Route` with all its callees `INLINE`, and requires the code
 changed rather than a pragma.
+
+## B. Boxing
+
+### B1. Boxing audit: does every value meant unboxed run unboxed?
+
+**Catches** a value that runs boxed where the code means it unboxed,
+in whichever form: an argument a callee takes apart but receives boxed, a result
+returned boxed, loop state or a captured value kept boxed, a thunk where a value
+was meant, a dictionary passed at run time. Five checks find one form each: S1
+the dictionaries, L1 an argument or binding left lazy, L2 a captured value
+unboxed on every iteration and a lazy element read, A1 closures and boxed loop
+state, A3 the values meant never to be built. This is the sweep of the evidence
+they share, allocation, the Core's arguments and results, captured values
+and dictionaries, whose findings each reads for its own form, and it finds what
+none of them looks for, an argument taken apart though passed boxed
+and a product returned boxed. **Seen:** on GHC HEAD (2026-10-19), a NOINLINE
+function taking six two-field products apart got a worker taking eight fields
+unboxed and the last two products boxed, at `-fmax-worker-args`'s default of 10,
+all twelve unboxed at 20; the same function small enough to inline got no worker
+at all, all six passed boxed wherever a call does not inline it, though
+its demand signature called four of them unboxed, so the final Core
+is the evidence; and orthotope's cases of the five checks.
+
+**Recipe**, over the tip's dump build and the project's benchmark:
+
+- Allocation first, which catches at once every form that allocates: each
+  benchmark cell's bytes a call against what its result holds and, for a change,
+  against the base's, cell by cell, before any count; `ticky-diff.py` names
+  the closure that allocates. A1 and L2 take their allocation from this step.
+- Arguments and results:
+  `python3 $T/box-audit.py dist-dump-TIP --module CLIENT --sum TYPE --ignore REGEX`,
+  CLIENT as in S1, each `--sum` a type of the project's that is a sum
+  or a synonym of one (orthotope's `IU.ShapeL` and `I.InnerFirst`), each
+  `--ignore` naming the client's own bindings (the specialisation benchmark's
+  `lvl` rows): each argument a binding takes apart though passed boxed, and,
+  with `-ddump-cpr-signatures` added to the dump build, each result returned
+  boxed. First run it over a module built with the same GHC in which a NOINLINE
+  function takes apart six two-field products: it must print the worker's last
+  two arguments `unused` at the default `-fmax-worker-args` and none at 20. L1
+  reads its `unused` lines for arguments left lazy, A3 those of a sum type.
+- Captured values by L2's `captured-unbox.py`, and dictionaries by S1's audit.
+- Each finding read in the Core by the check of its form, then priced
+  at a client by `perf-per-call.py` before the code changes.
+
+**Read:** `used`, the box used besides its fields, is most often deliberate:
+a box stored, returned or handed on to a callee that takes it boxed. `unused`
+is the box worker/wrapper did not remove: past `-fmax-worker-args`, for which
+a narrower callee is the remedy; under a lazy demand, for which L1's bang is;
+or in a function small enough to inline, which gets no worker and is boxed only
+where a call does not inline it. A sum crosses a call boxed whatever is done
+(A3). What no scan reports, a field stored boxed or a box rebuilt at a call
+site, shows only as allocation, which is why allocation comes first. Count a box
+that allocates nothing before calling it a cost.
+
+**Keep** the benchmark's allocation compared cell by cell before any timing
+of a change.
+
+### B2. Wide calls after a client's loop: unboxing that costs
+
+**Catches** the reverse of B1: a call that needs many values, the fields
+an out-of-line worker takes unboxed or those a box passed to it is rebuilt from,
+made right after a client's loop, keeps all of them live through the loop, each
+reloaded from the stack on every iteration that evaluates a boxed element.
+The reloads allocate nothing: instructions move, by the element and the value
+kept live. **Seen:** orthotope's `compare`, made INLINABLE (2026-10-19):
+its specialised worker took ten arguments, a dictionary and nine fields
+of the two arrays, and a client summing the boxed elements of `min a b` before
+computing `min b a` reloaded ten values an element where the inlined `compare`,
+whose first out-of-line call takes the two shapes, reloaded three, and moved
+values through C-stack slots 12 times against 2: 55 instructions an element
+against 38, 1.21 times at 200000 elements. The saving and restoring around each
+element's evaluation, evaluated already or not, is GHC
+[#25349](https://gitlab.haskell.org/ghc/ghc/-/work_items/25349).
+
+**Recipe:**
+
+- `python3 $T/loop-reloads.py dist-dump-TIP --module CLIENT` over a dump build
+  adding `-ddump-asm`: each loop's return point and the values it reloads
+  from the enclosing frame on every iteration, most first. Its known positive
+  is the case above, ten against three.
+- Rank them by how often they run: a callgrind run of a client cell, read
+  by `cg-read.py seq`, gives each return point's executions a call,
+  and those times its reloads are the instructions it costs. A procedure
+  the dump labels `.L` has no symbol in the binary, and callgrind books its code
+  under the nearest global symbol before it in the dump, so `seq` runs
+  over that symbol, and the return point is the one whose loads match
+  the offsets listed.
+- A count by `perf-per-call.py` decides.
+
+**Read:** a loop costs only as often as it runs, so read the ranked list
+from the top. A narrow first call keeps the other values in their stack slots
+through the loop: an INLINE wrapper whose first out-of-line call takes only what
+it needs first, `compare` on the shapes, and the wide call after that. Narrow
+is what the call needs live, not its arity: a client calling a `compare`
+that took the two shapes and two boxes, which the client rebuilt at the call
+from fields it held, reloaded nine values an element (2026-10-19). The narrow
+first call pays for passing the fields to a second call, about 35 instructions
+a comparison of two [3, 3] arrays in orthotope, against a cost that grows
+with the loop: count both sides at the sizes the clients use.
 
 ## W. Workarounds and their records
 
@@ -1048,11 +1158,12 @@ and `docs/pragmas-and-flags.md` `pragma-calls`.
 
 The tools written for the checks of one build or one source tree,
 `tools/pragma-census.py`, `tools/spec-audit.py`, `tools/bang-drops.py`,
-`tools/lazy-reads.py`, `tools/captured-unbox.py`, `tools/workaround-cites.py`,
-`tools/hascallstack.py` and `tools/hpc-untaken.py`, exit 0 clean, 1
-with findings and 2 when the run did not happen, as `pragma-calls.py --inline`
-does; `tools/bang-lazy-check.py`, without `--allow`, exits 0 whatever
-it printed, its candidates being for the reader.
+`tools/lazy-reads.py`, `tools/captured-unbox.py`, `tools/box-audit.py`,
+`tools/loop-reloads.py`, `tools/workaround-cites.py`, `tools/hascallstack.py`
+and `tools/hpc-untaken.py`, exit 0 clean, 1 with findings and 2 when the run did
+not happen, as `pragma-calls.py --inline` does; `tools/bang-lazy-check.py`,
+without `--allow`, exits 0 whatever it printed, its candidates being
+for the reader.
 
 - `tools/pragma-census.py` lists the overloaded functions, instance methods
   and class default methods of a source tree that carry no pragma,
@@ -1073,6 +1184,11 @@ it printed, its candidates being for the reader.
   or a per-element combinator reads (L1, L2).
 - `tools/captured-unbox.py` finds the loops that unbox, on every iteration,
   a value captured from outside them (L2).
+- `tools/box-audit.py` lists the arguments optimised Core takes apart though
+  they are passed boxed, marking those whose box is used besides, and, from CPR
+  dumps, the results returned boxed (B1).
+- `tools/loop-reloads.py` lists, from `-ddump-asm`, the loops whose every
+  iteration reloads values from the enclosing frame (B2).
 - `tools/workaround-cites.py` lists the comment blocks that mention a workaround
   and name no cause, and each filed issue of `docs/` with the files citing
   it (W1).

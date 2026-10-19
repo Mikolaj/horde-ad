@@ -1134,6 +1134,32 @@ MUTANTS = [
     ('captured-unbox a loop parameter read as captured', 'captured-unbox.py',
      "            if re.search(r\"(?<![\\w$'])\" + re.escape(x) + r\"(?![\\w$'])\", region):\n",
      '            if False:\n', ST),
+    # box-audit and loop-reloads, born with the boxing audit (B1, B2): each
+    # watched failing its self-test before it was written down here.
+    ('box-audit a wrapper not passed over', 'box-audit.py',
+     "        if re.search(r\"(?<![\\w$'])(?:[\\w.]*\\.)?\\$w\" + re.escape(base) + r\"(?![\\w$'])\", body):\n",
+     '        if False:\n', ST),
+    ('box-audit case binders unread', 'box-audit.py',
+     '            cbs.append(g.group(1))\n', '            pass\n', ST),
+    ('box-audit a newtype taken apart through a cast unread', 'box-audit.py',
+     "        if body.startswith('`cast`', k):\n", '        if False:\n', ST),
+    ('box-audit a local lambda read as the binding\'s own (box-audit-01)', 'box-audit.py',
+     "        m = re.match(re.escape(name) + r'\\s*=\\s*\\\\\\s*', rhs)\n"
+     "        binders, body = [], rhs\n"
+     "        if m:\n",
+     "        m = re.search(r'=\\s*\\\\\\s*', rhs)\n"
+     "        binders, body = [], rhs\n"
+     "        if m and not rhs[:m.start()].strip(' \\n').endswith('let'):\n", ST),
+    ('box-audit a dump carrying IdInfo read (box-audit-02)', 'box-audit.py',
+     "        if re.search(r'^\\[GblId', core, re.M):\n", '        if False:\n', ST),
+    ('loop-reloads jumps to labels unread', 'loop-reloads.py',
+     "JUMP = re.compile(r'^\\s+(j[a-z]+)\\s+(\\.L[\\w$.]+)\\s*$')\n",
+     "JUMP = re.compile(r'^$x')\n", ST),
+    ('loop-reloads return points after info labels unread', 'loop-reloads.py',
+     '                rets.add(m.group(1))\n', '                pass\n', ST),
+    ('loop-reloads the loop\'s own frame counted as enclosing', 'loop-reloads.py',
+     '            outer = sorted(o for o in loads if o >= k)\n',
+     '            outer = sorted(o for o in loads if o >= 0)\n', ST),
     # workaround-cites (2026-10-07): each watched failing its self-test before
     # it was written down here.
     ('workaround-cites "unidentified" not taken for a cause', 'workaround-cites.py',
