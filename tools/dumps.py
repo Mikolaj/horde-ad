@@ -1,8 +1,8 @@
 """What the readers of GHC's dump trees share, kept once so a fix lands once.
 
-Imported by core-diff.py, pragma-calls.py, ctime-diff.py, row-core.py,
-rules-diff.py and spec-audit.py, never run: each puts its own directory
-first on sys.path, as for common.py.
+Imported by box-audit.py, core-diff.py, ctime-diff.py, loop-reloads.py,
+pragma-calls.py, row-core.py, rules-diff.py and spec-audit.py, never run:
+each puts its own directory first on sys.path, as for common.py.
 
 A dump tree is either a cabal build directory, the dumps beside the objects
 under some `build/` directory, or a tree written with `-dumpdir`, which has
@@ -17,7 +17,10 @@ reads one. core cuts the specialisation rules GHC prints after a module's
 Core, whose left-hand sides name the functions the rules replace and are
 no code of the module: pragma-calls-06 cut them in pragma-calls alone, and
 row-core kept them in the last binding's text and spec-audit counted their
-dictionaries as calls (row-core-05, spec-audit-11).
+dictionaries as calls (row-core-05, spec-audit-11). FORALL is a Core type's
+leading `forall ... .`, a kinded binder's parentheses stepped over whole,
+for spec-audit and box-audit: box-audit's own stopped at the first dot,
+inside a qualified kind (box-audit-05).
 
 core_digests reduces a Core dump to the two fingerprints an identity
 verdict compares: one exact but for the timestamp lines GHC writes under
@@ -40,6 +43,8 @@ TIMESTAMP = re.compile(r'^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d(?:\.\d+)? UTC\n', re.M)
 LITERAL = re.compile(r"(?=[-\d])(?<![\w$'])-?\d+(?:\.\d+)?(?:e-?\d+)?##?")
 # The header GHC prints above a module's specialisation rules, after its Core.
 RULES = '------ Local rules for imported ids --------'
+FORALL = re.compile(r"\s*forall\b(?:\s*(?:\([^()]*\)|\{[^{}]*\}|[\w']+))*"
+                    r"\s*\.")
 
 
 def module_key(path, root, suffix):

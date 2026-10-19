@@ -6644,6 +6644,276 @@
    "bug_exit": 1,
    "bug_text": "M/M\targ\tg\t1\tq\tunused\tPt",
    "bug_absent": "$wf"
+  },
+  {
+   "id": "loop-reloads-01",
+   "program": "loop-reloads.py",
+   "name": "a dump built with -dsuppress-uniques, which section D's build passes and the docstring allowed, prints every return point as `.Lblock_info`, so no push named its return point and no loop closed through a call was found: the run printed nothing and exited 0",
+   "family": "other:did-not-run-as-finding",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "trigger": "a loop closed only through a call, `movq $.Lblock_info,-24(%rbp)` pushing its unnamed return point",
+   "ok": "exit 2, the dump named as printing its return points unnamed and `build it without -dsuppress-uniques` printed",
+   "bug": "no output, exit 0, as for a tree with no reloading loop",
+   "notes": "Found 2026-10-19 by a /code-review finder over GHC 9.12.4 dumps of a NOINLINE worker called on every iteration, B2's shape, which loop-reloads reported over a build without -dsuppress-uniques. A push names nothing there and only an evaluation's fast-path jump names its return point, so the call's edge cannot be recovered; the dump is refused, and B2 builds its own.",
+   "plant_cmd": "mkdir -p b/build && cat > b/build/M.dump-asm <<'EOF_ASM'\nM.loop_info:\n.Lc1:\n\tmovq $.Lblock_info,-24(%rbp)\n\tmovq %rax,-16(%rbp)\n\taddq $-24,%rbp\n\tjmp M.$wwork_info\n\t.long\t30\n.Lblock_info:\n.Lc2:\n\tmovq 24(%rbp),%rax\n\tmovq 32(%rbp),%rcx\n\tmovq 40(%rbp),%rdx\n\taddq $24,%rbp\n\tjmp .Lc1\nEOF_ASM",
+   "invoke": [
+    "{tmp}"
+   ],
+   "expect_exit": 2,
+   "expect_text": "-dsuppress-uniques",
+   "bug_exit": 0,
+   "bug_absent": "Lc2"
+  },
+  {
+   "id": "loop-reloads-02",
+   "program": "loop-reloads.py",
+   "name": "a procedure label holding a character outside [\\w$.], a prime or an operator's, was not read as one, so its blocks went to the procedure before it and its loops were reported under that procedure's name",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "trigger": "M.f_info, then M.$w<+>_info holding a loop that reloads three values",
+   "ok": "the loop reported under M.$w<+>_info",
+   "bug": "the loop reported under M.f_info",
+   "notes": "Found 2026-10-19 by a /code-review finder over GHC 9.12.4 dumps, where `R.$w<+>_info`'s reload came out under an earlier local closure's name. GHC writes such symbols unencoded in -ddump-asm.",
+   "plant_cmd": "mkdir -p b/build && cat > b/build/M.dump-asm <<'EOF_ASM'\nM.f_info:\n.Lc0:\n\tjmp *(%rbp)\nM.$w<+>_info:\n.Lc1:\n\tmovq $.Lblock_c2_info,-24(%rbp)\n\tmovq %rax,-16(%rbp)\n\taddq $-24,%rbp\n\tjmp M.$wwork_info\n\t.long\t30\n.Lblock_c2_info:\n.Lc2:\n\tmovq 24(%rbp),%rax\n\tmovq 32(%rbp),%rcx\n\tmovq 40(%rbp),%rdx\n\taddq $24,%rbp\n\tjmp .Lc1\nEOF_ASM",
+   "invoke": [
+    "{tmp}"
+   ],
+   "expect_exit": 1,
+   "expect_text": "M.$w<+>_info\t.Lc2",
+   "bug_exit": 1,
+   "bug_text": "M.f_info\t.Lc2"
+  },
+  {
+   "id": "loop-reloads-03",
+   "program": "loop-reloads.py",
+   "name": "nothing checked that any x86-64 code was recognised, so a tree of dumps it cannot parse, another architecture's or none at all, exited 0, as a tree with no reloading loop does",
+   "family": "vacuous-check",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "trigger": "a .dump-asm of aarch64 code, `M_foo_info:` and `ldr x0, [x20, #8]`",
+   "ok": "exit 2, no x86-64 code of GHC's native code generator recognised",
+   "bug": "no output, exit 0",
+   "notes": "Found 2026-10-19 by a /code-review finder, who ran it; box-audit has the like guard on its binders' types.",
+   "plant_cmd": "mkdir -p b/build && cat > b/build/M.dump-asm <<'EOF_ASM'\nM_foo_info:\n\tldr x0, [x20, #8]\n\tret\nEOF_ASM",
+   "invoke": [
+    "{tmp}"
+   ],
+   "expect_exit": 2,
+   "expect_text": "x86-64",
+   "bug_exit": 0,
+   "bug_absent": "x86-64"
+  },
+  {
+   "id": "loop-reloads-04",
+   "program": "loop-reloads.py",
+   "name": "a -dynamic-too build's X.dyn.dump-asm was read beside X.dump-asm, so its loops were reported twice, and its return frames, pushed by `leaq .Lblock_L_info(%rip)`, were not read, so a loop closed through a call was found in one copy and not the other",
+   "family": "two-spellings",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "trigger": "M.dump-asm and M.dyn.dump-asm of one module, and D.dyn.dump-asm alone, whose loop pushes its return point by leaq",
+   "ok": "M's loop once, and D.dyn's loop",
+   "bug": "M's loop twice, as M and as M.dyn, and none for D.dyn",
+   "notes": "Found 2026-10-19 by a /code-review finder over GHC 9.12.4 dumps; cabal's library builds here are -dynamic-too. A .dyn dump is read where its module has no other.",
+   "plant_cmd": "mkdir -p b/build && cat > b/build/M.dump-asm <<'EOF_ASM'\nM.f_info:\n.Lc1:\n\tmovq %rbx,%rax\n.Lc3:\n\tcmpq %r14,%rdx\n\tjge .Lc4\n.Lc5:\n\tmovq $.Lblock_c2_info,-16(%rbp)\n\tmovq %rax,-8(%rbp)\n\taddq $-16,%rbp\n\ttestb $7,%bl\n\tjne .Lc2\n.Lc6:\n\tjmp *(%rbx)\n\t.long\t30\n.Lblock_c2_info:\n.Lc2:\n\tmovq 16(%rbp),%rcx\n\tmovq 24(%rbp),%rsi\n\tincq %rdx\n\taddq $16,%rbp\n\tjmp .Lc3\n.Lc4:\n\tjmp *(%rbp)\nEOF_ASM\nmkdir -p b/build && cat > b/build/M.dyn.dump-asm <<'EOF_ASM'\nM.f_info:\n.Lc1:\n\tmovq %rbx,%rax\n.Lc3:\n\tcmpq %r14,%rdx\n\tjge .Lc4\n.Lc5:\n\tmovq $.Lblock_c2_info,-16(%rbp)\n\tmovq %rax,-8(%rbp)\n\taddq $-16,%rbp\n\ttestb $7,%bl\n\tjne .Lc2\n.Lc6:\n\tjmp *(%rbx)\n\t.long\t30\n.Lblock_c2_info:\n.Lc2:\n\tmovq 16(%rbp),%rcx\n\tmovq 24(%rbp),%rsi\n\tincq %rdx\n\taddq $16,%rbp\n\tjmp .Lc3\n.Lc4:\n\tjmp *(%rbp)\nEOF_ASM\nmkdir -p b/build && cat > b/build/D.dyn.dump-asm <<'EOF_ASM'\nD.loop_info:\n.Lc1:\n\tleaq .Lblock_c2_info(%rip),%rax\n\tmovq %rax,-24(%rbp)\n\tmovq %rbx,-16(%rbp)\n\taddq $-24,%rbp\n\tjmp D.$wwork_info\n\t.long\t30\n.Lblock_c2_info:\n.Lc2:\n\tmovq 24(%rbp),%rax\n\tmovq 32(%rbp),%rcx\n\taddq $24,%rbp\n\tjmp .Lc1\nEOF_ASM",
+   "invoke": [
+    "{tmp}"
+   ],
+   "expect_exit": 1,
+   "expect_text": "D.dyn\tD.loop_info\t.Lc2",
+   "expect_absent": "M.dyn",
+   "bug_exit": 1,
+   "bug_text": "M.dyn\tM.f_info"
+  },
+  {
+   "id": "loop-reloads-05",
+   "program": "loop-reloads.py",
+   "name": "every load at or past the popped frame was counted as a reload from the enclosing frame, the loop's own carried state included, so slots the loop stores on every iteration ranked beside values it never saves",
+   "family": "other:proxy-for-property",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "trigger": "a loop whose return point reloads ys and acc, which the loop stores back each iteration, and one slot it never stores",
+   "ok": "--min 1: `.Lc2 8 1 24`, the one slot the loop does not store",
+   "bug": "--min 1: `.Lc2 8 3 8,16,24`",
+   "notes": "Found 2026-10-19 by a /code-review finder over GHC 9.12.4 dumps of a loop calling a NOINLINE worker: the rows for `ys` and `acc` were the loop's own variables. The stack pointer's offset is tracked around the cycle, through jumps and calls' returns, so a slot is named the same in every block.",
+   "plant_cmd": "mkdir -p b/build && cat > b/build/M.dump-asm <<'EOF_ASM'\nM.loopW_info:\n.Lc1:\n\tmovq $.Lblock_c2_info,-16(%rbp)\n\taddq $-16,%rbp\n\tjmp *(%rbx)\n\t.long\t30\n.Lblock_c2_info:\n.Lc2:\n\tmovq 8(%rbp),%rax\n\tmovq $.Lblock_c3_info,8(%rbp)\n\tmovq 16(%rbp),%rcx\n\tmovq 24(%rbp),%rdx\n\taddq %rbx,%rcx\n\tmovq %rcx,16(%rbp)\n\taddq $8,%rbp\n\tjmp *(%rax)\n\t.long\t30\n.Lblock_c3_info:\n.Lc3:\n\tmovq $.Lblock_c2_info,-8(%rbp)\n\taddq $-8,%rbp\n\tjmp M.$wwcmp_info\nEOF_ASM",
+   "invoke": [
+    "{tmp}",
+    "--min",
+    "1"
+   ],
+   "expect_exit": 1,
+   "expect_text": "M.loopW_info\t.Lc2\t8\t1\t24",
+   "bug_exit": 1,
+   "bug_text": "8\t3\t8,16,24"
+  },
+  {
+   "id": "box-audit-03",
+   "program": "box-audit.py",
+   "name": "a wrapper was passed over before its result was looked at, and the CPR dump names the wrapper and not its worker, so no function GHC split into a worker ever got a `res` row",
+   "family": "other:proxy-for-property",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "trigger": "pick, a wrapper calling Q.$wpick, returning a Pt, its CPR signature empty",
+   "ok": "`res pick 0 - - Pt`",
+   "bug": "no res row; only $wpick's argument",
+   "notes": "Found 2026-10-19 by a /code-review finder over GHC 9.12.4 dumps: two NOINLINE functions returning Pt without CPR got no res row. B1's result half covered only the functions GHC did not split.",
+   "plant_cmd": "mkdir -p b/build/M\ncat > b/build/M/M.dump-simpl <<'EOF_CORE'\n==================== Tidy Core ====================\n\n-- RHS size: {terms: 9, types: 6, coercions: 0, joins: 0/0}\nQ.$wpick :: Pt -> GHC.Internal.Prim.Int# -> Pt\nQ.$wpick\n  = \\ (p :: Pt) (ww :: GHC.Internal.Prim.Int#) ->\n      case p of wild { Pt a b -> wild }\n\n-- RHS size: {terms: 9, types: 6, coercions: 0, joins: 0/0}\npick :: Pt -> Int -> Pt\npick\n  = \\ (p :: Pt) (n :: Int) ->\n      case n of { GHC.Internal.Types.I# ww -> Q.$wpick p ww }\nEOF_CORE\ncat > b/build/M/M.dump-cpr-signatures <<'EOF_CORE'\n==================== Cpr signatures ====================\n2026-10-19 13:09:13.140235453 UTC\n\nQ.pick:\nEOF_CORE",
+   "invoke": [
+    "{tmp}"
+   ],
+   "expect_exit": 1,
+   "expect_text": "res\tpick\t0\t-\t-\tPt",
+   "bug_exit": 1,
+   "bug_absent": "res\tpick"
+  },
+  {
+   "id": "box-audit-04",
+   "program": "box-audit.py",
+   "name": "a binding's name could hold no operator character, so a Num method `$c+` and an operator `(<+>)` were never read as bindings and their arguments never audited",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "trigger": "`$c+ :: Pt -> Pt -> Pt` and `(<+>) :: Pt -> Pt -> Int`, each taking its arguments apart, beside plus",
+   "ok": "rows for $c+ and (<+>) as for plus",
+   "bug": "rows for plus alone",
+   "notes": "Found 2026-10-19 by a /code-review finder over GHC 9.12.4 dumps of a Num instance.",
+   "plant_cmd": "mkdir -p b/build/M\ncat > b/build/M/M.dump-simpl <<'EOF_CORE'\n==================== Tidy Core ====================\n\n-- RHS size: {terms: 9, types: 6, coercions: 0, joins: 0/0}\nplus :: Pt -> Pt -> Int\nplus\n  = \\ (ds :: Pt) (ds1 :: Pt) ->\n      case ds of { Pt a b -> case ds1 of { Pt c d -> GHC.Internal.Types.I# a } }\n\n-- RHS size: {terms: 9, types: 6, coercions: 0, joins: 0/0}\n$c+ :: Pt -> Pt -> Pt\n$c+\n  = \\ (ds :: Pt) (ds1 :: Pt) ->\n      case ds of { Pt a b ->\n      case ds1 of { Pt c d -> R2.Pt a d }\n      }\n\n-- RHS size: {terms: 9, types: 6, coercions: 0, joins: 0/0}\n(<+>) :: Pt -> Pt -> Int\n(<+>)\n  = \\ (ds :: Pt) (ds1 :: Pt) ->\n      case ds of { Pt a ds2 ->\n      case ds1 of { Pt c ds3 -> GHC.Internal.Types.I# a }\n      }\nEOF_CORE",
+   "invoke": [
+    "{tmp}"
+   ],
+   "expect_exit": 1,
+   "expect_text": [
+    "arg\t$c+\t1\tds\tunused\tPt",
+    "arg\t(<+>)\t1\tds\tunused\tPt"
+   ],
+   "bug_exit": 1,
+   "bug_absent": "$c+"
+  },
+  {
+   "id": "box-audit-05",
+   "program": "box-audit.py",
+   "name": "a result type's foralls were stripped up to the first dot, which falls inside a qualified kind, so the rest was unbalanced, never split at => or ->, and judged a box",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "trigger": "`vlen :: forall (n :: GHC.Internal.TypeNats.Nat). KnownNat n => V n -> Bool -> Maybe Int`, its CPR signature empty",
+   "ok": "`sum vlen 0 - - Maybe Int`",
+   "bug": "`res vlen 0 - - Internal.TypeNats.Nat). KnownNat n => ...`",
+   "notes": "Found 2026-10-19 by a /code-review finder over GHC 9.12.4 dumps. spec-audit's forall pattern, which steps over a kinded binder whole, moved to dumps.py for both.",
+   "plant_cmd": "mkdir -p b/build/M\ncat > b/build/M/M.dump-simpl <<'EOF_CORE'\n==================== Tidy Core ====================\n\n-- RHS size: {terms: 9, types: 6, coercions: 0, joins: 0/0}\nvlen\n  :: forall (n :: GHC.Internal.TypeNats.Nat).\n     KnownNat n =>\n     V n -> Bool -> Maybe Int\nvlen\n  = \\ (@(n :: GHC.Internal.TypeNats.Nat))\n      ($dKnownNat :: KnownNat n)\n      (v :: V n)\n      (b :: Bool) ->\n      GHC.Internal.Maybe.Nothing @Int\nEOF_CORE\ncat > b/build/M/M.dump-cpr-signatures <<'EOF_CORE'\n==================== Cpr signatures ====================\n2026-10-19 13:09:13.140235453 UTC\n\nQ.vlen:\nEOF_CORE",
+   "invoke": [
+    "{tmp}"
+   ],
+   "expect_exit": 1,
+   "expect_text": "sum\tvlen\t0\t-\t-\tMaybe Int",
+   "bug_exit": 1,
+   "bug_text": "res\tvlen"
+  },
+  {
+   "id": "box-audit-06",
+   "program": "box-audit.py",
+   "name": "a data constructor's wrapper, `$WPt`, whose job is to take its strict fields' boxes apart, was audited as any binding and reported its arguments `unused`",
+   "family": "other:proxy-for-property",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "trigger": "Q.$WPt taking its two Int arguments apart to build Pt",
+   "ok": "no row, exit 0",
+   "bug": "two rows, `arg Q.$WPt 1 conrep unused Int` and the second, exit 1",
+   "notes": "Found 2026-10-19 by a /code-review finder over GHC 9.12.4 dumps: eight such rows for two constructors.",
+   "plant_cmd": "mkdir -p b/build/M\ncat > b/build/M/M.dump-simpl <<'EOF_CORE'\n==================== Tidy Core ====================\n\n-- RHS size: {terms: 9, types: 6, coercions: 0, joins: 0/0}\nQ.$WPt :: Int -> Int -> Pt\nQ.$WPt\n  = \\ (conrep :: Int) (conrep1 :: Int) ->\n      case conrep of { GHC.Internal.Types.I# unbx ->\n      case conrep1 of { GHC.Internal.Types.I# unbx1 -> Q.Pt unbx unbx1 }\n      }\nEOF_CORE",
+   "invoke": [
+    "{tmp}"
+   ],
+   "expect_exit": 0,
+   "expect_absent": "$WPt",
+   "bug_exit": 1,
+   "bug_text": "arg\tQ.$WPt\t1\tconrep\tunused\tInt"
+  },
+  {
+   "id": "box-audit-07",
+   "program": "box-audit.py",
+   "name": "a dead lambda binder, which GHC prints as a bare `_`, was stepped over without being counted, so every later argument's position came out one too low",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "trigger": "`dead = \\ _ (ds1 :: Pt) -> case ds1 of { Pt a b -> ... }`",
+   "ok": "`arg dead 2 ds1 unused Pt`",
+   "bug": "`arg dead 1 ds1 unused Pt`",
+   "notes": "Found 2026-10-19 by a /code-review finder over GHC 9.12.4's Core for a function ignoring its first argument.",
+   "plant_cmd": "mkdir -p b/build/M\ncat > b/build/M/M.dump-simpl <<'EOF_CORE'\n==================== Tidy Core ====================\n\n-- RHS size: {terms: 9, types: 6, coercions: 0, joins: 0/0}\ndead :: Int -> Pt -> Int\ndead\n  = \\ _ (ds1 :: Pt) ->\n      case ds1 of { Pt a b -> GHC.Internal.Types.I# a }\nEOF_CORE",
+   "invoke": [
+    "{tmp}"
+   ],
+   "expect_exit": 1,
+   "expect_text": "arg\tdead\t2\tds1\tunused\tPt",
+   "bug_exit": 1,
+   "bug_text": "arg\tdead\t1\tds1"
+  },
+  {
+   "id": "box-audit-08",
+   "program": "box-audit.py",
+   "name": "the CPR dump's path was derived by cutting `.dump-simpl` off the end, which a gzipped `.dump-simpl.gz` does not end in, and no gzipped CPR dump was looked for, so a gzipped tree's results went unaudited in silence",
+   "family": "two-spellings",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "trigger": "M.dump-simpl.gz and M.dump-cpr-signatures.gz, mk returning a Pt without CPR",
+   "ok": "`res mk 0 - - Pt`",
+   "bug": "no res row, exit 1 for mk's argument alone",
+   "notes": "Found 2026-10-19 by a /code-review finder reading the code; dumps.walk returns gzipped dumps, and dumps.read_text decompresses them.",
+   "plant_cmd": "mkdir -p b/build/M\ncat > b/build/M/M.dump-simpl <<'EOF_CORE'\n==================== Tidy Core ====================\n\n-- RHS size: {terms: 9, types: 6, coercions: 0, joins: 0/0}\nmk :: Int -> Pt\nmk\n  = \\ (n :: Int) ->\n      case n of { GHC.Internal.Types.I# x -> Q.Pt x x }\nEOF_CORE\ncat > b/build/M/M.dump-cpr-signatures <<'EOF_CORE'\n==================== Cpr signatures ====================\n2026-10-19 13:09:13.140235453 UTC\n\nQ.mk:\nEOF_CORE\ngzip -n b/build/M/M.dump-simpl b/build/M/M.dump-cpr-signatures",
+   "invoke": [
+    "{tmp}"
+   ],
+   "expect_exit": 1,
+   "expect_text": "res\tmk\t0\t-\t-\tPt",
+   "bug_exit": 1,
+   "bug_absent": "res\tmk"
+  },
+  {
+   "id": "box-audit-09",
+   "program": "box-audit.py",
+   "name": "a case binder counted as used where its name occurred twice anywhere in the body, and Tidy Core under -dsuppress-uniques gives sibling branches' binders one name, so another branch's `wild` made an argument's box used",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "trigger": "`case p of wild { Pt a b -> Q.mk a }` in one branch and `case Q.other of wild { Pt x y -> wild }` in the other",
+   "ok": "`arg g 1 p unused Pt`",
+   "bug": "`arg g 1 p used Pt`",
+   "notes": "Found 2026-10-19 by a /code-review finder on hand-written Core; `unused` is the lost unboxing the audit is for. A binder now counts where it occurs in the alternatives of its own case.",
+   "plant_cmd": "mkdir -p b/build/M\ncat > b/build/M/M.dump-simpl <<'EOF_CORE'\n==================== Tidy Core ====================\n\n-- RHS size: {terms: 9, types: 6, coercions: 0, joins: 0/0}\ng :: Pt -> Bool -> Pt\ng\n  = \\ (p :: Pt) (c :: Bool) ->\n      case c of {\n        False -> case p of wild { Pt a b -> Q.mk a };\n        True -> case Q.other of wild { Pt x y -> wild }\n      }\nEOF_CORE",
+   "invoke": [
+    "{tmp}"
+   ],
+   "expect_exit": 1,
+   "expect_text": "arg\tg\t1\tp\tunused\tPt",
+   "bug_exit": 1,
+   "bug_text": "arg\tg\t1\tp\tused\tPt"
   }
  ]
 }

@@ -89,8 +89,7 @@ LAMBDA_DICT = re.compile(r"\$d(?!IP)[A-Za-z0-9_]+|irred[0-9]*")
 # A top-level `$f` binding's name at column 0, and its type where the
 # signature shares the line.
 SIG = re.compile(r"(" + QUAL + r"\$f[\w$']*)(?:\s+::\s+(.*))?$")
-FORALL = re.compile(r"\s*forall\b(?:\s*(?:\([^()]*\)|\{[^{}]*\}|[\w']+))*"
-                    r"\s*\.")
+FORALL = dumps.FORALL
 HEAD = re.compile(r"[(\s]*" + QUAL + r"([\w']+#*)")
 # A lambda's binder: its parentheses, or a bare name.
 PAREN = re.compile(r'[()]')

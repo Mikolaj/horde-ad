@@ -39,21 +39,23 @@ with `T=~/r/horde-ad/tools`, wherever the session's wrapper mounts
    waits for Mikolaj's approval of that option.
 
 **D. The dump build.** One build feeds `spec-audit`, `pragma-calls`,
-`core-diff`, `rules-diff`, `captured-unbox`, `box-audit`, `loop-reloads`
-and `ctime-diff`, each in a fresh build directory, since cabal reports "Up
-to date" when only `-ddump-*` flags change:
+`core-diff`, `rules-diff`, `captured-unbox`, `box-audit` and `ctime-diff`, each
+in a fresh build directory, since cabal reports "Up to date" when only
+`-ddump-*` flags change:
 
     cabal build all --enable-tests --enable-benchmarks -w GHC \
       --builddir=dist-dump-TIP --ghc-options="-ddump-simpl \
       -ddump-simpl-stats -ddump-timings -ddump-to-file -dsuppress-uniques \
       -dsuppress-idinfo"
 
-Add `-ddump-dmd-signatures` for L1, `-ddump-cpr-signatures` for B1's results
-and `-ddump-asm` for B2. Build it alone where C1 will read its timings,
-and in horde-ad never beside another build of the test suites or benchmarks.
-Dump flags change no code; `-g1`, `-ticky`, `-fspec-constr` and the rest do,
-and are asked for one at a time, `-ticky` excepted (Mikolaj's ruling
-of 2026-10-16).
+Add `-ddump-dmd-signatures` for L1 and `-ddump-cpr-signatures` for B1's results.
+Build it alone where C1 will read its timings, and in horde-ad never beside
+another build of the test suites or benchmarks. B2 runs `loop-reloads`
+over this build with `-ddump-asm` added and `-dsuppress-uniques` dropped,
+in a build directory of its own, `dist-asm-TIP`: under that flag no call's
+return point is named, and the tool exits 2. Dump flags change no code; `-g1`,
+`-ticky`, `-fspec-constr` and the rest do, and are asked for one at a time,
+`-ticky` excepted (Mikolaj's ruling of 2026-10-16).
 
 ## M. Before any reading
 
@@ -863,10 +865,10 @@ element's evaluation, evaluated already or not, is GHC
 
 **Recipe:**
 
-- `python3 $T/loop-reloads.py dist-dump-TIP --module CLIENT` over a dump build
-  adding `-ddump-asm`: each loop's return point and the values it reloads
-  from the enclosing frame on every iteration, most first. Its known positive
-  is the case above, ten against three.
+- `python3 $T/loop-reloads.py dist-asm-TIP --module CLIENT` over D's build
+  for B2: each loop's return point and the values it reloads from the enclosing
+  frame on every iteration, most first. Its known positive is the case above,
+  ten against three.
 - Rank them by how often they run: a callgrind run of a client cell, read
   by `cg-read.py seq`, gives each return point's executions a call,
   and those times its reloads are the instructions it costs. A procedure
