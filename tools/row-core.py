@@ -203,7 +203,8 @@ def load(tree, root):
     mods, dirs = {}, {}
     for p, key in dumps.walk(tree, '.dump-simpl'):
         m = module_name(key)
-        t = dumps.read_text(p)
+        # The rules section cut, which the last binding kept (row-core-05).
+        t = dumps.core(dumps.read_text(p))
         t = re.sub(r'(?<![\w.:])' + re.escape(m) + r'\.(?=[a-z_$])', '', t)
         # A size comment GHC wraps continues on indented lines, which
         # would end the binding above it (row-core-01).

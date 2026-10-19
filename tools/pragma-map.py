@@ -17,8 +17,8 @@ library are set side by side, where tools/pragma-calls.py reads what
 removing some did to the Core.
 
 Exit 0 when the comparison was printed, an empty one where every pragma
-agrees, 2 when it could not be: a tree that is not a directory, or two
-trees with no pragma at all.
+agrees, 2 when it could not be: a tree that is not a directory, a file that
+cannot be read, or two trees with no pragma at all.
 """
 
 import collections
@@ -167,7 +167,12 @@ def main(argv):
         if not os.path.isdir(t):
             print(f'pragma-map: {t} is not a directory', file=sys.stderr)
             return 2
-    a, b = load(argv[0]), load(argv[1])
+    try:
+        a, b = load(argv[0]), load(argv[1])
+    except OSError as e:  # a traceback and exit 1 before (pragma-map-02)
+        print(f'pragma-map: cannot read {e.filename}: {e.strerror}',
+              file=sys.stderr)
+        return 2
     if not a and not b:
         print('pragma-map: no inlining pragma in either tree', file=sys.stderr)
         return 2

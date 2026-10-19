@@ -104,12 +104,14 @@ NORMALISED = 'qualifier, $ prefixes and the numbering behind them'
 
 TOK = re.compile(r"(?:[A-Z][\w']*\.)*"
                  r"(?:\$*[\w'][\w$']*|[!#$%&*+./<=>?@\\^|~:-]+)")
-PRAGMA = re.compile(r'-\s*\{-#\s*(?:INLINE|INLINABLE|INLINEABLE|NOINLINE)'
-                    r'\s*(?:\[~?\d\])?\s*(\S+)\s*#-\}')
-INLINE_SRC = re.compile(r'^\{-#\s*INLINE\s*(?:\[~?\d\])?\s*(\S+)\s*#-\}', re.M)
+# A pragma's kind, a CONLIKE, a phase of any number of digits and the
+# target; a CONLIKE or a two-digit phase left the pragma unread
+# (pragma-calls-17, -18).
+PRAGMA = re.compile(r'-\s*\{-#\s*(?:INLINE|INLINABLE|INLINEABLE|NOINLINE)\b'
+                    r'\s*(?:CONLIKE\b\s*)?(?:\[~?\d+\]\s*)?(\S+)\s*#-\}')
+INLINE_SRC = re.compile(r'^\{-#\s*INLINE\b\s*(?:CONLIKE\b\s*)?'
+                        r'(?:\[~?\d+\]\s*)?(\S+)\s*#-\}', re.M)
 MODULE = re.compile(r'^module\s+([A-Z][\w.]*)', re.M)
-# The header GHC prints above a module's specialisation rules, after its Core.
-RULES = '------ Local rules for imported ids --------'
 # The head of a rule's right-hand side, the copy the rule sends calls to.
 RULE_RHS = re.compile(r'(?:^|\s)=\s+(\S+)')
 
@@ -168,13 +170,6 @@ def signature(root):
     return TOK.pattern, KEYS, NORMALISED, files
 
 
-def code(txt):
-    """A dump's Core without the specialisation rules GHC prints after it,
-    whose left-hand sides name the functions the rules replace and are no
-    calls of them (pragma-calls-06)."""
-    return txt.split('\n' + RULES, 1)[0]
-
-
 def load(root, raw=False):
     """Module key -> Counter of normalised tokens, or with raw of the tokens
     of the code alone as they print, cached beside root where it can be."""
@@ -192,7 +187,8 @@ def load(root, raw=False):
     out = {}
     for p, _, _ in sig[-1]:
         txt = dumps.read_text(p)
-        counts = collections.Counter(TOK.findall(code(txt) if raw else txt))
+        counts = collections.Counter(
+            TOK.findall(dumps.core(txt) if raw else txt))
         c = collections.Counter()
         for t, n in counts.items():
             c[t if raw else normalise(t)] += n
@@ -209,16 +205,13 @@ def load(root, raw=False):
     return out
 
 
-IMPORT = re.compile(r'^import\s+(qualified\s+)?([A-Z][\w.]*)(\s+qualified)?'
-                    r'(?:\s+as\s+([A-Z][\w.]*))?(\s+hiding)?\s*(\(\s*\))?',
-                    re.M)
 # A raw Core token: its qualifier, its `$` prefixes and the rest.
 RAW = re.compile(r"((?:[A-Z][\w']*\.)*)((?:\$[a-z])*)(.*)")
 
 
-def hs_files(src):
-    """[(path, module, text)] of every .hs file under src, build directories
-    and hidden ones passed over."""
+def hs_texts(src):
+    """[(path, module, text)] of every .hs file under src that
+    hssource.hs_paths walks."""
     out = []
     for p in hssource.hs_paths(src):
         with open(p, errors='replace') as fh:
@@ -229,19 +222,21 @@ def hs_files(src):
 
 
 def sources(wt):
-    """Module name -> text of every .hs file under the worktree."""
-    return {mod: txt for _, mod, txt in hs_files(wt)}
+    """Module name -> text of every .hs file under the worktree, a name
+    that more than one file declares, as the Main of each test suite and
+    benchmark, left out: the text of whichever came last stood for all of
+    them (pragma-calls-20). referrer then treats a dump of such a module as
+    one outside the tree, which refers to a binding only by a token
+    qualified with the binding's module."""
+    files = hs_texts(wt)
+    count = collections.Counter(mod for _, mod, _ in files)
+    return {mod: txt for _, mod, txt in files if count[mod] == 1}
 
 
 def scope(txt):
-    """(alias -> {module}, [module imported unqualified]) of a module's text;
-    an import of () brings no names."""
-    al, unq = collections.defaultdict(set), []
-    for m in IMPORT.finditer(txt):
-        al[m.group(4) or m.group(2)].add(m.group(2))
-        if not (m.group(1) or m.group(3)) and not m.group(6):
-            unq.append(m.group(2))
-    return al, unq
+    """(alias -> {module}, [module imported unqualified]) of a module's text,
+    as hssource.imports returns them."""
+    return hssource.imports(txt)
 
 
 def defines(txt, n):
@@ -363,9 +358,9 @@ def verdicts(a, b, names, per=None):
 
 def inline_pragmas(src):
     """[(file, module, name)] of every INLINE pragma at column 0 of the .hs
-    files under src, build directories and hidden ones passed over."""
+    files under src that hssource.hs_paths walks."""
     out = []
-    for p, mod, txt in hs_files(src):
+    for p, mod, txt in hs_texts(src):
         for m in INLINE_SRC.finditer(txt):
             out.append((os.path.relpath(p, src), mod, target(m.group(1))))
     return sorted(out)
@@ -390,7 +385,7 @@ def imported_copies(txt):
     sides of the rules GHC prints after its Core: a `$s` name there is no
     specialisation of the module's own function of that name
     (pragma-calls-07)."""
-    rules = txt.split('\n' + RULES, 1)
+    rules = txt.split('\n' + dumps.RULES, 1)
     return set(RULE_RHS.findall(rules[1])) if len(rules) == 2 else set()
 
 
@@ -504,7 +499,7 @@ def inline_self_test(td):
              'Rec {\nM.r = \\ x -> M.r x\nend Rec }\n\nM.f = \\ x -> x\n'
              'M.g = \\ x -> x\nM.$sg1 = \\ x -> x\n\n'
              # M's copy of an imported g, called by User (pragma-calls-07).
-             + RULES + '\n"SPEC/M g @T"\n    forall ($dC :: C T).\n'
+             + dumps.RULES + '\n"SPEC/M g @T"\n    forall ($dC :: C T).\n'
              '      G.g @T $dC\n      = M.$sg1\n'),
             ('build/src/N.dump-simpl', 'N.f = 1\n'),
             ('build/src/User.dump-simpl',
@@ -513,7 +508,7 @@ def inline_self_test(td):
              'User.z = M.$sg1 4\n\n'
              # A rule naming f and its copy, no call of either
              # (pragma-calls-06).
-             + RULES + '\n"SPEC/User f"\n    forall. M.f = User.$sf1\n'),
+             + dumps.RULES + '\n"SPEC/User f"\n    forall. M.f = User.$sf1\n'),
             ('build/src/User2.dump-simpl',
              'User2.g = \\ x -> x\nUser2.$sg1 = User2.g 1\n'),
             # M's g called under an alias, and User2's own g under another
@@ -592,7 +587,7 @@ def per_module_self_test(td, git):
                       # M's copy of N's f, called by U, which is no
                       # reference to M's own (pragma-calls-08).
                       ('B2/build/M.dump-simpl',
-                       'f = \\ x -> x\nM.$sf3 = \\ x -> x\n\n' + RULES
+                       'f = \\ x -> x\nM.$sf3 = \\ x -> x\n\n' + dumps.RULES
                        + '\n"SPEC/M f @T"\n    forall ($dC :: C T).\n'
                        '      N.f @T $dC\n      = M.$sf3\n'),
                       ('B2/build/N.dump-simpl', 'f = \\ x -> x\n$wf = 1\n'),

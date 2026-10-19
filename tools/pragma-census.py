@@ -185,7 +185,10 @@ def past_asides(lines, j):
 
 
 def constraints(ctx):
-    """The class constraints of a context, the rest dropped."""
+    """The class constraints of a context, the rest dropped; parentheses
+    round the whole context stripped only where the opening one closes at
+    its end, so an unclosed one is kept whole
+    (pragma-census-unclosed-context-kept-whole)."""
     ctx = re.sub(r'^\s*forall\b[^.]*\.', '', ctx).strip()
     if ctx.startswith('(') and bracket_end(ctx, 0) == len(ctx):
         ctx = ctx[1:-1]
@@ -705,16 +708,10 @@ def recursive(lines, start, name):
 
 
 def module_info(text):
-    """(the module's name, {alias: {module}}, [modules imported unqualified])."""
+    """(the module's name, {alias: {module}}, [modules imported unqualified]),
+    the imports as hssource.imports returns them."""
     m = re.search(r'^module\s+([A-Z][\w.]*)', text, re.M)
-    aliases, opens = {}, []
-    for im in re.finditer(r'^import\s+(qualified\s+)?([A-Z][\w.]*)'
-                          r'(\s+qualified)?(?:\s+as\s+([A-Z][\w.]*))?',
-                          text, re.M):
-        aliases.setdefault(im.group(4) or im.group(2), set()).add(im.group(2))
-        if not (im.group(1) or im.group(3)):
-            opens.append(im.group(2))
-    return (m.group(1) if m else ''), aliases, opens
+    return (m.group(1) if m else ''), *hssource.imports(text)
 
 
 def lists_of(ty):

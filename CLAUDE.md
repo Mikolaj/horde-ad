@@ -161,7 +161,7 @@ The rules for changing inlining and specialisation pragmas (`INLINE`, `INLINABLE
 
 Author-generic style conventions are collected in the portable-notes section at the end of this file; what follows is horde-ad-specific.
 
-- `StrictData` is on, plus `TypeFamilies`, `PatternSynonyms`, etc. --- see `common options` in the cabal file. Type-level shape arithmetic relies on the `ghc-typelits-knownnat` and `ghc-typelits-natnormalise` plugins. `tools/bang-lazy-check.py` flags a bang that another equation of the same definition leaves unforced --- run its `--selftest` first, and read the candidates it prints as input for its docstring's reading rules, not as confirmed defects.
+- `StrictData` is on, plus `TypeFamilies`, `PatternSynonyms`, etc. --- see `common options` in the cabal file. Type-level shape arithmetic relies on the `ghc-typelits-knownnat` and `ghc-typelits-natnormalise` plugins. `tools/bang-lazy-check.py` flags a bang that another equation of the same definition leaves unforced --- run its `--self-test` first, and read the candidates it prints as input for its docstring's reading rules, not as confirmed defects.
 - **Float epsilon margins depend on magnitude, GHC version and machine.** When compared values are large (e.g. gradients reaching ~5e5, where one Float ulp is ~0.03), widen the `assertEqualUpToEpsilon` margin rather than pinning exact low ulps or rewriting the expected values to one machine's output.
 
 ## Testing and correctness

@@ -11,8 +11,9 @@ build inside a command meant to run often makes it run rarely.
 
 A linter that cannot be found is a finding and not a skip: a probe decides
 and its silence fails the step by name. The reference check is BLOCKED at
-exit 2 with a sibling checkout unmounted, which check-all reports as a
-check that did not happen, never as one that passed.
+exit 2 with a sibling checkout unmounted, and the citation check with a
+foreign clone absent or lacking a pinned commit, which check-all reports
+as a check that did not happen, never as one that passed.
 """
 
 SCAN = ['.']
@@ -36,7 +37,7 @@ DOCS = ('cd "{root}/.." || { echo "cannot enter the repository root"; exit 2; };
 STEPS = [
     ('ab-time self-test', ['python3', '{root}/ab-time.py', '--self-test']),
     ('bang-drops self-test', ['python3', '{root}/bang-drops.py', '--self-test']),
-    ('bang-lazy-check selftest', ['python3', '{root}/bang-lazy-check.py', '--selftest']),
+    ('bang-lazy-check self-test', ['python3', '{root}/bang-lazy-check.py', '--self-test']),
     ('bench-baseline self-test', ['python3', '{root}/bench-baseline.py', '--self-test']),
     ('cachegrind-per-call self-test', ['python3', '{root}/cachegrind-per-call.py', '--self-test']),
     ('captured-unbox self-test', ['python3', '{root}/captured-unbox.py', '--self-test']),

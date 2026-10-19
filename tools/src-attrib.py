@@ -50,6 +50,9 @@ import os
 import re
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from hssource import strip_comments  # noqa: E402
+
 NOTE = re.compile(r'src<([^:>]+):\(?(\d+)')
 NOTE_TEXT = re.compile(r'src<[^>]*>')
 # What may stand before a note that opens a scope: nothing, or a binding's
@@ -68,25 +71,27 @@ RESERVED = {'=', '|', '::', '->', '<-', '=>', '@', '~', '\\', '..'}
 
 
 def definitions(path):
-    """[(line, name)] of the top-level definitions in a Haskell file."""
-    rows, depth = [], 0
+    """[(line, name)] of the top-level definitions in a Haskell file, read
+    with its comments blanked by hssource, where a count of {- and -} per
+    line took one inside a line comment for an opening (src-attrib-02)."""
+    rows = []
     with open(path, errors='replace') as fh:
-        for i, line in enumerate(fh, 1):
-            if depth == 0 and not line.startswith(('{-', ' ', '\t', '--', '#')):
-                m = DECL.match(line)
-                infix = INFIX_DEF.match(line)
-                if m:
-                    head = ' '.join(m.group(2).split()[:3])
-                    rows.append((i, f'{m.group(1)} {head}'))
-                elif infix and infix.group(1) not in RESERVED:
-                    rows.append((i, infix.group(1)))
-                elif OP_SIG.match(line):
-                    rows.append((i, OP_SIG.match(line).group(1)))
-                else:
-                    m = NAME_DEF.match(line)
-                    if m and m.group(1) not in KEYWORDS:
-                        rows.append((i, m.group(1)))
-            depth = max(0, depth + line.count('{-') - line.count('-}'))
+        text = strip_comments(fh.read())
+    for i, line in enumerate(text.split('\n'), 1):
+        if not line.startswith(('{-', ' ', '\t', '#')):
+            m = DECL.match(line)
+            infix = INFIX_DEF.match(line)
+            if m:
+                head = ' '.join(m.group(2).split()[:3])
+                rows.append((i, f'{m.group(1)} {head}'))
+            elif infix and infix.group(1) not in RESERVED:
+                rows.append((i, infix.group(1)))
+            elif OP_SIG.match(line):
+                rows.append((i, OP_SIG.match(line).group(1)))
+            else:
+                m = NAME_DEF.match(line)
+                if m and m.group(1) not in KEYWORDS:
+                    rows.append((i, m.group(1)))
     return rows
 
 

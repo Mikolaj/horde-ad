@@ -36,9 +36,10 @@ then: a closing fence is not a heading's text, and the outline reported
 "## ```" for it, and the list item the same day, reported as "## - item".
 That the self-test bites is mutants.py's to show.
 
-Indented code blocks need no such guard: the ATX pattern is anchored at
-column 0, so a `#` comment inside one cannot be read as a heading. That
-matters here, where CLAUDE.md indents its blocks rather than fencing them.
+Indented code blocks need no such guard: an ATX heading is indented at
+most three spaces, as in CommonMark, so a `#` comment inside one cannot
+be read as a heading. That matters here, where CLAUDE.md indents its
+blocks rather than fencing them.
 
 The frontmatter skip has a live control even here, where no tracked
 document has frontmatter: run it on any `SKILL.md` under
@@ -64,17 +65,10 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
 
-ATX = re.compile(r'^(#{1,6}) +(.*?)\s*#*\s*$')
-RULE_EQ = re.compile(r'^=+\s*$')
-RULE_DASH = re.compile(r'^-+\s*$')
-# Up to three spaces of indentation, as CommonMark has it: four make the
-# line indented code (heading-outline-05).
 # What may sit between frontmatter's delimiters: a key or a continuation.
 # Anything else says the opening `---` was a rule; a YAML comment would
 # too, since `#` is how a heading framed by two rules opens.
 YAML_LINE = re.compile(r'^(\s+\S|[A-Za-z_][\w-]*\s*:)')
-# A `---` under a list item closes the list; it underlines nothing.
-LIST_ITEM = re.compile(r'^\s*([-*+]|\d+[.)])\s')
 
 
 def frontmatter_end(lines):
@@ -101,28 +95,15 @@ def frontmatter_end(lines):
 
 
 def outline(text):
+    """[(line number, level, text)] of the document's headings past its
+    frontmatter, as common.headings returns them."""
     lines = text.splitlines()
-    headings = []
-    prev = ''
     body = frontmatter_end(lines)
     # Fenced code is common.fence_scan's to tell: one boolean flipped by
     # any fence line let a backtick fence inside a tilde block promote the
     # fenced `#` lines and swallow every heading after it (heading-outline-03).
-    for i, (line, kind, _) in enumerate(common.fence_scan(lines[body:]), body):
-        if kind:
-            prev = ''      # neither a fence nor its contents underlines
-            continue
-        atx = ATX.match(line)
-        setext_ok = (prev.strip() and not prev.lstrip().startswith('#')
-                     and not LIST_ITEM.match(prev))
-        if atx:
-            headings.append((i + 1, len(atx.group(1)), atx.group(2)))
-        elif setext_ok and RULE_EQ.match(line):
-            headings.append((i, 1, prev.strip()))
-        elif setext_ok and RULE_DASH.match(line):
-            headings.append((i, 2, prev.strip()))
-        prev = line
-    return headings
+    return [(body + i + 1, level, title)
+            for i, level, title in common.headings(lines[body:])]
 
 
 def self_test():

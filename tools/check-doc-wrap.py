@@ -115,7 +115,7 @@ def wrap80(*args, text=None):
 
 
 def committed_form(rel):
-    """("--unwrap" flag, name, committed text) for the form DOC's last
+    """("--unwrap" flag, name, committed text) for the form REL's last
     commit is in, NEW, or None.
 
     NEW where git has no such file, which check() then classifies by the
@@ -158,7 +158,6 @@ def tracked_markdown():
 # plain "1990. The year" is a real list item and is left alone.
 FAKE_MARKER = re.compile(r"^\s*(\d+[a-z]|[a-z]|[A-Z]|[ivxlcIVXLC]+)[.)]\s")
 REAL_MARKER = re.compile(r"^\s*([-*+]\s|\d{1,9}[.)]\s)")
-HEADING = re.compile(r"^ {0,3}#{1,6}(\s|$)")
 
 
 def fake_markers(text):
@@ -167,28 +166,15 @@ def fake_markers(text):
     list item, and at either fixed point its break is the formatter's, which
     starts a line with `2x.` or `C.` wherever the text has one
     (check-doc-wrap-09)."""
-    # Fenced code is common.fence_scan's to tell: one boolean flipped by
-    # any fence line read a backtick fence inside a tilde block as the
-    # closer (check-doc-wrap-06).
-    out, code, starts = [], False, True
-    for i, (l, kind, _) in enumerate(common.fence_scan(text.split("\n")), 1):
-        indented = l.startswith("    ") or l.startswith("\t")
-        if kind:
-            pass
-        elif indented and (starts or code):
-            # An indented code block: four spaces after a blank line, and
-            # every indented line after that. A shell `case` arm in one was
-            # reported as an enumerator (check-doc-wrap-07).
-            code = True
-        elif starts and FAKE_MARKER.match(l) and not REAL_MARKER.match(l):
-            out.append((i, l.strip()))
-        if l.strip() and not indented:
-            code = False
-        # The next line starts a block after a blank line, a heading,
-        # a fence line or a line of indented code, which nothing continues.
-        starts = (not l.strip() or kind in ("open", "close") or code
-                  or bool(HEADING.match(l)))
-    return out
+    # The blocks are common.blocks', the fences fence_scan's: one boolean
+    # flipped by any fence line read a backtick fence inside a tilde block
+    # as the closer (check-doc-wrap-06). Code is passed over, a shell `case`
+    # arm in an indented block once reported as an enumerator
+    # (check-doc-wrap-07).
+    return [(i, l.strip()) for i, (l, kind, starts)
+            in enumerate(common.blocks(text.split("\n")), 1)
+            if kind is None and starts and FAKE_MARKER.match(l)
+            and not REAL_MARKER.match(l)]
 
 
 def check(doc):

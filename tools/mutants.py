@@ -23,7 +23,6 @@ SIBLINGS = ['../ox-arrays', '../orthotope', '../LambdaHack']
 TIMEOUT = 600
 
 ST = ['python3', '{file}', '--self-test']
-SELFTEST = ['python3', '{file}', '--selftest']
 
 # loop-offsets.py has no self-test, so its judges replant a case's fixture
 # from defects.json and ask the mutated program the case's own question,
@@ -110,33 +109,33 @@ Disassembly of section .text:
 MUTANTS = [
     # bang-lazy-check: "inverting the strictness-letter test in verdict()" (2026-08-09)
     ('bang-lazy-check strictness-letter test in verdict() inverted', 'bang-lazy-check.py',
-     "    if b and b[0] in '1SB':\n", "    if not (b and b[0] in '1SB'):\n", SELFTEST),
+     "    if b and b[0] in '1SB':\n", "    if not (b and b[0] in '1SB'):\n", ST),
     # bang-lazy-check: "removing 'wild' from the flag condition" -- no 'wild' literal
     # remains in find_candidates; the nearest live branch is path_status's wildcard
     # arm, and it fails the same rows (local flags missing)
     ('bang-lazy-check wildcard path no longer a non-forcing path', 'bang-lazy-check.py',
      "    if cls == 'wild':\n        return 'nonforce', 'wild'\n",
-     "    if cls == 'wild':\n        return 'force', 'wild'\n", SELFTEST),
+     "    if cls == 'wild':\n        return 'force', 'wild'\n", ST),
     # bang-lazy-check: "disabling the bottom-head rule failed it with loopE ... reappearing"
     ('bang-lazy-check bottom-head rule disabled', 'bang-lazy-check.py',
-     "            return 'force', 'botm'\n", "            return 'unknown', 'botm'\n", SELFTEST),
+     "            return 'force', 'botm'\n", "            return 'unknown', 'botm'\n", ST),
     # bang-lazy-check: "disabling the monadic-return upgrade demoted the mret probe to WEAK"
     ('bang-lazy-check monadic-return upgrade disabled', 'bang-lazy-check.py',
-     "            return 'nonforce', 'mret'\n", "            return 'unknown', 'mret'\n", SELFTEST),
+     "            return 'nonforce', 'mret'\n", "            return 'unknown', 'mret'\n", ST),
     # bang-lazy-check: "disabling gvar misread gv's path list as var,bang"
     ('bang-lazy-check gvar marker disabled', 'bang-lazy-check.py',
-     "        return 'unknown', 'gvar'\n", "        return 'unknown', 'var'\n", SELFTEST),
+     "        return 'unknown', 'gvar'\n", "        return 'unknown', 'var'\n", ST),
     # bang-lazy-check: "disabling rec misread loopW2's and loopT's as ending in var"
     ('bang-lazy-check rec marker disabled', 'bang-lazy-check.py',
-     "        return 'unknown', 'rec'\n", "        return 'unknown', 'var'\n", SELFTEST),
+     "        return 'unknown', 'rec'\n", "        return 'unknown', 'var'\n", ST),
     # bang-lazy-check: "--dumps glob matching no file ... went red with it reverted"
     ('bang-lazy-check --dumps glob matching nothing accepted silently', 'bang-lazy-check.py',
-     "    if dump_pats and not stems:\n", "    if dump_pats and not stems and False:\n", SELFTEST),
+     "    if dump_pats and not stems:\n", "    if dump_pats and not stems and False:\n", ST),
     # bang-lazy-check: --allow no longer fails on an unlisted or stale candidate,
     # so the one-listed and stale verdicts of the selftest read 0 (2026-09-13)
     ('bang-lazy-check --allow gate disarmed', 'bang-lazy-check.py',
      "    if allow is not None and (unlisted or stale):\n        return 1\n",
-     "    if allow is not None and (unlisted or stale):\n        return 0\n", SELFTEST),
+     "    if allow is not None and (unlisted or stale):\n        return 0\n", ST),
     # bench-baseline: "a baseline slope of 0 reports movement instead of dividing by it"
     ('bench-baseline zero baseline slope divided by', 'bench-baseline.py',
      "    if old == 0:\n", "    if old == 0 and False:\n", ST),
@@ -333,6 +332,9 @@ MUTANTS = [
     ('check-plan-citations ancestry fast path taken for any commit', 'check-plan-citations.py',
      '                      capture_output=True).returncode == 0:\n',
      '                      capture_output=True).returncode != 0:\n', ST),
+    ('check-plan-citations ancestry fast path returning False', 'check-plan-citations.py',
+     '        return True\n    p = subprocess.run(["git", "-C", clone, "for-each-ref", "--count=1",\n',
+     '        return False\n    p = subprocess.run(["git", "-C", clone, "for-each-ref", "--count=1",\n', ST),
     ('check-plan-citations undefined label passes', 'check-plan-citations.py',
      "                if url is None:\n                    print(f\"FAIL [{shown}][{m.group(2)}] --- no definition\"\n",
      "                if False:\n                    print(f\"FAIL [{shown}][{m.group(2)}] --- no definition\"\n", ST),
@@ -364,15 +366,20 @@ MUTANTS = [
      "                if os.path.isfile(p)}\n", ST),
     # heading-outline: "a closing fence is not a heading's text ... reported '## ```'"
     # (2026-08-28)
-    ('heading-outline closing fence read as a Setext heading text', 'heading-outline.py',
-     "            prev = ''      # neither a fence nor its contents underlines\n", "            prev = line\n", ST),
+    # (the headings are common.headings' since 2026-10-19, the judges still
+    # heading-outline's self-test)
+    ('heading-outline closing fence read as a Setext heading text', 'common.py',
+     '            prev = None    # neither a fence nor its contents underlines\n',
+     '            prev = i\n', 'cd {dir} && python3 heading-outline.py --self-test'),
     # heading-outline: "the list item the same day, reported as '## - item'"
-    ('heading-outline list item read as a Setext heading text', 'heading-outline.py',
-     "                     and not LIST_ITEM.match(prev))\n", "                     and True)\n", ST),
+    ('heading-outline list item read as a Setext heading text', 'common.py',
+     '                and not LIST_ITEM.match(line) else None)\n',
+     '                else None)\n', 'cd {dir} && python3 heading-outline.py --self-test'),
     # heading-outline: the original fenced-`#`/`===` branch of the hand recipe
-    ('heading-outline fenced lines read as headings', 'heading-outline.py',
-     '        if kind:\n',
-     '        if False:\n', ST),
+    ('heading-outline fenced lines read as headings', 'common.py',
+     '        if kind:\n            prev = None',
+     '        if False:\n            prev = None',
+     'cd {dir} && python3 heading-outline.py --self-test'),
     # heading-outline: a fence closed by one of another kind (heading-outline-03)
     ('heading-outline closes a block with a fence of any kind', 'common.py',
      '        elif (m and m.group(2)[0] == fence[0]\n',
@@ -416,9 +423,11 @@ MUTANTS = [
      '    except (OSError, ValueError, LookupError, TypeError) as e:\n        raise\n',
      'cd {dir} && python3 check-conv-bench-props.py --self-test'),
     # check-doc-wrap: indented code no longer exempt (check-doc-wrap-07)
-    ('check-doc-wrap indented code block read as prose', 'check-doc-wrap.py',
-     '        elif indented and (starts or code):\n',
-     '        elif False:\n', ST),
+    # (the blocks are common.blocks' since 2026-10-19, the judge still this
+    # tool)
+    ('check-doc-wrap indented code block read as prose', 'common.py',
+     '            if ind >= (items[-1] if items else 0) + 4 and (code or not para):\n',
+     '            if False:\n', 'cd {dir} && python3 check-doc-wrap.py --self-test'),
     # check-doc-wrap: a fence line at any indentation opens or closes a block again
     # (check-doc-wrap-08)
     ('check-doc-wrap indented fence line read as a fence', 'common.py',
@@ -428,14 +437,14 @@ MUTANTS = [
     # for the candidate's own (bang-lazy-check-02)
     ('bang-lazy-check verdict from a foreign module of the same name', 'bang-lazy-check.py',
      "    quals = [q for q in entry if q.rsplit('.', 2)[-2:-1] == [stem]]\n    if not quals:\n",
-     "    quals = [q for q in entry if q.rsplit('.', 2)[-2:-1] == [stem]] or list(entry)\n    if not entry:\n", SELFTEST),
+     "    quals = [q for q in entry if q.rsplit('.', 2)[-2:-1] == [stem]] or list(entry)\n    if not entry:\n", ST),
     # bang-lazy-check: a ROOT that is not there is opened as a file, a traceback
     # at 1 (bang-lazy-check-03)
     ('bang-lazy-check missing ROOT no longer blocks', 'bang-lazy-check.py',
-     "    if missing:\n        # Opened as a file later", "    if False:\n        # Opened as a file later", SELFTEST),
+     "    if missing:\n        # Opened as a file later", "    if False:\n        # Opened as a file later", ST),
     # bang-lazy-check: an unrecognised flag read as a ROOT (bang-lazy-check-03)
     ('bang-lazy-check unrecognised flag read as a ROOT', 'bang-lazy-check.py',
-     "    if not args or unknown:\n", "    if not args:\n", SELFTEST),
+     "    if not args or unknown:\n", "    if not args:\n", ST),
     # bench-baseline: a regression missing a field tracebacks at 1 again
     # (bench-baseline-04)
     ('bench-baseline malformed regression tracebacks instead of exit 2', 'common.py',
@@ -599,9 +608,10 @@ MUTANTS = [
     ('check-doc-refs pinned link read in the working tree', 'check-doc-refs.py',
      '            return ref, "/".join(parts), anchor\n',
      '            return None, "/".join(parts), anchor\n', ST),
-    ('check-doc-refs closing hashes kept in a heading', 'check-doc-refs.py',
-     'HEADING_RE = re.compile(r" {0,3}(#{1,6})(?:[ \\t]+(.*?))?(?:[ \\t]+#+)?[ \\t]*$")\n',
-     'HEADING_RE = re.compile(r" {0,3}(#{1,6})(?:[ \\t]+(.*?))?[ \\t]*$")\n', ST),
+    ('check-doc-refs closing hashes kept in a heading', 'common.py',
+     'ATX_HEADING = re.compile(r" {0,3}(#{1,6})(?:[ \\t]+(.*?))?(?:[ \\t]+#+)?[ \\t]*$")\n',
+     'ATX_HEADING = re.compile(r" {0,3}(#{1,6})(?:[ \\t]+(.*?))?[ \\t]*$")\n',
+     'cd {dir} && python3 check-doc-refs.py --self-test'),
     ('check-doc-refs footnote read as a link definition', 'check-doc-refs.py',
      'LINK_RE = re.compile(r"\\]\\(\\s*<?([^\\s)>]+)|^ {0,3}\\[(?!\\^)[^\\]]+\\]:\\s*<?([^\\s>]+)")\n',
      'LINK_RE = re.compile(r"\\]\\(\\s*<?([^\\s)>]+)|^ {0,3}\\[[^\\]]+\\]:\\s*<?([^\\s>]+)")\n', ST),
@@ -611,8 +621,8 @@ MUTANTS = [
     # check-doc-wrap-09 (2026-10-02): a continuation line read for an
     # enumerator.
     ('check-doc-wrap continuation line read for an enumerator', 'check-doc-wrap.py',
-     '        elif starts and FAKE_MARKER.match(l) and not REAL_MARKER.match(l):\n',
-     '        elif FAKE_MARKER.match(l) and not REAL_MARKER.match(l):\n', ST),
+     '            if kind is None and starts and FAKE_MARKER.match(l)\n',
+     '            if kind is None and FAKE_MARKER.match(l)\n', ST),
     # check-twin-sync-04 (2026-10-02): a twin sharing no tool passed.
     ('check-twin-sync twin sharing no tool passes', 'check-twin-sync.py',
      '    if not drifted and not same:\n', '    if False:\n', ST),
@@ -815,11 +825,11 @@ MUTANTS = [
      "            body = s.strip() if with_notes else NOTE_TEXT.sub('', s).strip()\n",
      '            body = s.strip()\n', ST),
     ('src-attrib block comment lines taken for definitions', 'src-attrib.py',
-     "            depth = max(0, depth + line.count('{-') - line.count('-}'))\n",
-     '            depth = 0\n', ST),
+     '        text = strip_comments(fh.read())\n',
+     '        text = fh.read()\n', ST),
     ('src-attrib infix definition credited to its left operand', 'src-attrib.py',
-     '                elif infix and infix.group(1) not in RESERVED:\n',
-     '                elif False:\n', ST),
+     '            elif infix and infix.group(1) not in RESERVED:\n',
+     '            elif False:\n', ST),
     ('src-attrib dump without notes accepted', 'src-attrib.py',
      '    if total is None:\n', '    if False:\n', ST),
     ('src-attrib mid-line note opens a scope', 'src-attrib.py',
@@ -958,8 +968,8 @@ MUTANTS = [
     # pragma-calls-05 and -06 and core-diff-04, each watched failing its
     # self-test before it was written down here.
     ('pragma-calls rules section counted as code', 'pragma-calls.py',
-     '        counts = collections.Counter(TOK.findall(code(txt) if raw else txt))\n',
-     '        counts = collections.Counter(TOK.findall(txt))\n', ST),
+     '            TOK.findall(dumps.core(txt) if raw else txt))\n',
+     '            TOK.findall(txt))\n', ST),
     ('pragma-calls cache of the whole dumps reused for the code alone', 'pragma-calls.py',
      "    key = sig + ('code',) if raw else sig\n",
      '    key = sig\n', ST),
@@ -1072,7 +1082,8 @@ MUTANTS = [
      '                if m:\n', ST),
     # (the walk is hssource.py's since 2026-10-19, the judge still this tool)
     ('pragma-calls --inline build directories read', 'hssource.py',
-     "        ds[:] = sorted(d for d in ds if not d.startswith(('.', 'dist')))\n", '',
+     "                       if d[:1] != '.' and d.split('-')[0] != 'dist')\n",
+     "                       if d[:1] != '.')\n",
      'cd {dir} && python3 pragma-calls.py --self-test'),
     ('pragma-calls --inline the defining module counted', 'pragma-calls.py',
      '            if k in own:\n                continue\n', '', ST),
@@ -1134,7 +1145,7 @@ MUTANTS = [
     ('workaround-cites trailing comments unread', 'workaround-cites.py',
      "            if m and '\"' not in line[:m.start()]:\n", '            if False:\n', ST),
     ('workaround-cites block comments unread', 'workaround-cites.py',
-     "        if s.startswith('{-') and not s.startswith('{-#'):\n", '        if False:\n', ST),
+     '        if i in spans:\n', '        if False:\n', ST),
     # hascallstack (2026-10-08): each watched failing its self-test before
     # it was written down here.
     ('hascallstack contract wording ignored', 'hascallstack.py',
@@ -1799,6 +1810,6 @@ MUTANTS = [
      '    return k\n', ST),
     # (the walk is hssource.py's since 2026-10-19, the judge still this tool)
     ('pragma-map build directories read', 'hssource.py',
-     "        ds[:] = sorted(d for d in ds if not d.startswith(('.', 'dist')))\n",
-     '        ds[:] = sorted(ds)\n', 'cd {dir} && python3 pragma-map.py --self-test'),
+     "                       if d[:1] != '.' and d.split('-')[0] != 'dist')\n",
+     '                       if True)\n', 'cd {dir} && python3 pragma-map.py --self-test'),
 ]

@@ -584,7 +584,7 @@ def heads_of(src):
 def edges_of(src):
     """head label -> (its line, the line of every jump back to it).
 
-    `heads_of` answers WHICH labels are heads and throws away where, which
+    `heads_of` returns WHICH labels are heads and drops where, which
     is all the at-head alignment needs and not enough to say whether a pad
     at one head is paid by another loop, nor to measure the loops.
     """
@@ -714,7 +714,9 @@ HEAD_TAIL = 8             # a head this close to the line's end pays a cycle
 
 
 def is_cond(mn):
-    return mn.startswith('j') and mn != 'jmp'
+    # jmp with an operand-size suffix, LLVM's jmpq, is no conditional branch
+    # either (align-as-reads-jmpq-as-a-conditional-branch).
+    return mn.startswith('j') and not re.fullmatch(r'jmp[qlw]?', mn)
 
 
 def prepared(segs):

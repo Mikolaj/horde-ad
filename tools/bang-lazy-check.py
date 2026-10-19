@@ -3,7 +3,7 @@
 
 Usage:
   python3 tools/bang-lazy-check.py ROOT... [--dumps GLOB]... [--allow FILE]
-  python3 tools/bang-lazy-check.py --selftest
+  python3 tools/bang-lazy-check.py --self-test
 
 A bang on one equation of a multi-equation definition signals intent to be
 strict, but GHC keeps one demand per argument for the whole function,
@@ -67,10 +67,9 @@ strict callee or the recursive fixpoint.
 Known limitations: equations whose argument list continues on the next
 source line are skipped (counted per file, and the count also includes
 do-block call lines the line parser cannot tell from equations, so it
-overstates); infix and operator definitions are skipped; block comments
-are tracked only crudely.
+overstates); and infix and operator definitions are skipped.
 
-Non-vacuity: --selftest writes probe modules to a temp directory, compiles
+Non-vacuity: --self-test writes probe modules to a temp directory, compiles
 them with ghc -O, and asserts the exact verdict for every case above in
 both directions -- lazy cases must come back CONFIRMED (the monadic-return
 probe as STRONG), strict-without-enough-bangs cases CLEARED, the
@@ -87,7 +86,7 @@ not there, a flag it does not know, or a
 silence and reported every candidate UNVERIFIED blaming the build; the
 selftest asserts the stop.
 A quiet run over a tree proves nothing until
---selftest has passed on the same machine, so run that first; and
+--self-test has passed on the same machine, so run that first; and
 candidates a run does print are untriaged input for the reader's rules
 above, not confirmed defects.
 
@@ -118,25 +117,21 @@ import sys
 import tempfile
 from collections import defaultdict
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from hssource import blank_comments, hs_paths  # noqa: E402
+
 KEYWORDS = {
     'let', 'in', 'where', 'do', 'case', 'of', 'if', 'then', 'else',
     'data', 'type', 'newtype', 'class', 'instance', 'module', 'import',
     'deriving', 'infix', 'infixl', 'infixr', 'foreign', 'default',
 }
 
-PRUNE_DIRS = {'.git', 'dist', 'dist-newstyle'}
 BOTTOM_HEADS = {'error', 'errorWithoutStackTrace', 'undefined'}
 MONADIC_HEADS = {'return', 'pure'}
 
 LINE_RE = re.compile(r"^(\s*)(let\s+)?([a-z_][A-Za-z0-9_']*)\s+(\S.*)$")
 DUMP_RE = re.compile(r"^\s*([A-Za-z0-9_.'$]+):\s*(<.*)$")
-COMMENT_RE = re.compile(r"(^|\s)--(\s|$|[^!#$%&*+./<=>?@\\^|~-])")
 OPERATOR_RE = re.compile(r"[!#$%&*+./<=>?@\\^|~:-]+")
-
-
-def strip_line_comment(line):
-    m = COMMENT_RE.search(line)
-    return line[:m.start()] if m else line
 
 
 def split_top(rest):
@@ -224,21 +219,12 @@ def parse_equations(path):
     rhs toks is None when the equation has guards or a body continuing on
     later lines -- the body-aware path rules then stay out of it.
     """
+    # Comments blanked by hssource, columns kept: a flag cleared by the
+    # first -} let a pragma inside a block end it (bang-lazy-check-07).
     with open(path, encoding='utf-8', errors='replace') as fh:
-        lines = fh.readlines()
-    eqs, unparsed, in_block = [], 0, 0
-    for idx, raw in enumerate(lines):
-        line = raw.rstrip('\n')
-        if in_block:
-            if '-}' in line:
-                in_block = 0
-                line = line.split('-}', 1)[1]
-            else:
-                continue
-        if '{-' in line and '-}' not in line:
-            line = line.split('{-', 1)[0]
-            in_block = 1
-        line = strip_line_comment(line)
+        lines = blank_comments(fh.read()).split('\n')
+    eqs, unparsed = [], 0
+    for idx, line in enumerate(lines):
         if not line.strip():
             continue
         m = LINE_RE.match(line)
@@ -278,7 +264,7 @@ def parse_equations(path):
             # non-blank line opens with a guard (multi-line guard style)
             nxt = ''
             for j in range(idx + 1, min(idx + 3, len(lines))):
-                s = strip_line_comment(lines[j]).strip()
+                s = lines[j].strip()
                 if s:
                     nxt = s
                     break
@@ -429,10 +415,9 @@ def collect_files(roots):
     files = []
     for r in roots:
         if os.path.isdir(r):
-            for dirpath, dirnames, filenames in os.walk(r):
-                dirnames[:] = [d for d in dirnames if d not in PRUNE_DIRS]
-                files += [os.path.join(dirpath, f) for f in filenames
-                          if f.endswith('.hs')]
+            # The other walkers' prune, where its own let dist-seq and every
+            # hidden directory but .git through (bang-lazy-check-06).
+            files += hs_paths(r)
         else:
             files.append(r)
     return sorted(files)
@@ -732,7 +717,7 @@ def selftest():
 
 def main():
     args = sys.argv[1:]
-    if args == ['--selftest']:
+    if args == ['--self-test']:
         sys.exit(selftest())
     dump_pats = []
     while '--dumps' in args:
@@ -754,7 +739,7 @@ def main():
     if not args or unknown:
         print(__doc__.split('\n\n')[0])
         print('\nUsage: bang-lazy-check.py ROOT... [--dumps GLOB]... '
-              '[--allow FILE] | --selftest')
+              '[--allow FILE] | --self-test')
         sys.exit(2)
     sys.exit(run(args, dump_pats, allow))
 

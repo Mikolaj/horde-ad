@@ -94,8 +94,9 @@ count, and then walks --restamp through its refusal table: the rewrite, the
 already-current no-op, the unresolved-citation, dirty-cited-file, no-stamp,
 two-stamp and no-citation refusals, and the unpublished-anchor advisory. A
 second scratch repository stands in for a foreign clone, a published commit
-and an unpublished one in it, for the FOREIGN and link rows and both BLOCKED
-stops. The
+and an unpublished one in it, for the FOREIGN and link rows, both BLOCKED
+stops and, its origin/HEAD then set, the ancestry test that decides before
+the remote refs are scanned. The
 AMBIGUOUS kind gets its first live control there too: two files of one basename
 under different search roots, with no copy at the repo root to shadow them. Its
 line-zero, backwards-range and second-document rows were added for three
@@ -268,9 +269,9 @@ roots, and `resolve` returns at its `os.path.exists` check before
 reaching the ambiguity branch, so the root `CLAUDE.md` shadows the pair
 and `CLAUDE.md:1` resolves ok -- a live row needs a basename duplicated
 under the search roots with no copy at the repo root, which the
-self-test builds. The two copies of this script differ only in the
-per-repo block; `tools/check-twin-sync.py` compares them whenever both
-checkouts are mounted.
+self-test builds. The two copies of this script may differ only in the
+per-repo block; the sync session compares the rest with
+`tools/check-twin-sync.py`.
 """
 
 import collections
@@ -391,11 +392,16 @@ def foreign_res(foreign):
             for prefix, clone in sorted(foreign.items())]
 
 
+# The calls into a clone, here and in blob_lines and foreign_published,
+# clear git's location variables: an inherited GIT_DIR, which -C does not
+# override, sent them to the document's repository
+# (check-plan-citations-18).
 @functools.lru_cache(maxsize=None)
 def is_clone(clone):
     """Is CLONE a git repository here?"""
     return subprocess.run(["git", "-C", clone, "rev-parse", "--git-dir"],
-                          capture_output=True).returncode == 0
+                          capture_output=True,
+                          env=common.git_env()).returncode == 0
 
 
 @functools.lru_cache(maxsize=None)
@@ -403,10 +409,12 @@ def blob_lines(clone, sha, path):
     """PATH's lines at SHA in CLONE: None when the commit is not there,
     False when the path is not."""
     if subprocess.run(["git", "-C", clone, "cat-file", "-e",
-                       f"{sha}^{{commit}}"], capture_output=True).returncode:
+                       f"{sha}^{{commit}}"], capture_output=True,
+                      env=common.git_env()).returncode:
         return None
     p = subprocess.run(["git", "-C", clone, "show", f"{sha}:{path}"],
-                       capture_output=True, text=True, errors="replace")
+                       capture_output=True, text=True, errors="replace",
+                       env=common.git_env())
     return p.stdout.splitlines() if p.returncode == 0 else False
 
 
@@ -432,12 +440,12 @@ def foreign_published(clone, sha):
     # origin's default branch first: one ancestry test, where the scan below
     # walks every remote ref, which in a GHC clone is seconds a commit.
     if subprocess.run(["git", "-C", clone, "merge-base", "--is-ancestor",
-                       sha, "refs/remotes/origin/HEAD"],
+                       sha, "refs/remotes/origin/HEAD"], env=common.git_env(),
                       capture_output=True).returncode == 0:
         return True
     p = subprocess.run(["git", "-C", clone, "for-each-ref", "--count=1",
                         "--contains", sha, "refs/remotes"],
-                       capture_output=True, text=True)
+                       capture_output=True, text=True, env=common.git_env())
     return p.returncode == 0 and bool(p.stdout.strip())
 
 
@@ -559,7 +567,8 @@ def name_keys(code, note, quote):
 
 
 def word_in(key, body):
-    """Is KEY in BODY as a whole identifier, or, a phrase, at all?"""
+    """Is KEY in BODY: as a whole identifier where it opens like one, and
+    anywhere where it is a phrase or opens otherwise?"""
     if " " in key:
         return key in body.flat
     if not key[0].isalpha() and key[0] != "_":
@@ -1074,6 +1083,16 @@ def self_test():
             expect("a clone missing here blocks", p.returncode, 2)
             contains("a clone missing here blocks", p.stderr,
                      "nowhere is not a git repository")
+            # With origin/HEAD set, the ancestry test alone says a commit on
+            # it is published, the scan of the remote refs never reached.
+            fgit("symbolic-ref", "refs/remotes/origin/HEAD",
+                 "refs/remotes/origin/main")
+            open("fh.md", "w").write(
+                f"[src/N.hs#L1][h]\n\n[h]: {pre}{fa}/src/N.hs#L1\n")
+            p = run("fh.md", fmap)
+            expect("a commit on origin/HEAD is published", p.returncode, 0)
+            contains("a commit on origin/HEAD is published", p.stdout,
+                     "ok   src/N.hs#L1 @")
         finally:
             os.chdir(prev)
     for b in bad:
@@ -1129,8 +1148,16 @@ def main():
 def check(doc, do_restamp):
     """Check one document; its exit status."""
     text = open(doc, encoding="utf-8").read()
+    # Citations, permalinks, links and the names beside them are read off
+    # the unwrapped form, a link's text or a code span a line break split
+    # having gone unread (check-plan-citations-16, -17); the stamp, which
+    # --restamp rewrites in place, off the text as it is.
+    flat, ran = common.unwrapped(text)
+    if not ran:
+        print("NOTE: wrap80 is not on PATH, so a link or a name a line break"
+              " splits went unread", file=sys.stderr)
     cites = sorted({(m.group(1),) + span
-                    for m in CITE_RE.finditer(text)
+                    for m in CITE_RE.finditer(flat)
                     for span in spans(m.group(2))})
     failures = 0
     blocked = False
@@ -1170,7 +1197,7 @@ def check(doc, do_restamp):
         print(f"ok   {name}:{span} | {lines[lo - 1].strip()[:80]}")
     urlcites = sorted({(m.group(1).lower(), m.group(2), m.group(3),
                         int(m.group(4)), int(m.group(5) or m.group(4)))
-                       for m in URL_RE.finditer(text)})
+                       for m in URL_RE.finditer(flat)})
     # The repository PUBLISHED_REF's remote names; None, no such remote or
     # not on GitHub, leaves every link checked as this repository's.
     own = common.github_repo(PUBLISHED_REF.split("/", 1)[0])
@@ -1219,7 +1246,7 @@ def check(doc, do_restamp):
     foreign = sorted({(clone, m.group(1), m.group(2), m.group(3) or "",
                        m.group(4) or m.group(3) or "")
                       for clone, rx in foreign_res(FOREIGN_RUN)
-                      for m in rx.finditer(text)})
+                      for m in rx.finditer(flat)})
     absent = collections.Counter()
     for clone, sha, path, lo, hi in foreign:
         where = path + (f"#L{lo}" + (f"-L{hi}" if hi != lo else "")
@@ -1261,7 +1288,7 @@ def check(doc, do_restamp):
                   f" permalink(s) pinning it were not checked; fetch it,"
                   f" `git -C {clone} fetch origin`, and re-run",
                   file=sys.stderr)
-    failures += check_links(text, own, FOREIGN_RUN)
+    failures += check_links(flat, own, FOREIGN_RUN)
     # Counted apart from citation failures: --restamp is gated on those,
     # and an orphaned stamp is the very thing it repairs, so folding it in
     # would make a bad stamp block its own fix.

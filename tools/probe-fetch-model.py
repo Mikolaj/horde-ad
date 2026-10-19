@@ -273,7 +273,9 @@ HEAD_TAIL = 8             # a head this close to the line's end pays a cycle
 
 
 def is_cond(mn):
-    return mn.startswith('j') and mn != 'jmp'
+    # jmp with an operand-size suffix, LLVM's jmpq, is no conditional branch
+    # either (fetch-model-reads-jmpq-as-a-conditional-branch).
+    return mn.startswith('j') and not re.fullmatch(r'jmp[qlw]?', mn)
 
 
 def whole_in_last(pieces):

@@ -1,25 +1,31 @@
 """What the readers of Haskell source share, kept once so a fix lands once.
 
-Imported by bang-drops.py, hascallstack.py, lazy-reads.py, pragma-calls.py,
-pragma-census.py, pragma-map.py and workaround-cites.py, never run: each
-puts its own directory first on sys.path, as for common.py.
+Imported by bang-drops.py, bang-lazy-check.py, hascallstack.py,
+lazy-reads.py, pragma-calls.py, pragma-census.py, pragma-map.py,
+src-attrib.py and workaround-cites.py, never run: each puts its own
+directory first on sys.path, as for common.py.
 
-hs_paths walks a tree's .hs files in sorted order, the dist* build
-directories and hidden ones passed over.
+hs_paths walks a tree's .hs files in sorted order, the build directories,
+dist and dist-*, and hidden ones passed over. imports returns a module's
+aliases and the modules it imports unqualified.
 
 strip_comments blanks comments but keeps pragmas and every line break, so
-a line number still names its line; an operator that begins with `--`, such
-as `-->`, is no comment. Block comments nest, as in GHC, so a pragma inside
-one does not end it, and a `{-` inside a line comment opens none.
-blank_blocks blanks the block comments alone and keeps the columns too,
-for a reader of the layout. split_functions files every line under the
-top-level definition above it, a `data` or `newtype` under its first two
-words, a `class` or `instance` under its whole head, read to its `where`
-with the spaces normalised, and a function under its name, so that two
-versions of a module can be compared definition by definition; the lines
-above the first definition are filed under no name and dropped. It reads
-the layout only, so a definition of an infix operator files under the
-definition above it.
+a line number still names its line; an operator holding dashes, such as
+`-->`, `<--` or `--->`, is no comment, and a `--` or `{-` inside a string
+or character literal opens none. Block comments nest, as in GHC, so a
+pragma inside one does not end it, and a `{-` inside a line comment opens
+none. blank_blocks blanks the block comments alone and keeps the columns
+too, for a reader of the layout, and blank_comments drops the line
+comments from that besides.
+
+split_functions files every line under the top-level definition above it,
+a `data` or `newtype` under its first two words, a `class` or `instance`
+under head_key's key, its whole head read to its `where` with the spaces
+normalised, which pragma-map keys an instance's pragmas by too, and a
+function under its name, so that two versions of a module can be compared
+definition by definition; the lines above the first definition are filed
+under no name and dropped. It reads the layout only, so a definition of an
+infix operator files under the definition above it.
 """
 
 import collections
@@ -31,20 +37,52 @@ NOT_DEFINITIONS = ('import', 'module', 'infixl', 'infixr', 'infix', 'type',
 
 
 def hs_paths(root):
-    """The .hs files under root in a sorted walk, the dist* build
-    directories and hidden ones passed over."""
+    """The .hs files under root in a sorted walk, the build directories,
+    dist and dist-*, and hidden ones passed over; a distrib/ is source
+    (hssource-05)."""
     for dp, ds, fs in os.walk(root):
-        ds[:] = sorted(d for d in ds if not d.startswith(('.', 'dist')))
+        ds[:] = sorted(d for d in ds
+                       if d[:1] != '.' and d.split('-')[0] != 'dist')
         yield from (os.path.join(dp, f) for f in sorted(fs)
                     if f.endswith('.hs'))
 
 
-# Outside a block comment: a pragma or a line comment, each stepped over so
-# that a {- inside it opens nothing, or a block comment's opening. Inside
-# one: an opening, a pragma's included, as block comments nest, or a close.
-OUTSIDE = re.compile(r"\{-#.*?#-\}|\{-(?!#)|(?<![!#$%&*+./<=>?@\\^|~:])--"
-                     r"(?![!#$%&*+./<=>?@\\^|~:])[^\n]*", re.S)
+# An import: qualified before or after the module's name, an alias, and
+# an import list of () with or without a hiding before it.
+IMPORT = re.compile(r'^import\s+(qualified\s+)?([A-Z][\w.]*)(\s+qualified)?'
+                    r'(?:\s+as\s+([A-Z][\w.]*))?(\s+hiding)?\s*(\(\s*\))?',
+                    re.M)
+
+
+def imports(src):
+    """({alias: {module}}, [modules imported unqualified]) of a module's
+    source. An import of () brings no names, and one hiding () all of them:
+    pragma-census took the first to open its module and pragma-calls the
+    second to open none (pragma-census-24, pragma-calls-19)."""
+    aliases, opens = {}, []
+    for m in IMPORT.finditer(src):
+        aliases.setdefault(m.group(4) or m.group(2), set()).add(m.group(2))
+        if not (m.group(1) or m.group(3)) and (m.group(5) or not m.group(6)):
+            opens.append(m.group(2))
+    return aliases, opens
+
+
+# What a scan for comments steps over whole, so that a {- or -- inside
+# opens nothing: a pragma, a string literal and a character literal, which
+# stands where no name ends, so x' opens none and '"' opens no string
+# (hssource-06). A line comment is two dashes or more with neither a symbol
+# nor a dash on either side, so <-- and ---> are operators (hssource-07).
+SYM = r"!#$%&*+./<=>?@\\^|~:"
+LITERALS = (r"\{-#.*?#-\}|\"(?:[^\"\\\n]|\\.)*\""
+            r"|(?<![\w'])'(?:[^'\\\n]|\\.[^'\n]*)'")
+LINE_COMMENT = rf"(?<![{SYM}-])--+(?![{SYM}-])[^\n]*"
+# Outside a block comment: a literal or a line comment, each stepped over,
+# or a block comment's opening. Inside one: an opening, a pragma's
+# included, as block comments nest, or a close.
+OUTSIDE = re.compile(rf"{LITERALS}|\{{-(?!#)|{LINE_COMMENT}", re.S)
 INSIDE = re.compile(r"\{-|-\}")
+# A literal kept, or a line comment dropped.
+LINES = re.compile(rf"({LITERALS})|{LINE_COMMENT}", re.S)
 
 
 def block_comments(src):
@@ -77,8 +115,7 @@ def sub_blocks(src, repl):
 
 def strip_comments(src):
     src = sub_blocks(src, lambda c: '\n' * c.count('\n'))
-    return '\n'.join(re.sub(r'--(?![!#$%&*+./<=>?@\\^|~:]).*$', '', line)
-                     for line in src.split('\n'))
+    return LINES.sub(lambda m: m.group(1) or '', src)
 
 
 def blank_blocks(src):
@@ -89,6 +126,13 @@ def blank_blocks(src):
     return re.sub(r'[ \t]+$', '',
                   sub_blocks(src, lambda c: re.sub(r'[^\n]', ' ', c)),
                   flags=re.M)
+
+
+def blank_comments(src):
+    """src with its block comments blanked as blank_blocks blanks them and
+    its line comments dropped: columns and line numbers kept, for
+    bang-lazy-check's equations (bang-lazy-check-07)."""
+    return LINES.sub(lambda m: m.group(1) or '', blank_blocks(src))
 
 
 def head_key(lines, i):

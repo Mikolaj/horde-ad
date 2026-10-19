@@ -22,7 +22,8 @@ tools/bang-lazy-check.py asks the other question, of one tree: a bang
 on some equations of a definition and not on others.
 
 Exit 0 when no bang was dropped, 1 when one was, 2 when the comparison did
-not happen: OLD or NEW not a directory, or no `.hs` file in both.
+not happen: OLD or NEW not a directory, a file that cannot be read, or no
+`.hs` file in both.
 """
 
 import collections
@@ -146,7 +147,11 @@ def main(argv):
         if not os.path.isdir(d):
             print(f'{d} is not a directory', file=sys.stderr)
             return 2
-    lines, compared = drops(*argv)
+    try:
+        lines, compared = drops(*argv)
+    except OSError as e:  # a traceback and exit 1 before (bang-drops-03)
+        print(f'cannot read {e.filename}: {e.strerror}', file=sys.stderr)
+        return 2
     if not compared:
         print(f'no .hs file is in both {argv[0]} and {argv[1]}',
               file=sys.stderr)

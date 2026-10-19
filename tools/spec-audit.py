@@ -271,14 +271,17 @@ def report(root, sub, ignore):
             return None
         p = max(hits)[1]
         if p not in cache:
-            cache[p] = signatures(dumps.read_text(p).split('\n'))
+            cache[p] = signatures(dumps.core(dumps.read_text(p)).split('\n'))
         return cache[p]
 
     for p, key in tree:
         if sub is not None and sub not in key:
             continue
         read += 1
-        calls, fc, lams, fl = audit(dumps.read_text(p), ignore, resolve)
+        # The rules section cut: a rule's left-hand side was counted as a
+        # call handed a dictionary (spec-audit-11).
+        calls, fc, lams, fl = audit(dumps.core(dumps.read_text(p)), ignore,
+                                    resolve)
         for (c, d), n in sorted(calls.items()):
             call_lines.append(f'  {key}  {c}  {d}: {n}, line {fc[(c, d)]}')
         for (b, a, t), n in sorted(lams.items(), key=lambda kv: (

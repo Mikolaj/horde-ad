@@ -1,7 +1,8 @@
 """What the readers of GHC's dump trees share, kept once so a fix lands once.
 
-Imported by core-diff.py, pragma-calls.py, ctime-diff.py, rules-diff.py and
-spec-audit.py, never run: each puts its own directory first on sys.path, as for common.py.
+Imported by core-diff.py, pragma-calls.py, ctime-diff.py, row-core.py,
+rules-diff.py and spec-audit.py, never run: each puts its own directory
+first on sys.path, as for common.py.
 
 A dump tree is either a cabal build directory, the dumps beside the objects
 under some `build/` directory, or a tree written with `-dumpdir`, which has
@@ -12,12 +13,19 @@ path, a `-dumpdir` tree kept every path whole, and two such trees shared no
 module (core-diff-02, pragma-calls-03).
 
 walk lists a tree's dumps of one kind, gzipped ones included, and read_text
-reads one. core_digests reduces a Core dump to the two fingerprints an
-identity verdict compares: one exact but for the timestamp lines GHC writes
-under each dump's header, and one ignoring unboxed numeric literals as well,
-which is what an edit elsewhere moves --- a call stack carries its source line
-as such a literal, so a module that inlined an `error` call from a file
-since grown by a line above it differs from its other build by that alone.
+reads one. core cuts the specialisation rules GHC prints after a module's
+Core, whose left-hand sides name the functions the rules replace and are
+no code of the module: pragma-calls-06 cut them in pragma-calls alone, and
+row-core kept them in the last binding's text and spec-audit counted their
+dictionaries as calls (row-core-05, spec-audit-11).
+
+core_digests reduces a Core dump to the two fingerprints an identity
+verdict compares: one exact but for the timestamp lines GHC writes under
+each dump's header, and one ignoring unboxed numeric literals as well,
+which is what an edit elsewhere moves --- a call stack carries its source
+line as such a literal, so a module that inlined an `error` call from a
+file since grown by a line above it differs from its other build by that
+alone.
 """
 
 import gzip
@@ -30,6 +38,8 @@ TIMESTAMP = re.compile(r'^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d(?:\.\d+)? UTC\n', re.M)
 # ending a name such as I# or W8#. The lookahead, implied by the rest, spares
 # the lookbehind at every character that cannot start one.
 LITERAL = re.compile(r"(?=[-\d])(?<![\w$'])-?\d+(?:\.\d+)?(?:e-?\d+)?##?")
+# The header GHC prints above a module's specialisation rules, after its Core.
+RULES = '------ Local rules for imported ids --------'
 
 
 def module_key(path, root, suffix):
@@ -61,6 +71,11 @@ def read_text(path):
     op = gzip.open if path.endswith('.gz') else open
     with op(path, 'rt', errors='replace') as fh:
         return fh.read()
+
+
+def core(txt):
+    """A dump's Core, the specialisation rules printed after it cut."""
+    return txt.split('\n' + RULES, 1)[0]
 
 
 def core_digests(text):

@@ -27,7 +27,8 @@ another reason. A shape with no comment at all is what no search of
 comments reaches (W3).
 
 Exit 0 when no block lacks a cause, 1 when one does, 2 when the run did not
-happen: SRC holding no `.hs` file, or DOCS no issue file.
+happen: SRC holding no `.hs` file, DOCS no issue file, or a file that cannot
+be read.
 """
 
 import collections
@@ -36,13 +37,15 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from hssource import hs_paths  # noqa: E402
+from hssource import SYM, block_comments, hs_paths  # noqa: E402
 
 VOCAB = re.compile(r'work ?around|stands? in for|instead of|SpecConstr|-O2\b'
                    r'|slower|faster|allocat|\bbug\b', re.I)
 CAUSE = re.compile(r'https?://|#\d{3,}\b|(?<![\w-])-f[a-z][\w-]*'
                    r'|\bunidentified\b|stands? in for', re.I)
-COMMENT = re.compile(r'--(?![!#$%&*+./<=>?@\\^|~:-])|---+')
+# hssource's line comment: an operator holding dashes, as <--, opened one
+# (workaround-cites-02).
+COMMENT = re.compile(rf'(?<![{SYM}-])--+(?![{SYM}-])')
 # A link, or a reference-style `[vector issue 570][570]` or `[#27737][...]`.
 ISSUE_LINK = re.compile(r'(?:work_items|issues)/(\d+)|\bissue (\d+)|#(\d{3,})')
 
@@ -50,23 +53,22 @@ ISSUE_LINK = re.compile(r'(?:work_items|issues)/(\d+)|\bissue (\d+)|#(\d{3,})')
 def blocks(src):
     """[(first line number, text)] of a file's comment blocks: runs of
     whole-line `--` comments, trailing comments, and `{- -}` blocks, pragmas
-    excepted."""
+    excepted, each block the lines hssource.block_comments spans: nested,
+    and a pragma inside not ending it, where the first line holding a -}
+    ended it (workaround-cites-01)."""
     out, run, start = [], [], None
     lines = src.split('\n')
+    spans = {src.count('\n', 0, s): src.count('\n', 0, e - 1)
+             for s, e in block_comments(src)}
     i = 0
     while i < len(lines):
         line = lines[i]
-        s = line.lstrip()
-        if s.startswith('{-') and not s.startswith('{-#'):
-            j, text = i, [line]
-            while '-}' not in lines[j] and j + 1 < len(lines):
-                j += 1
-                text.append(lines[j])
+        if i in spans:
             if run:
                 out.append((start, ' '.join(run)))
                 run = []
-            out.append((i + 1, ' '.join(text)))
-            i = j + 1
+            out.append((i + 1, ' '.join(lines[i:spans[i] + 1])))
+            i = spans[i] + 1
             continue
         m = COMMENT.search(line)
         if m and not line[:m.start()].strip():
@@ -218,7 +220,11 @@ def main(argv):
         return 2
     docs = argv[1] if len(argv) == 2 else os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'docs')
-    lines, nbad, nfiles, nissues = report(argv[0], docs)
+    try:
+        lines, nbad, nfiles, nissues = report(argv[0], docs)
+    except OSError as e:  # a traceback and exit 1 before (workaround-cites-03)
+        print(f'cannot read {e.filename}: {e.strerror}', file=sys.stderr)
+        return 2
     if not nfiles:
         print(f'no .hs file under {argv[0]}', file=sys.stderr)
         return 2

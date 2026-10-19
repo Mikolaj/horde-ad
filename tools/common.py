@@ -12,7 +12,12 @@ heading-outline.py and check-plan-citations.py. The first four once kept a
 fence tracker each, and each tracker was fixed for the same defects
 separately (check-doc-refs-05,
 check-doc-wrap-06, heading-outline-03), one of them never
-(check-doc-examples-06).
+(check-doc-examples-06). headings returns a document's headings, ATX and
+Setext, for heading-outline.py and check-doc-refs.py, and blocks tells its
+indented code from prose, measured from the content of the innermost list
+item, for check-doc-refs.py and check-doc-wrap.py: each had a reader of
+its own, and each lacked a case another had (heading-outline-07,
+check-doc-refs-14, check-doc-wrap-11).
 
 The criterion reader serves ab-time.py, bench-baseline.py and
 check-conv-bench-props.py, which each read a `--json` collection's
@@ -22,7 +27,8 @@ run not having happened; so does an estimate that is not a finite number,
 criterion writing a NaN as null.
 
 GIT_LOCATION and git_env serve the git calls that must not answer for a
-repository the caller set: check-doc-refs.py's, pragma-calls.py's,
+repository the caller set: check-doc-refs.py's, check-plan-citations.py's
+into a foreign clone, loop-offsets.py's, pragma-calls.py's,
 rewrite-check.py's and rewrite-fold.py's, which name theirs by -C, and
 those of the self-tests that build a scratch one, check-doc-wrap.py's,
 check-plan-citations.py's and pragma-calls.py's among them. git_out makes
@@ -30,7 +36,9 @@ the calls of rewrite-check.py and rewrite-fold.py, and scratch_repo the
 scratch repository of check-doc-wrap.py's and check-plan-citations.py's
 self-tests. github_repo returns the OWNER/REPO a remote names on GitHub,
 by which check-doc-refs.py and check-plan-citations.py tell this
-repository's links from others'.
+repository's links from others', and unwrapped puts a document's
+paragraphs on one line each for both, a phrase a line break splits being
+otherwise unread (check-plan-citations-16, -17).
 """
 
 import json
@@ -95,6 +103,24 @@ def github_repo(remote):
                          capture_output=True, text=True).stdout.strip()
     m = re.search(r"github\.com[:/]([\w.-]+/[\w.-]+?)(?:\.git)?/?$", url)
     return m.group(1).lower() if m else None
+
+
+def unwrapped(text):
+    """(the document with each paragraph on one line, via `wrap80 --unwrap`,
+    whether wrap80 ran).
+
+    Shelled out to rather than reimplemented, so that what counts as a
+    paragraph here is what counts as one everywhere else: the formatter that
+    writes these documents is the only definition worth having. Without
+    wrap80 the text is returned as it came, which loses nothing that a
+    line-based read did not already lose -- so a caller degrades to that
+    read and says so rather than failing.
+    """
+    try:
+        return subprocess.run(["wrap80", "--unwrap"], input=text, text=True,
+                              capture_output=True, check=True).stdout, True
+    except (OSError, subprocess.CalledProcessError):
+        return text, False
 
 
 # A fence: three or more backticks or tildes, indented at most three spaces;
@@ -175,6 +201,80 @@ def fence_scan(lines):
             yield line, "close", info
         else:
             yield re.sub(r"^ {0,%d}" % indent, "", line), "in", info
+
+
+# A heading as CommonMark and GitHub take it: an ATX line indented at most
+# three spaces, a closing run of `#` dropped only after a space; or a Setext
+# underline of `=` or `-` under a line of paragraph text, which no heading,
+# list item, blank line, fence or fenced line is.
+ATX_HEADING = re.compile(r" {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$")
+SETEXT = re.compile(r" {0,3}(=+|-+)[ \t]*$")
+# A list item's marker and the spaces after it, its end the item's content
+# column; behind five spaces or more the content starts after one, the rest
+# opening code inside the item.
+LIST_ITEM = re.compile(r" *(?:[-*+]|\d{1,9}[.)])(?: {1,4}(?! )| |$)")
+
+
+def headings(lines):
+    """[(index, level, text)] of the headings of a Markdown document's
+    lines, a Setext heading indexed by its text's line. heading-outline
+    took no ATX heading indented and check-doc-refs no Setext one, each
+    with a reader of its own (heading-outline-07, check-doc-refs-14)."""
+    out, prev = [], None
+    for i, (line, kind, _) in enumerate(fence_scan(lines)):
+        if kind:
+            prev = None    # neither a fence nor its contents underlines
+            continue
+        atx, under = ATX_HEADING.match(line), SETEXT.match(line)
+        if atx:
+            out.append((i, len(atx.group(1)), atx.group(2) or ""))
+        elif under and prev is not None:
+            out.append((prev, 1 if under.group(1)[0] == "=" else 2,
+                        lines[prev].strip()))
+        prev = (i if line.strip() and not atx and not under
+                and not LIST_ITEM.match(line) else None)
+    return out
+
+
+def blocks(lines):
+    """Each line of a Markdown document as (line, kind, starts): kind is
+    fence_scan's on a fence or a fenced line, "code" on a line of an
+    indented code block and None elsewhere; starts says the line continues
+    no paragraph, the line before it being blank, a heading, a fence line
+    or code, or there being none.
+
+    An indented block is taken as CommonMark takes one: four or more
+    columns past the content of the innermost list item open there, after
+    a blank line, a heading or more such code, never continuing a
+    paragraph. Taken at four columns from the margin, a list item's
+    paragraph was read as code (check-doc-refs-13, check-doc-wrap-11)."""
+    # items: the content columns of the open list items, innermost last;
+    # para: the line before continues a paragraph; code: it is code.
+    items, para, code = [], False, False
+    for line, kind, _ in fence_scan(lines):
+        starts = not para
+        if kind is not None:
+            para = code = False
+        elif not line.strip():
+            para = False
+        else:
+            flat = line.expandtabs(4)
+            ind = len(flat) - len(flat.lstrip(" "))
+            if ind >= (items[-1] if items else 0) + 4 and (code or not para):
+                code, kind = True, "code"
+            else:
+                code = False
+                # A marker, a heading or a paragraph's first line closes the
+                # items it is not inside; a heading continues no paragraph.
+                m = LIST_ITEM.match(flat)
+                heading = ATX_HEADING.match(flat)
+                if m or heading or not para:
+                    while items and items[-1] > ind:
+                        items.pop()
+                if m:
+                    items.append(m.end())
+                para = not heading
+        yield line, kind, starts
 
 
 class CriterionError(ValueError):

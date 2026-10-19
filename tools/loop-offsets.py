@@ -163,6 +163,9 @@ import re
 import subprocess
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from common import git_env  # noqa: E402
+
 INSN = re.compile(r'^\s*([0-9a-f]+):\t((?:[0-9a-f]{2} )+)\s*\t?(\S+)\s*(.*)$')
 CONT = re.compile(r'^\s*([0-9a-f]+):\t((?:[0-9a-f]{2} )+)\s*$')  # bytes 8 on
 SYM = re.compile(r'^([0-9a-f]+) <(.+)>:$')
@@ -530,7 +533,11 @@ def source(src, rev):
     d, b = os.path.split(src)
     cmd = ['git', '-C', d or '.', 'show', f'{rev}:./{b}']
     try:
-        got = subprocess.run(cmd, capture_output=True, text=True)
+        # git's location variables cleared: an inherited GIT_DIR, which -C
+        # does not override, pointed git at another repository
+        # (source-reads-another-repository-under-an-inherited-git-dir).
+        got = subprocess.run(cmd, capture_output=True, text=True,
+                             env=git_env())
     except OSError as exc:
         sys.stderr.write('%s: %s\n' % (' '.join(cmd), exc))
         raise SystemExit(2)

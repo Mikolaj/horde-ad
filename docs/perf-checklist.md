@@ -638,7 +638,7 @@ min/max loop allocated more than vector's own until its reads were forced,
 - Bangs on some equations only, which leave the argument lazy, GHC keeping one
   demand per argument for the whole function:
   `python3 $T/bang-lazy-check.py SRC --dumps 'dist-dump-TIP/**/*.dump-dmd-signatures'`,
-  after its `--selftest`.
+  after its `--self-test`.
 - Bangs the base had and the tip dropped: `python3 $T/bang-drops.py OLD NEW`
   over two source trees.
 - Unbanged bindings that a lambda, a section or a per-element combinator reads:

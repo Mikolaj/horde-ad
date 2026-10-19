@@ -168,12 +168,11 @@ than being quietly untested: there is no makefile, so the `make <target>`
 branch is off (MAKEFILE is ""), and no command-line parser, so every
 `--flag` falls through to the external and unknown buckets. Both are
 exercised by the LambdaHack copy of this script, which below the
-configuration block is meant to stay identical to this one
-(`tools/check-twin-sync.py` compares them whenever both checkouts are
-mounted). What differs by design is the
-docstring and the configuration block, the self-test rows among them ---
-each repo's own --- so a reader syncing one file to the other syncs the
-code below the block and nothing else.
+configuration block is meant to stay identical to this one (the sync
+session compares them with `tools/check-twin-sync.py`). What differs by
+design is the docstring and the configuration block, the self-test rows
+among them --- each repo's own --- so a reader syncing one file to the
+other syncs the code below the block and nothing else.
 """
 
 import concurrent.futures
@@ -293,33 +292,16 @@ PATH_EXT = ("hs", "ts", "mjs", "py", "cabal", "html", "md", "yaml", "yml",
             "json", "sh", "txt", "c", "h")
 
 TICK_RE = re.compile(r"`([^`\n]+)`")
-# A list item's marker and the spaces after it, its end the item's content
-# column; behind five spaces or more the content starts after one, the rest
-# opening code inside the item.
-LIST_ITEM_RE = re.compile(r" *(?:[-*+]|\d{1,9}[.)])(?: {1,4}(?! )| |$)")
-ATX_RE = re.compile(r" {0,3}#{1,6}(?:\s|$)")
-# Up to three spaces of indentation, as CommonMark has it: four make the
-# line indented code (check-doc-refs-08).
 
 
 def unwrapped(text):
-    """The document with each paragraph on one line, via `wrap80 --unwrap`.
-
-    Shelled out to rather than reimplemented, so that what counts as a
-    paragraph here is what counts as one everywhere else: the formatter that
-    writes these documents is the only definition worth having. Without
-    wrap80 the text is returned as it came, which loses nothing that a
-    line-based read did not already lose -- so this degrades to the previous
-    behaviour rather than failing, unlike the wrapping check, which reports
-    nothing at all when it cannot run.
-    """
+    """common.unwrapped's document, WRAP80_MISSING set where wrap80 did not
+    run: this degrades to the line-based read rather than failing, unlike
+    the wrapping check, which reports nothing at all when it cannot run."""
     global WRAP80_MISSING
-    try:
-        return subprocess.run(["wrap80", "--unwrap"], input=text, text=True,
-                              capture_output=True, check=True).stdout
-    except (OSError, subprocess.CalledProcessError):
-        WRAP80_MISSING = True
-        return text
+    flat, ran = common.unwrapped(text)
+    WRAP80_MISSING |= not ran
+    return flat
 
 
 WRAP80_MISSING = False
@@ -471,42 +453,14 @@ def command_text(text, flat):
     count is not printed and both were resolving anyway. What a checker can
     see must not depend on where the prose happens to break.
     """
-    parts = TICK_RE.findall(flat)
-    # The open fence, kind and length: CommonMark closes a block only with
-    # a fence of the same character at least as long, so a backtick fence
-    # shown inside a tilde block is content. One boolean flipped by any
-    # fence line read it as the closer, and the phase stayed inverted for
-    # the rest of the document (check-doc-refs-05).
-    # items: the content columns of the open list items, innermost last;
-    # para: the line before continues a paragraph; code: it is code.
-    items, para, code = [], False, False
-    for line, kind, _ in common.fence_scan(text.splitlines()):
-        if kind == "in":
-            parts.append(line)
-        if kind is not None:
-            para = code = False
-            continue
-        if not line.strip():
-            para = False
-            continue
-        flat_line = line.expandtabs(4)
-        ind = len(flat_line) - len(flat_line.lstrip(" "))
-        if ind >= (items[-1] if items else 0) + 4 and (code or not para):
-            parts.append(line)
-            code = True
-            continue
-        code = False
-        # A marker, a heading or a paragraph's first line closes the items
-        # it is not inside; a heading continues no paragraph.
-        m = LIST_ITEM_RE.match(flat_line)
-        heading = ATX_RE.match(flat_line)
-        if m or heading or not para:
-            while items and items[-1] > ind:
-                items.pop()
-        if m:
-            items.append(m.end())
-        para = not heading
-    return "\n".join(parts)
+    # The blocks are common.blocks', the fences fence_scan's: CommonMark
+    # closes a block only with a fence of the same character at least as
+    # long, so a backtick fence shown inside a tilde block is content. One
+    # boolean flipped by any fence line read it as the closer, and the phase
+    # stayed inverted for the rest of the document (check-doc-refs-05).
+    return "\n".join(TICK_RE.findall(flat) + [
+        line for line, kind, _ in common.blocks(text.splitlines())
+        if kind in ("in", "code")])
 
 
 def module_path(token):
@@ -761,10 +715,6 @@ def checker(no_siblings):
     return check
 
 
-# A heading as GitHub anchors it: ATX, indented at most three spaces, a
-# closing run of `#` dropped only after a space. No document here has a
-# Setext heading.
-HEADING_RE = re.compile(r" {0,3}(#{1,6})(?:[ \t]+(.*?))?(?:[ \t]+#+)?[ \t]*$")
 # A code span, opened and closed by backtick runs of one length, which a
 # link inside it is not.
 CODE_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`).*?(?<!`)\1(?!`)")
@@ -792,21 +742,18 @@ def github_slug(text):
 
 
 def doc_headings(text):
-    """[(line, level, anchor, text)] of TEXT's headings outside fenced code,
-    lines counted from 0. A repeated anchor gets -1, -2, ..., passing over
-    one a heading already has, as github-slugger does."""
+    """[(line, level, anchor, text)] of TEXT's headings as common.headings
+    returns them, lines counted from 0. A repeated anchor gets -1, -2, ...,
+    passing over one a heading already has, as github-slugger does."""
     seen, out = {}, []
-    for i, (line, kind, _) in enumerate(common.fence_scan(text.split("\n"))):
-        m = HEADING_RE.match(line) if kind is None else None
-        if not m:
-            continue
-        title = heading_text(m.group(2) or "")
+    for i, level, raw in common.headings(text.split("\n")):
+        title = heading_text(raw)
         base = anchor = github_slug(title)
         while anchor in seen:
             seen[base] += 1
             anchor = f"{base}-{seen[base]}"
         seen[anchor] = 0
-        out.append((i, len(m.group(1)), anchor, title))
+        out.append((i, level, anchor, title))
     return out
 
 
@@ -815,7 +762,7 @@ def link_target(url, doc, own, root):
     permalink pins, None for the working tree; path relative to ROOT;
     anchor None for none, a line anchor (`#L12`) included. None for a link
     elsewhere and for a GitHub link of this repository naming no heading,
-    which pass 1 reads where it pins a commit."""
+    which pass 1 checks where it pins a commit."""
     base, hashed, anchor = url.partition("#")
     anchor = urllib.parse.unquote(anchor) if hashed else None
     line = anchor is not None and re.fullmatch(r"L\d+(?:-L?\d+)?", anchor)

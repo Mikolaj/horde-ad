@@ -21,7 +21,7 @@ may be the contract, as for a boxed element a caller may leave undefined,
 and a binding read once outside the loop costs nothing.
 
 Exit 0 when nothing was found, 1 when something was, 2 when TREE holds
-no `.hs` file.
+no `.hs` file or one that cannot be read.
 """
 
 import os
@@ -118,7 +118,11 @@ def main(argv):
     if len(argv) != 1 or argv[0].startswith('--'):
         print(__doc__.split('\n\n')[1], file=sys.stderr)
         return 2
-    lines, read = reads(argv[0])
+    try:
+        lines, read = reads(argv[0])
+    except OSError as e:  # a traceback and exit 1 before (lazy-reads-02)
+        print(f'cannot read {e.filename}: {e.strerror}', file=sys.stderr)
+        return 2
     if not read:
         print(f'no .hs file under {argv[0]}', file=sys.stderr)
         return 2
