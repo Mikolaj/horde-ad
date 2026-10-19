@@ -61,8 +61,9 @@ is changed and judged.
 
 Needs gcc, objdump and a perf that counts user cycles; exit 2 when one is
 missing or fails, a binary's disassembly shows no head, a kernel's
-arguments are not ones it takes or a table to rescore is unreadable, 0
-otherwise. Writes only under a temporary directory.
+arguments are not ones it takes or a table to rescore is unreadable, 1
+when a residue misses, 0 otherwise. Writes only under a temporary
+directory.
 Written 2026-09-15; the rules are the guide's sentences and the scoring
 is the probe's own, so a rule that scores is evidence and one that does
 not is a rule the sweep refutes on this core.
@@ -296,7 +297,8 @@ def rescore(path):
                  'ok' if ok else 'MISS'))
     print('# %d of %d residues miss%s' % (len(miss), len(meas),
           ': ' + ' '.join(map(str, miss)) if miss else ''))
-    return 0
+    return 1 if miss else 0     # exit 0 with misses before
+                                # (fetch-model-exits-0-on-a-miss)
 
 
 def main():
@@ -386,7 +388,8 @@ def main():
                  ': ' + ' '.join(map(str, miss)) if miss else ''))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-    return 0
+    return 1 if miss else 0     # exit 0 with misses before
+                                # (fetch-model-exits-0-on-a-miss)
 
 
 if __name__ == '__main__':

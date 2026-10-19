@@ -7440,6 +7440,59 @@
    "expect_text": "(b_0 :: GHC.Types.Type)",
    "expect_absent": "b~0",
    "bug_text": "(b~0 :: GHC.Types.Type)"
+  },
+  {
+   "id": "fetch-model-exits-0-on-a-miss",
+   "program": "probe-fetch-model.py",
+   "name": "a sweep or a rescore whose residues missed the prediction exited 0, as a clean run does, where a script under tools/ exits 1 with findings",
+   "family": "other:dropped-status",
+   "fix_rev": "self",
+   "trigger": "a saved straight split table rescored, its one residue measured at 5 cycles against a predicted 1.25",
+   "ok": "the MISS row, exit 1",
+   "bug": "the MISS row, exit 0",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "notes": "Found 2026-10-19 in a shape pass setting each probe's exits against CLAUDE.md's convention, which lists neither probe among its exceptions; the sweep's exit is set the same way.",
+   "plant_cmd": "printf '%s\\n' '# kernel: straight 2 3 split' '# layout: head:mov+0/3 mov+3/3 dec+6/2 mov+8/3 jnz+11/2 out:pop+13/2' ' 0   5.00   1.00   0.00   0.00' > t.txt",
+   "invoke": [
+    "rescore",
+    "{tmp}/t.txt"
+   ],
+   "expect_exit": 1,
+   "expect_text": "MISS",
+   "bug_exit": 0,
+   "bug_text": "MISS"
+  },
+  {
+   "id": "entries-sweep-exits-0-on-a-miss",
+   "program": "probe-entries-sweep.py",
+   "name": "a fill sweep whose entry count missed the cycles at an offset exited 0, as a clean run does, where a script under tools/ exits 1 with findings",
+   "family": "other:dropped-status",
+   "fix_rev": "self",
+   "trigger": "stub tools, the cycles the same at every offset and a layout whose fetch entries at K=37 are one more than at K=0",
+   "ok": "the K=37 row MISS, exit 1",
+   "bug": "the K=37 row MISS, exit 0",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "review",
+   "notes": "Found with fetch-model-exits-0-on-a-miss.",
+   "plant_cmd": "mkdir -p stub && cat > stub/python3 <<'EOF_STUB_PYTHON3'\n#!/bin/sh\nexec /usr/bin/python3 \"$@\"\nEOF_STUB_PYTHON3\ncat > stub/perf <<'EOF_STUB_PERF'\n#!/bin/sh\no=; e=\nwhile [ $# -gt 0 ]; do case $1 in -o) o=$2; shift;; -e) e=$2; shift;; esac; shift; done\nIFS=,\nfor ev in $e; do echo \"1000,,$ev,100,100.00,,\"; done > \"$o\"\nEOF_STUB_PERF\ncat > stub/objdump <<'EOF_STUB_OBJDUMP'\n#!/bin/sh\nprintf '%s\\n' '' '0000000000001000 <head>:' '    1000:\t90 90 90\tmov' '    1003:\t90 90 90\tmov' '    1006:\t90 90 90\tmov' '    1009:\t90 90 90\tmov' '    100c:\t90 90 90\tmov' '    100f:\t90 90 90\tmov' '    1012:\t90 90 90\tmov' '    1015:\t90 90 90\tmov' '    1018:\t90 90 90\tmov' '    101b:\t90 90 90\tmov' '    101e:\t90 90 90\tmov' '    1021:\t90 90 90\tmov' '    1024:\t90 90 90\tmov' '    1027:\t90 90 90\tmov' '    102a:\t90 90 90\tmov' '    102d:\t90 90 90\tmov' '    1030:\t90 90 90\tcmp' '    1033:\t90 90\tjge' '    1035:\t90 90 90\tmov' '    1038:\t90 90 90\tmov' '    103b:\t90 90 90\tmov' '    103e:\t90 90 90\tmov' '    1041:\t90 90\tjmp' '    1043:\t90 90 90 90\tlea' '    1047:\t90 90 90\tcmp' '    104a:\t90 90\tjl' '    104c:\t90\tret'\nEOF_STUB_OBJDUMP\ncat > stub/gcc <<'EOF_STUB_GCC'\n#!/bin/sh\nwhile [ $# -gt 0 ]; do case $1 in -o) : > \"$2\"; shift;; esac; shift; done\nEOF_STUB_GCC\nchmod 755 stub/*",
+   "env": {
+    "PATH": "{tmp}/stub"
+   },
+   "invoke": [
+    "fill",
+    "--only",
+    "0",
+    "37",
+    "--pairs",
+    "1"
+   ],
+   "expect_exit": 1,
+   "expect_text": "37        0.00          0.00        6      1  MISS",
+   "bug_exit": 0,
+   "bug_text": "MISS"
   }
  ]
 }

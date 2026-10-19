@@ -38,7 +38,8 @@ at 0..8 and 22..31 and 5 or 6 elsewhere, 9 reading as 10; the entry
 count reproduces 51 to 54 of the 64, missing 18, 22, 32..35 and 60..63
 on every run and 19..21 on some. Needs gcc, objdump and a perf that
 counts user cycles; exit 2 when one is missing or fails or a binary's
-disassembly shows no head, 0 otherwise.
+disassembly shows no head, 1 when the fill's entry count misses at an
+offset, 0 otherwise.
 Writes only under a temporary directory. A MISS on a lone offset can be
 the machine's: re-read it with `--only K --pairs 4` before believing it.
 """
@@ -267,7 +268,8 @@ def main():
                      ': ' + ' '.join(map(str, mism)) if mism else ''))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-    return 0
+    return 1 if mism else 0     # exit 0 with misses before
+                                # (entries-sweep-exits-0-on-a-miss)
 
 
 if __name__ == '__main__':
