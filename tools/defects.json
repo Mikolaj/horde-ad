@@ -7422,6 +7422,24 @@
    "expect_text": "    0   0.5   1.25 ok",
    "bug_exit": 0,
    "bug_text": "    0     0   1.25 ok"
+  },
+  {
+   "id": "row-core-06",
+   "program": "row-core.py",
+   "name": "a forall's binders were taken up to the first dot, which falls inside a qualified kind, so a binder after a kinded one was no binding site and was renamed as a name whose site is not found",
+   "family": "scan-for-parse",
+   "fix_rev": "self",
+   "trigger": "a term holding forall (a :: GHC.Types.Type) (b :: GHC.Types.Type). a -> b",
+   "ok": "b renamed by its binding site, b_0, as a is",
+   "bug": "b renamed b~0, as a name with no binding site",
+   "proved": "ran",
+   "harm": "latent",
+   "discovery": "generalisation",
+   "notes": "Found 2026-10-19 by asking where else box-audit-05's shape stood. The pattern now spans the binders as dumps.FORALL does.",
+   "unit": "shape('M', 'f = \\\\ (x :: forall (a :: GHC.Types.Type) (b :: GHC.Types.Type). a -> b) -> x', lambda m, t: None)[0]",
+   "expect_text": "(b_0 :: GHC.Types.Type)",
+   "expect_absent": "b~0",
+   "bug_text": "(b~0 :: GHC.Types.Type)"
   }
  ]
 }

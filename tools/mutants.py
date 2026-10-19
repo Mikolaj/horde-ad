@@ -1855,6 +1855,11 @@ MUTANTS = [
     ("row-core a letrec's items open only from their own site", 'row-core.py',
      '            sites.append((toks[q], q, g if rec else q, outer))\n',
      '            sites.append((toks[q], q, q, outer))\n', ST),
+    ("row-core a forall cut at a qualified kind's dot (row-core-06)",
+     'row-core.py',
+     'FORALL = re.compile(r"\\bforall((?:\\s*(?:\\([^()]*\\)|\\{[^{}]*\\}|'
+     '[\\w\']+))*)\\s*\\.")\n',
+     "FORALL = re.compile(r'\\bforall ([^.]*)\\.')\n", ST),
     # row-core-04 (2026-10-18): string literals blanked before names are
     # matched; each watched failing its self-test before it was written here.
     ("row-core a string's words reached from a row", 'row-core.py',

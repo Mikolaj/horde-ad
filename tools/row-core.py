@@ -280,7 +280,9 @@ BINDER = re.compile(r"\((?:@\()?@?([a-z_$][\w$'#]*) ::")
 BARE = re.compile(r"@?([a-z_$][\w$'#]*)")
 CASEOF = re.compile(r"\bof (?:([a-z_$][\w$'#]*) )?\{")
 GROUP = re.compile(r'\b(letrec|joinrec|let|join) \{')
-FORALL = re.compile(r'\bforall ([^.]*)\.')
+# A forall's binders, a kinded one's parentheses stepped over whole as by
+# dumps.FORALL: the first dot can fall inside a qualified kind (row-core-06).
+FORALL = re.compile(r"\bforall((?:\s*(?:\([^()]*\)|\{[^{}]*\}|[\w']+))*)\s*\.")
 STRING = re.compile(r'"(?:[^"\\]|\\.)*"')
 KEYWORDS = frozenset(('case', 'of', 'let', 'letrec', 'in', 'join', 'joinrec',
                       'forall', '__DEFAULT'))
@@ -981,6 +983,10 @@ def checks(bad, td):
     tyb = shaped('\\ (@(a :: [Nat])) (x :: a) -> x')
     if '(x_0 :: a_0) -> x_0' not in tyb:
         bad.append(f"a lambda's binders after a type binder missed: {tyb!r}")
+    kinded = shaped('\\ (x :: forall (a :: GHC.Types.Type)'
+                    ' (b :: GHC.Types.Type). a -> b) -> x')
+    if '(b_0 :: GHC.Types.Type)' not in kinded:
+        bad.append(f"a forall's binder after a kinded one missed: {kinded!r}")
     if shaped(rec) != shaped(rec.replace('-> g x; g =', '-> g1 x; g1 =')):
         bad.append(f"a letrec's forward reference misread: {shaped(rec)!r}")
     # A word in a string literal is no name (row-core-04): it reaches no
