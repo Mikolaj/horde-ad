@@ -259,7 +259,7 @@ cell contradicts that (README, the open list).
 
 **The block rules, `LOOP_BLOCKRULES=1`** (2026-09-15, evening): the
 cost `probe-fetch-model.py` fitted to nine sweeps, 319 of 320 residues
-on the loops the front end bounds, carried over rule for rule -- one
+on the loops the front end bounds, kept in fetchmodel.py for both -- one
 cycle a fetch block, a straddling first instruction leaving an empty
 block that is fetched like any other; a whole cycle for a segment's
 taken conditional branch, or its fused pair, astride the boundary or
@@ -462,6 +462,11 @@ import re
 import subprocess
 import sys
 import tempfile
+
+# Beside this file, which a path import (a defect case's unit) leaves off
+# sys.path.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from fetchmodel import block_rules, prepared  # noqa: E402
 
 
 def switch(name):
@@ -704,88 +709,6 @@ def entry_cost(segs, r):
         tot += (sum(-(-n // ENTRY_OPS) for n in pieces.values())
                 - -(-len(seg) // ENTRY_OPS))
     return tot
-
-
-FUSABLE = {'cmp', 'test', 'add', 'sub', 'and', 'or', 'xor', 'inc', 'dec',
-           'cmpq', 'cmpl', 'testq', 'testl', 'addq', 'addl', 'subq', 'subl',
-           'andq', 'andl', 'orq', 'orl', 'xorq', 'xorl', 'incq', 'incl',
-           'decq', 'decl'}
-HEAD_TAIL = 8             # a head this close to the line's end pays a cycle
-
-
-def is_cond(mn):
-    # jmp with an operand-size suffix, LLVM's jmpq, is no conditional branch
-    # either (align-as-reads-jmpq-as-a-conditional-branch).
-    return mn.startswith('j') and not re.fullmatch(r'jmp[qlw]?', mn)
-
-
-def prepared(segs):
-    """The per-segment figures `block_cost` needs at every residue, taken
-    once: instruction starts, ends and mnemonics, the op count less fused
-    pairs, and the taken branch's own bytes. A build prices 1874 heads at
-    64 residues each, so what is per segment and not per residue is done
-    here -- 419 of 452 seconds went to redoing it, profiled 2026-09-15."""
-    out = []
-    for seg in segs:
-        if not seg:
-            continue
-        starts = [s for s, _, _ in seg]
-        ends = [e for _, e, _ in seg]
-        mns = [m for _, _, m in seg]
-        fusedpairs = sum(1 for x, y in zip(mns, mns[1:])
-                         if x in FUSABLE and y.startswith('j'))
-        last = mns[-1]
-        fused = len(seg) >= 2 and mns[-2] in FUSABLE and is_cond(last)
-        prev = [n for n in range(len(seg) - 1) if mns[n].startswith('j')
-                and not (fused and n == len(seg) - 2)]
-        out.append(dict(starts=starts, ends=ends, mns=mns,
-                        ops=len(seg) - fusedpairs, last=last, fused=fused,
-                        pair_start=starts[-2] if fused else starts[-1],
-                        prev_end=ends[prev[-1]] if prev else None))
-    return out
-
-
-def block_cost(segs, r):
-    """Front-end cycles of a cycle placed with its head at residue `r`,
-    `probe-fetch-model.py`'s rules as fitted on 2026-09-15: fetch blocks
-    over the dispatcher's floor, plus the penalties the docstring lists,
-    whole where the blocks bound the loop and halved otherwise. `segs` is
-    `prepared`'s list, the body first; each segment ends in its taken
-    branch and every branch inside it is taken not to be."""
-    ops, blocks, whole, half = 0, 0, 0, 0.0
-    for n_seg, sg in enumerate(segs):
-        ends, starts = sg['ends'], sg['starts']
-        ops += sg['ops']
-        lines = {(r + e - 1) >> 6 for e in ends}
-        blocks += len(lines)
-        if (r + starts[0]) >> 6 != (r + ends[0] - 1) >> 6:
-            blocks += 1                              # the empty block left
-        if n_seg == 0 and r % 64 >= 64 - HEAD_TAIL:
-            whole += 1                               # a head near the end
-        last_line = (r + ends[-1] - 1) >> 6
-        whole_in_last = 0
-        for n in range(len(ends) - 1, -1, -1):
-            if (r + ends[n] - 1) >> 6 != last_line:
-                break
-            if (r + starts[n]) >> 6 == last_line:
-                whole_in_last += 1
-        last = sg['last']
-        if is_cond(last):
-            lb = r + ends[-1] - 1
-            cut = (r + sg['pair_start']) >> 6 != lb >> 6
-            if not cut and sg['prev_end'] is not None:
-                cut = (r + sg['prev_end'] - 1) >> 6 != lb >> 6
-            if cut:
-                whole += 1
-            if not sg['fused']:
-                half += 0.5
-            if len(lines) > 1 and whole_in_last <= 3 and not cut:
-                half += 1
-        elif last == 'jmp' and whole_in_last <= 1:
-            half += 1
-    floor = max(ops / 6.0, blocks)
-    w = 1.0 if blocks >= ops / 6.0 else 0.5
-    return floor + w * (whole + half / 2.0)
 
 
 def branch_cost(segs, r):
@@ -1102,11 +1025,11 @@ def plan_dead(src, args, path):
                                mnemonic)
             if (BLOCKRULES or SETTLED) and SEGS[h][0]:
                 pre = prepared(SEGS[h])
-                costs = [block_cost(pre, r) for r in range(BOUND)]
+                costs = [block_rules(pre, r)[-1] for r in range(BOUND)]
                 least = min(costs)
                 BC[h] = [c - least for c in costs]
                 if SETTLED:
-                    costs = [block_cost(pre, r) + branch_cost(pre, r)
+                    costs = [block_rules(pre, r)[-1] + branch_cost(pre, r)
                              for r in range(BOUND)]
                     least = min(costs)
                     BS[h] = [c - least for c in costs]
@@ -1193,17 +1116,18 @@ def plan_dead(src, args, path):
             best = None
             for d in reversed(cands):
                 costs = [cost(d, p, how) for p in range(BOUND)]
+                # Under the settled plan a spot no jump crosses wins on
+                # cost alone, then the nearer spot, a pad growing only the
+                # jumps that cross it; the other costs let the budget
+                # decide a tie, which is what chose `.LQeN1`'s far spot
+                # (the docstring). The crossing is the spot's, whatever
+                # the residue.
+                spot = (crossing(d, hl[0][0]), hl[0][0] - d) if SETTLED else ()
                 for rho in range(BOUND):
                     c0 = costs[rho]
                     m = max(((BOUND - p) % BOUND for p in range(BOUND)
                              if costs[(p + rho) % BOUND] > c0), default=-1)
-                    # Under the settled plan a spot no jump crosses wins
-                    # on cost alone, then the nearer spot, a pad growing
-                    # only the jumps that cross it; the other costs let
-                    # the budget decide a tie, which is what chose
-                    # `.LQeN1`'s far spot (the docstring).
-                    key = ((c0, crossing(d, hl[0][0]), hl[0][0] - d, rho, m)
-                           if SETTLED else (c0, rho, m))
+                    key = (c0,) + spot + (rho, m)
                     if best is None or key < best[0]:
                         best = (key, ((c0, rho, m), d))
             return best[1]

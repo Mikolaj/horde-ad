@@ -37,8 +37,8 @@ Measured 2026-09-15 on the Ryzen 7 5800X: the fill runs 4 cycles a run
 at 0..8 and 22..31 and 5 or 6 elsewhere, 9 reading as 10; the entry
 count reproduces 51 to 54 of the 64, missing 18, 22, 32..35 and 60..63
 on every run and 19..21 on some. Needs gcc, objdump and a perf that
-counts user cycles; exit 2 when one is missing or stops answering, 1 when
-a build fails, 0 otherwise.
+counts user cycles; exit 2 when one is missing or fails or a binary's
+disassembly shows no head, 0 otherwise.
 Writes only under a temporary directory. A MISS on a lone offset can be
 the machine's: re-read it with `--only K --pairs 4` before believing it.
 """
@@ -52,12 +52,10 @@ import subprocess
 import sys
 import tempfile
 
-
-def die(msg):
-    """Exit 2 -- did not run -- rather than `sys.exit(str)`'s 1, which is
-    the code a finding gets (2026-09-25, by review)."""
-    sys.stderr.write(msg.rstrip('\n') + '\n')
-    sys.exit(2)
+# Beside this file, which a path import (a defect case's unit) leaves off
+# sys.path.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from fetchmodel import REGS, build, counts, die  # noqa: E402
 
 
 PROBE_NAME = 'probe-entries-sweep'
@@ -129,8 +127,6 @@ int main(int argc, char **argv) {
   return 0;
 }
 ''' % RUNS
-REGS = ['%rcx', '%rdx', '%rsi', '%r8', '%r9', '%r10', '%r11', '%r12',
-        '%r13', '%r14', '%r15', '%rbx']
 STRAIGHT_MAIN = 'extern void kern(long);\nint main(void){kern(%d);return 0;}\n'
 EVENTS = 'cycles:u,r20000078f:u'
 
@@ -155,42 +151,6 @@ head:
 ''' % body
 
 
-def build(tmp, asm, cmain, k):
-    """-> the binary for head offset k, or None with the error printed."""
-    s, c, b = (os.path.join(tmp, f) for f in ('k.S', 'main.c', 'k%d' % k))
-    with open(s, 'w') as f:
-        f.write(asm)
-    with open(c, 'w') as f:
-        f.write(cmain)
-    got = subprocess.run(['gcc', '-O1', '-DK=%d' % k, c, s, '-o', b],
-                         capture_output=True, text=True)
-    if got.returncode:
-        print('probe-entries-sweep: gcc failed at K=%d: %s'
-              % (k, got.stderr.strip().split('\n')[-1]), file=sys.stderr)
-        return None
-    return b
-
-
-def counts(binary, arg):
-    """The two counters over one process, or None when perf did not count."""
-    with tempfile.NamedTemporaryFile(delete=False) as f:
-        out = f.name
-    ran = subprocess.run(['perf', 'stat', '-x,', '-e', EVENTS, '-o', out,
-                          binary, str(arg)], stdout=subprocess.DEVNULL,
-                         stderr=subprocess.DEVNULL)
-    if ran.returncode:
-        os.unlink(out)
-        return None
-    vals = []
-    with open(out) as f:
-        for line in f:
-            p = line.split(',')
-            if len(p) > 3 and p[0].strip().isdigit():
-                vals.append(int(p[0]))
-    os.unlink(out)
-    return vals if len(vals) == 2 else None
-
-
 def layout(binary):
     """(offset from head, length, mnemonic) of every instruction from `head`
     to the `ret`, read off objdump, so the model prices the bytes the
@@ -201,6 +161,8 @@ def layout(binary):
         die('%s: objdump -d %s exited %d' % (PROBE_NAME, binary,
                                              got.returncode))
     out = got.stdout
+    if '<head>:' not in out or '\tret' not in out[out.index('<head>:'):]:
+        die('%s: objdump -d %s shows no head to ret' % (PROBE_NAME, binary))
     sec = out[out.index('<head>:'):]
     sec = sec[:sec.index('\tret')]
     rows, head = [], None
@@ -251,7 +213,7 @@ def main():
         if shutil.which(tool) is None:
             die('probe-entries-sweep: %s is not on PATH; nothing ran'
                 % tool)
-    probe = counts('/bin/true', '')
+    probe = counts('/bin/true', '', EVENTS)
     if probe is None:
         die('probe-entries-sweep: perf does not count %s here'
             ' (kernel.perf_event_paranoid?); nothing ran' % EVENTS)
@@ -270,12 +232,13 @@ def main():
     mism = []
     try:
         for k in ks:
-            b = build(tmp, asm, cmain, k)
+            b = build(tmp, asm, cmain, k, PROBE_NAME)
             if b is None:
-                return 1
+                return 2
             readings = []
             for _ in range(args.pairs):
-                hi, lo = counts(b, iters[0]), counts(b, iters[1])
+                hi = counts(b, iters[0], EVENTS)
+                lo = counts(b, iters[1], EVENTS)
                 if hi is None or lo is None:
                     die('probe-entries-sweep: perf stopped counting at'
                         ' K=%d; the rows above stand' % k)

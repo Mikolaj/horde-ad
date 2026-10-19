@@ -46,6 +46,11 @@ import sys
 import tempfile
 from unittest import mock
 
+# Beside this file, which a path import (a defect case's unit) leaves off
+# sys.path.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from common import measured_env  # noqa: E402
+
 EVENTS = ('instructions', 'cycles')
 
 # How far a build's instruction differences may spread, as a fraction of
@@ -102,13 +107,6 @@ def estimate(runs, n):
             mid = statistics.median(xs)
         est[e] = (mid, min(xs), max(xs))
     return est
-
-
-def measured_env():
-    """The environment of a measured run: the caller's, with -V0 last in
-    GHCRTS."""
-    return dict(os.environ,
-                GHCRTS=(os.environ.get('GHCRTS', '') + ' -V0').strip())
 
 
 def run(binary, name, iters, cpu, out):

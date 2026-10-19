@@ -36,8 +36,9 @@ hides; a summed cell runs through a script, written for the run, passing
 mode, cell, N, instructions a call of A and of B, B/A to four decimals and
 perf-per-call's exit (1 where a build's repetitions spread over 1%), or `-`
 for the three figures and then the tool's output where it printed none.
-Cells already in OUT are skipped, so a count interrupted resumes.
-`--cpus` splits the cells over lanes, one a CPU, every run of a lane
+Cells OUT has figures for are skipped, so a count interrupted resumes and
+a cell whose count failed is counted again, read taking a cell's last line
+in a file. `--cpus` splits the cells over lanes, one a CPU, every run of a lane
 pinned to its CPU (`2,3,4,5`, four on separate cores, in the study this
 was written for); `--reps` is perf-per-call's. Differences between N and 2N
 calls are what perf-per-call reports, so the two runs the harness makes of
@@ -245,7 +246,9 @@ def count(bins, forced, summed, cells_path, out, cpus, reps):
     sized = {(m, c): calls(tabs[m], c) for m, c in want}
     done = set()
     if os.path.exists(out):
-        done = {tuple(line.split('\t')[:2]) for line in lines_of(out)}
+        done = {tuple(r[:2]) for r in (line.split('\t')
+                                       for line in lines_of(out))
+                if len(r) > 3 and r[3] != '-'}
     todo = [mc for mc in want if mc not in done]
     if not todo:
         return [f'all {len(want)} cells of {cells_path} are in {out}'], 0
@@ -272,9 +275,11 @@ def count(bins, forced, summed, cells_path, out, cpus, reps):
 
 
 def counts(paths):
-    """(counted rows, failed rows) of count files."""
+    """(counted rows, failed rows) of count files, a cell's last line in a
+    file standing for it, as a count retrying a failed cell appends."""
     rows, bad = [], []
     for p in paths:
+        last = {}
         for k, line in enumerate(lines_of(p), 1):
             if not line:
                 continue
@@ -284,13 +289,13 @@ def counts(paths):
                     raise ValueError
                 cell_parts(r[1])
                 int(r[2])
-                if r[5] == '-':
-                    bad.append(r)
-                else:
+                if r[5] != '-':
                     float(r[3]), float(r[4]), float(r[5])
-                    rows.append(r)
             except (ValueError, Unreadable):
                 raise Unreadable(f'{p}:{k}: not a count line: {line[:80]!r}')
+            last[tuple(r[:2])] = r
+        for r in last.values():
+            (bad if r[5] == '-' else rows).append(r)
     if not rows and not bad:
         raise Unreadable('no count line in ' + ' '.join(paths))
     return rows, bad
@@ -572,6 +577,12 @@ def checks(bad, td):
         got, rc = read([failing])
         if rc != 1 or not got[0].startswith('8 cells, 8 failed'):
             bad.append(f'read of a failing count: {rc} {got[:1]}')
+        put('shim/perf', PERF, 0o755)
+        msg, rc = run(['count'] + bins + [fa, sa, cells_path, failing])
+        got, _ = read([failing])
+        if rc != 0 or not msg[0].startswith('8 cells counted') \
+                or not got[0].startswith('8 cells, 0 failed'):
+            bad.append(f'a failed count resumed: {rc} {msg} {got[:1]}')
     seen = []
 
     def raising(x, cpu):

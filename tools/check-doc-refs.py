@@ -294,19 +294,6 @@ PATH_EXT = ("hs", "ts", "mjs", "py", "cabal", "html", "md", "yaml", "yml",
 TICK_RE = re.compile(r"`([^`\n]+)`")
 
 
-def unwrapped(text):
-    """common.unwrapped's document, WRAP80_MISSING set where wrap80 did not
-    run: this degrades to the line-based read rather than failing, unlike
-    the wrapping check, which reports nothing at all when it cannot run."""
-    global WRAP80_MISSING
-    flat, ran = common.unwrapped(text)
-    WRAP80_MISSING |= not ran
-    return flat
-
-
-WRAP80_MISSING = False
-
-
 CITE_RE = re.compile(r":\d+(?:-\d+)?(?:,\d+(?:-\d+)?)*$")
 # The comma form is `check-plan-citations.py`'s: its `spans` expands
 # "222,1581" and "353,362,771-781" and checks every member. Recognising
@@ -686,11 +673,13 @@ def used_in_repo(flag, self_path):
 
 
 def read_doc(doc):
-    """The document's text and its unwrapped form, read once for both
-    checkers: each used to read and unwrap it for itself, two wrap80 runs
-    per document."""
+    """The document's text, its unwrapped form and whether wrap80 ran, read
+    once for both checkers: each used to read and unwrap it for itself, two
+    wrap80 runs per document. Where wrap80 did not run, this degrades to the
+    line-based read rather than failing, unlike the wrapping check, which
+    reports nothing at all when it cannot run."""
     text = open(doc, encoding="utf-8").read()
-    return text, unwrapped(text)
+    return (text, *common.unwrapped(text))
 
 
 def checker(no_siblings):
@@ -724,13 +713,20 @@ LINK_RE = re.compile(r"\]\(\s*<?([^\s)>]+)|^ {0,3}\[(?!\^)[^\]]+\]:\s*<?([^\s>]+
 CONTENTS = ("contents", "table of contents")
 
 
+# A code span, or emphasis, single or double, opening where no word
+# character precedes it and closing where none follows: an underscore inside
+# a word, foo_bar_baz, emphasises nothing (check-doc-refs-15).
+SPAN_OR_EMPH = re.compile(r"(`+)(.+?)\1"
+                          r"|(?<!\w)(\*{1,2}|_{1,2})(?=\S)(.+?)(?<=\S)\3(?!\w)")
+
+
 def heading_text(raw):
     """A heading's text as GitHub renders it: a link keeps its text, code
-    its content and bold its words."""
+    its content verbatim and emphasis its words."""
     t = re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", raw)
     t = re.sub(r"\[([^\]]*)\]\[[^\]]*\]", r"\1", t)
-    t = t.replace("`", "")
-    return re.sub(r"[*_]{2}(.+?)[*_]{2}", r"\1", t).strip()
+    return SPAN_OR_EMPH.sub(lambda m: m.group(2) if m.group(1)
+                            else m.group(4), t).strip()
 
 
 def github_slug(text):
@@ -931,7 +927,7 @@ and [third](#third) and `[code](#in-code)` and
         text = a_doc % {"sha": sha}
         buf = io.StringIO()
         with contextlib.redirect_stdout(buf):
-            n = check_anchors("a.md", unwrapped(text), "x/y", root)
+            n = check_anchors("a.md", common.unwrapped(text)[0], "x/y", root)
         output = buf.getvalue()
     fails = [l for l in output.splitlines() if l.startswith("FAIL")]
     if n != len(want_fail) or len(fails) != n:
@@ -975,7 +971,7 @@ def self_test():
         buf = io.StringIO()
         check = checker(no_siblings)
         with contextlib.redirect_stdout(buf):
-            n = check(*read_doc(doc), out)
+            n = check(*read_doc(doc)[:2], out)
         return n, buf.getvalue(), out
 
     try:
@@ -1117,7 +1113,7 @@ def main():
     # The documents unwrapped in parallel, a wrap80 run each.
     with concurrent.futures.ThreadPoolExecutor() as pool:
         read = list(pool.map(read_doc, docs))
-    for doc, (text, flat) in zip(docs, read):
+    for doc, (text, flat, _) in zip(docs, read):
         if len(docs) > 1:
             print(f"\n=== {doc} ===")
         failures += check(text, flat, out)
@@ -1138,7 +1134,7 @@ def main():
               + (":" if always or verbose else " (-v to list)"))
         if always or verbose:
             print("  " + ", ".join(items))
-    if WRAP80_MISSING:
+    if not all(ran for _, _, ran in read):
         print("\nNOTE: wrap80 is not on PATH, so spans were read off the"
               " wrapped text; a\nspan the formatter broke across lines hides"
               " every token after it on that line.")

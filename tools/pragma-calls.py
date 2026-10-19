@@ -9,15 +9,15 @@ Usage: python3 tools/pragma-calls.py DUMPS_A DUMPS_B WORKTREE_B
 DUMPS_A and DUMPS_B are the dump trees of two builds made with
 `--ghc-options="-ddump-simpl -ddump-to-file -dsuppress-uniques
 -dsuppress-idinfo"` (tools/core-diff.py says how to keep two builds apart);
-WORKTREE_B is the git checkout B was built from, whose uncommitted diff
-removes the pragmas. For each `INLINE`, `INLINABLE` or `NOINLINE` pragma
-the diff deletes, the script counts the occurrences of its target's name in
-every module's Core in both builds --- bare or module-qualified, and behind
-the `$s`, `$w` and similar prefixes of specialisations and workers, numbered
-or not, an operator without the parentheses its pragma writes it in --- and
-prints
-one line per pragma: DEAD when every module's count agrees, MOVED
-with the modules whose counts differ otherwise.
+WORKTREE_B is the git checkout B was built from, whose uncommitted diff of
+its `.hs` files removes the pragmas. For each `INLINE`, `INLINABLE` or
+`NOINLINE` pragma the diff deletes, the script counts the occurrences of its
+target's name in every module's Core in both builds --- bare or
+module-qualified, and behind the `$s`, `$w` and similar prefixes of
+specialisations and workers, numbered or not, an operator without the
+parentheses its pragma writes it in --- and prints one line per pragma: DEAD
+when every module's count agrees, MOVED with the modules whose counts differ
+otherwise.
 
 This is the step between removing a whole group of pragmas and bisecting
 it: one build of the group sorts its pragmas into those whose removal does
@@ -123,15 +123,15 @@ def target(n):
 
 
 def pragmas(wt):
-    """(file, name) of every pragma the worktree's diff removes, or None
-    when git cannot diff it. The diff is against HEAD, staged changes
-    included, where the unstaged diff missed a staged removal
-    (pragma-calls-11); a file deleted is named by its old path, its new one
-    being /dev/null (pragma-calls-12). An inherited GIT_DIR, which -C does
-    not override, is cleared (pragma-calls-15)."""
+    """(file, name) of every pragma the worktree's diff of its Haskell
+    removes, or None when git cannot diff it. The diff is against HEAD,
+    staged changes included, where the unstaged diff missed a staged
+    removal (pragma-calls-11); a file deleted is named by its old path, its
+    new one being /dev/null (pragma-calls-12). An inherited GIT_DIR, which
+    -C does not override, is cleared (pragma-calls-15)."""
     r = subprocess.run(['git', '-C', wt, 'diff', '-U0', '--no-color',
                         '--no-ext-diff', '--src-prefix=a/', '--dst-prefix=b/',
-                        'HEAD'], capture_output=True, text=True,
+                        'HEAD', '--', '*.hs'], capture_output=True, text=True,
                        env=common.git_env())
     if r.returncode != 0:
         return None

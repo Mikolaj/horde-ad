@@ -15,12 +15,13 @@ Two shapes of that claim are mechanical:
            the document itself -- including the constructors of a `data`
            it declares -- nor present in any tracked .hs file. That is a
            name the example invents or has outlived.
-  outputs  a `>>> expr` block whose printed result does not occur in any
-           tracked .hs file. The results shown in a README are usually
-           pinned by a test somewhere; when the library's output moves and
-           the test is updated, the document is what silently stops
-           matching. Whitespace and `;` are normalised away, because a
-           document pretty-prints across lines what a test holds as one
+  outputs  a `>>> expr` line in a FENCE_LANGS block whose printed result,
+           the lines up to the next such line or the block's end, does not
+           occur in any tracked .hs file. The results shown in a README are
+           usually pinned by a test somewhere; when the library's output
+           moves and the test is updated, the document is what silently
+           stops matching. Whitespace and `;` are normalised away, because
+           a document pretty-prints across lines what a test holds as one
            string with explicit separators. A result of 40 normalised
            characters or fewer is not checked at all -- too short to be
            distinctive in this much source, it would match by coincidence
@@ -37,11 +38,11 @@ block uses. Until Mikolaj's ruling of 2026-10-15 a block declaring another
 module was checked, its own name excepted, which failed the repros of
 `docs/inlining-catalogue.md` on base names and CPP symbols this repo's sources
 never mention. A block quoting another repository's code -- GHC's, say --
-is skipped and listed too, its names resolving there: one whose preceding
-line pins a permalink, inline or through a reference definition, to a commit
-this repository does not hold (check-doc-examples-07). A permalink into this
-repository's own history leaves the block checked, and the self-test carries
-both controls.
+is skipped by both branches and listed, its names and outputs resolving
+there: one whose preceding line pins a permalink, inline or through a
+reference definition, to a commit this repository does not hold
+(check-doc-examples-07). A permalink into this repository's own history
+leaves the block checked, and the self-test carries both controls.
 
 Both are deliberately narrow. What they cannot see is the more common
 defect: an example naming a real thing that is nonetheless the *wrong*
@@ -96,6 +97,7 @@ before it is kept.
 """
 
 import contextlib
+import functools
 import io
 import os
 import re
@@ -117,7 +119,16 @@ SOURCE_LIST = 'git ls-files "*.hs"'
 
 DECL_RE = re.compile(r"^(?:type|data|newtype|class)\s+([A-Z][A-Za-z0-9_]*)",
                      re.M)
-CTOR_RE = re.compile(r"^(?:data|newtype)\s+[A-Z].*?=(.*?)(?=^\S|\Z)", re.S | re.M)
+# A declaration's head runs over its indented continuation lines and no
+# further, so one with no `=`, a GADT's, takes no later definition's
+# (check-doc-examples-10); a GADT's constructors precede `::` on the
+# lines under its `where`.
+CTOR_RE = re.compile(r"^(?:data|newtype)\s+[A-Z](?:[^=\n]|\n[ \t])*=(.*?)"
+                     r"(?=^\S|\Z)", re.S | re.M)
+GADT_RE = re.compile(r"^data\s+[A-Z][^=\n]*\bwhere[ \t]*\n((?:[ \t].*\n?)*)",
+                     re.M)
+GADT_CTOR_RE = re.compile(r"^[ \t]+([A-Z][\w']*(?:\s*,\s*[A-Z][\w']*)*)"
+                          r"\s*::", re.M)
 NAME_RE = re.compile(r"\b([A-Z][A-Za-z0-9_]{3,})\b")
 # A pinned permalink, GitHub's `/blob/SHA/` or GitLab's `/-/blob/SHA/`, and
 # a reference definition and a reference use, which may carry one instead.
@@ -222,7 +233,17 @@ def local_names(code):
     out = set(DECL_RE.findall(code))
     for m in CTOR_RE.finditer(code):
         out |= set(re.findall(r"\b([A-Z][A-Za-z0-9_]*)\b", m.group(1)))
+    for m in GADT_RE.finditer(code):
+        for names in GADT_CTOR_RE.findall(m.group(1)):
+            out |= set(re.findall(r"[A-Z][\w']*", names))
     return out
+
+
+@functools.lru_cache(maxsize=None)
+def words(src):
+    """The words of SRC, once for every document: a name occurs in SRC as
+    a whole word iff it is one of them."""
+    return frozenset(re.findall(r"\w+", src))
 
 
 def norm(s):
@@ -250,7 +271,7 @@ def check_types(doc, text, src):
     loc = local_names(strip_comments("".join(own)))
     failures = 0
     for n in sorted(set(NAME_RE.findall(code))):
-        if n in loc or re.search(r"\b" + n + r"\b", src):
+        if n in loc or n in words(src):
             continue
         print(f"FAIL {doc}: type {n} --- defined neither here nor in the sources")
         failures += 1
@@ -261,22 +282,17 @@ def check_outputs(doc, text, normsrc):
     """normsrc is the sources normalised, once for every document."""
     if normsrc is None:
         return 0
-    lines = text.splitlines()
-    failures = i = 0
-    while i < len(lines):
-        if not lines[i].startswith(">>>"):
-            i += 1
+    failures = 0
+    for block, quote in fenced_bodies(text):
+        if quote:
             continue
-        expr, out, j = lines[i], [], i + 1
-        while j < len(lines) and not lines[j].startswith((">>>", "```")):
-            out.append(lines[j])
-            j += 1
-        body = norm("\n".join(out))
-        if len(body) > 40 and body not in normsrc:
-            print(f"FAIL {doc}: output of `{expr[4:][:50]}`"
-                  f" occurs in no tracked source")
-            failures += 1
-        i = j
+        for chunk in re.split(r"^(?=>>>)", block, flags=re.M)[1:]:
+            expr, _, out = chunk.partition("\n")
+            body = norm(out)
+            if len(body) > 40 and body not in normsrc:
+                print(f"FAIL {doc}: output of `{expr[4:][:50]}`"
+                      f" occurs in no tracked source")
+                failures += 1
     return failures
 
 

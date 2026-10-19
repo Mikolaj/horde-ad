@@ -315,10 +315,12 @@ CITE_RE = re.compile(
 URL_RE = re.compile(
     r"https://github\.com/([\w.-]+/[\w.-]+)/blob/([0-9a-f]{7,40})/"
     r"([A-Za-z0-9_./-]+)#L(\d+)(?:-L(\d+))?")
-# A reference definition, `[g1]: URL`, and a link written either way,
-# `[text][label]` or `[text](URL)`, one level of brackets allowed inside the
-# text; code spans are blanked before the links are looked for.
-DEF_RE = re.compile(r"^ {0,3}\[([^\]\n]+)\]:[ \t]*<?([^\s>]+)>?[ \t]*$")
+# A reference definition, `[g1]: URL`, a title after it allowed, and a link
+# written either way, `[text][label]` or `[text](URL)`, one level of
+# brackets allowed inside the text; code spans are blanked before the links
+# are looked for.
+DEF_RE = re.compile(r"^ {0,3}\[([^\]\n]+)\]:[ \t]*<?([^\s>]+)>?"
+                    r"""(?:[ \t]+(?:"[^"]*"|'[^']*'|\([^)]*\)))?[ \t]*$""")
 LINK_RE = re.compile(r"\[((?:[^\[\]\n]|\[[^\[\]\n]*\])*)\]"
                      r"(?:\[([^\[\]\n]*)\]|\(([^()\s]+)\))")
 CODE_RE = re.compile(r"(`+)(.+?)\1", re.S)
@@ -385,9 +387,11 @@ def published(sha):
 def foreign_res(foreign):
     """One URL pattern per foreign repository: commit, path, and a line or
     range in either host's spelling, GitLab's `#L12-34` or GitHub's
-    `#L12-L34`; a link with no line names the whole file."""
+    `#L12-L34`; a link with no line names the whole file, and a path ends
+    in no sentence's punctuation."""
     return [(clone, re.compile(re.escape(prefix)
-                               + r"([0-9a-f]{7,40})/([^\s#)>\]]+)"
+                               + r"([0-9a-f]{7,40})/"
+                               r"([^\s#)>\]]*[^\s#)>\].,;:!?])"
                                r"(?:#L(\d+)(?:-L?(\d+))?)?"))
             for prefix, clone in sorted(foreign.items())]
 
@@ -636,7 +640,7 @@ def check_links(text, own, foreign):
             if lo is None:
                 continue
             lines = blob_lines(clone, sha, path)
-            if not lines:
+            if not lines or not 1 <= lo <= hi <= len(lines):
                 continue                  # reported where the URL is checked
             names = [(name, name_keys(*name)) for name in
                      NAME_RE.findall(described(par, masked, uses, i))

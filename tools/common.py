@@ -24,7 +24,8 @@ check-conv-bench-props.py, which each read a `--json` collection's
 regressions against the iteration count. A file that is not such a
 collection raises CriterionError, which each turns into its own exit 2, the
 run not having happened; so does an estimate that is not a finite number,
-criterion writing a NaN as null.
+criterion writing a NaN as null. measured_env is the environment of a
+measured run for ab-time.py, cachegrind-per-call.py and perf-per-call.py.
 
 GIT_LOCATION and git_env serve the git calls that must not answer for a
 repository the caller set: check-doc-refs.py's, check-plan-citations.py's
@@ -332,3 +333,10 @@ def estimate(path, name, reg, *keys):
 def slope(path, name, reg):
     """The finite slope of a regression against the iteration count."""
     return estimate(path, name, reg, "regCoeffs", "iters", "estPoint")
+
+
+def measured_env():
+    """The environment of a measured run: the caller's, with -V0 last in
+    GHCRTS."""
+    return dict(os.environ,
+                GHCRTS=(os.environ.get("GHCRTS", "") + " -V0").strip())

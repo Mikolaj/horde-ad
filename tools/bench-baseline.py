@@ -214,7 +214,7 @@ def main(argv):
 
     base = {}
     try:
-        with open(baseline_path) as f:
+        with open(baseline_path, encoding="utf-8") as f:
             for n, line in enumerate(f, 1):
                 if line.startswith("#") or not line.strip():
                     continue
@@ -229,6 +229,8 @@ def main(argv):
                                 f" {line.rstrip()!r}")
     except OSError as e:
         usage_error(f"{baseline_path}: cannot be read ({e.strerror})")
+    except UnicodeDecodeError as e:
+        usage_error(f"{baseline_path}: not UTF-8 (byte {e.start})")
 
     missing = sorted(set(base) - set(now))
     added = sorted(set(now) - set(base))

@@ -31,7 +31,9 @@ anything is matched, so prose about the primitives, of which the AstFreshId
 header has plenty, never reads as a use of them. A top-level definition
 is the run of lines from one starting in the first column to the next
 such line, CPP lines aside, and every run with one name in a file is one
-definition, a signature being free to stand apart from its equations. A
+definition, a signature being free to stand apart from its equations; an
+operator's name is the operator, in parentheses or between the arguments
+of an infix equation, and a name or an operator is read unqualified. A
 module is named by its `module` header, not its path, so a file checked
 under another name keeps its entries.
 
@@ -78,10 +80,19 @@ COUNTERS = {
 }
 
 SYMBOL = set('!#$%&*+./<=>?@\\^|-~:')
+OP = '[%s]+' % re.escape(''.join(sorted(SYMBOL)))
 CHAR_LIT = re.compile(r"'(?:\\.[^'\n]*|[^'\\\n])'")
-TOKEN = re.compile(r"[A-Za-z_][\w']*#?")
+# A name or an operator, its module qualifier dropped, so that rule 2 grows
+# through operators too (check-fresh-draws-02).
+TOKEN = re.compile(r"(?:[A-Z][\w']*\.)*([A-Za-z_][\w']*#?|%s)" % OP)
 MODULE = re.compile(r'^module\s+([A-Z][\w.]*)', re.M)
-NAME = re.compile(r"^([a-z_][\w']*)")
+# A top-level line's name: a variable's, an operator's in parentheses, or
+# what an infix equation defines, `x <+> y = ...` defining <+> and not x.
+# A reserved operator after the first word, `=` or `::`, defines nothing,
+# nor does a bang touching what follows it, `f !x = ...`.
+NAME = re.compile(r"^(?:\((%s)\)|([a-z_][\w']*))" % OP)
+INFIX = re.compile(r"^[a-z_][\w']*\s+(?:`([a-z_][\w']*)`|(%s)(?=\s))" % OP)
+RESERVED = {'..', ':', '::', '=', '\\', '|', '<-', '->', '@', '~', '=>'}
 KEYWORDS = {'import', 'instance', 'data', 'type', 'newtype', 'class',
             'module', 'infix', 'infixl', 'infixr', 'deriving', 'foreign',
             'pattern', 'default'}
@@ -166,6 +177,15 @@ class Definition:
         return self.name or 'the %s at line %d' % (self.kind, self.line)
 
 
+def name_of(line):
+    """The name a top-level line defines or declares, or None."""
+    m = INFIX.match(line)
+    if m and m.group(2) not in RESERVED:
+        return m.group(1) or m.group(2)
+    m = NAME.match(line)
+    return m.group(1) or m.group(2) if m else None
+
+
 def definitions(path, text):
     """The module name and the top-level definitions of one file."""
     bl = blank(text)
@@ -174,8 +194,7 @@ def definitions(path, text):
     defs, named, cur = [], {}, None
     for no, line in enumerate(bl.split('\n'), 1):
         if line[:1] and not line[0].isspace() and line[0] != '#':
-            m = NAME.match(line)
-            word = m.group(1) if m else None
+            word = name_of(line)
             if word in KEYWORDS:
                 cur = Definition(path, module, None, word, no)
                 defs.append(cur)
@@ -336,6 +355,20 @@ def self_test():
           'list',
           'Op.hs:3: k uses unsafeDupablePerformIO, which ALLOW does not '
           'list']),
+        ('an operator drawing, and an infix equation not its left '
+         'argument\'s',
+         [(path, text + '(!>) :: Int -> Int -> Int\n'
+           '(!>) x = add unsafeAstVarCounter x\n'
+           'x <+> y = add unsafeAstVarCounter y\n'
+           if path == 'Fresh.hs' else
+           text.replace('funToAst 1 id', 'M.!> 1 <+> t') if path ==
+           'Tools.hs' else text) for path, text in clean],
+         ['Tools.hs:8: astIsSmall, allowed unsafeDupablePerformIO, mentions '
+          '!>, which draws a fresh identifier without unsafePerformIO of '
+          'its own',
+          'Tools.hs:8: astIsSmall, allowed unsafeDupablePerformIO, mentions '
+          '<+>, which draws a fresh identifier without unsafePerformIO of '
+          'its own']),
         ('a character literal of a double quote opening no string',
          clean + [('Ch.hs', 'module Ch where\n'
                    'g = (\'"\', unsafeDupablePerformIO (pure 1))\n')],

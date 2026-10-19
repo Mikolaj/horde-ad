@@ -55,18 +55,19 @@ Kernels:
     ./probe-fetch-model.py rescore probe-fetch-model-s12.txt   # rules only
 
 A saved table carries the kernel and its assembled layout, so `rescore`
-re-applies the rules as they stand in this file to the measurements
-without the machine, which is how a rule is changed and judged.
+re-applies the rules as they stand in fetchmodel.py, which align-as.py
+charges too, to the measurements without the machine, which is how a rule
+is changed and judged.
 
 Needs gcc, objdump and a perf that counts user cycles; exit 2 when one is
-missing or stops answering, or a table to rescore is unreadable, 1 when a
-build fails. Writes only under a temporary directory.
+missing or fails, a binary's disassembly shows no head, a kernel's
+arguments are not ones it takes or a table to rescore is unreadable, 0
+otherwise. Writes only under a temporary directory.
 Written 2026-09-15; the rules are the guide's sentences and the scoring
 is the probe's own, so a rule that scores is evidence and one that does
 not is a rule the sweep refutes on this core.
 """
 import argparse
-import collections
 import os
 import re
 import shutil
@@ -74,25 +75,21 @@ import subprocess
 import sys
 import tempfile
 
-
-def die(msg):
-    """Exit 2 -- did not run -- rather than `sys.exit(str)`'s 1, which is
-    the code a finding gets (2026-09-25, by review)."""
-    sys.stderr.write(msg.rstrip('\n') + '\n')
-    sys.exit(2)
+# Beside this file, which a path import (a defect case's unit) leaves off
+# sys.path.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from fetchmodel import (REGS, block_rules, build, counts, die,  # noqa: E402
+                        prepared)
 
 
 PROBE_NAME = 'probe-fetch-model'
 
 EVENTS = 'cycles:u,r20000078f:u,r08a:u,r08b:u'
 NAMES = ['cyc', 'blocks', 'l1btb', 'l2btb']
-REGS = ['%rcx', '%rdx', '%rsi', '%r8', '%r9', '%r10', '%r11', '%r12',
-        '%r13', '%r14', '%r15', '%rbx']
 REGS32 = ['%ecx', '%edx', '%esi', '%r8d', '%r9d', '%r10d', '%r11d', '%r12d',
           '%r13d', '%r14d', '%r15d', '%ebx']
 ELEMS = 1800000
 DEBUG = os.environ.get('FETCH_MODEL_DEBUG', '') not in ('', '0')
-FUSABLE = {'cmp', 'test', 'add', 'sub', 'and', 'or', 'xor', 'inc', 'dec'}
 
 PROLOGUE = '''
     .text
@@ -189,40 +186,6 @@ int main(int argc, char **argv) {
 STRAIGHT_MAIN = 'extern void kern(long);\nint main(void){kern(20000000);return 0;}\n'
 
 
-def build(tmp, asm, cmain, k):
-    s, c, b = (os.path.join(tmp, f) for f in ('k.S', 'main.c', 'k%d' % k))
-    with open(s, 'w') as f:
-        f.write(asm)
-    with open(c, 'w') as f:
-        f.write(cmain)
-    got = subprocess.run(['gcc', '-O1', '-DK=%d' % k, c, s, '-o', b],
-                         capture_output=True, text=True)
-    if got.returncode:
-        print('probe-fetch-model: gcc failed at K=%d: %s'
-              % (k, got.stderr.strip().split('\n')[-1]), file=sys.stderr)
-        return None
-    return b
-
-
-def counts(binary, arg):
-    with tempfile.NamedTemporaryFile(delete=False) as f:
-        out = f.name
-    ran = subprocess.run(['perf', 'stat', '-x,', '-e', EVENTS, '-o', out,
-                          binary, str(arg)], stdout=subprocess.DEVNULL,
-                         stderr=subprocess.DEVNULL)
-    if ran.returncode:
-        os.unlink(out)
-        return None
-    vals = []
-    with open(out) as f:
-        for line in f:
-            p = line.split(',')
-            if len(p) > 3 and p[0].strip().isdigit():
-                vals.append(int(p[0]))
-    os.unlink(out)
-    return vals if len(vals) == len(NAMES) else None
-
-
 def layout(binary):
     """[(abs address, length, mnemonic, label-or-None)] from head to ret."""
     got = subprocess.run(['objdump', '-d', binary], capture_output=True,
@@ -231,6 +194,8 @@ def layout(binary):
         die('%s: objdump -d %s exited %d' % (PROBE_NAME, binary,
                                              got.returncode))
     out = got.stdout
+    if '<head>:' not in out or '\tret' not in out[out.index('<head>:'):]:
+        die('%s: objdump -d %s shows no head to ret' % (PROBE_NAME, binary))
     sec = out[out.index('<head>:'):]
     sec = sec[:sec.index('\tret')]
     rows, label = [], 'head'
@@ -269,96 +234,14 @@ def path_fill(rows, r):
     return [entry] + [body_taken] * (r // 2 - 1) + [body_exit, tail]
 
 
-HEAD_TAIL = 8             # a head this close to the line's end pays a cycle
-
-
-def is_cond(mn):
-    # jmp with an operand-size suffix, LLVM's jmpq, is no conditional branch
-    # either (fetch-model-reads-jmpq-as-a-conditional-branch).
-    return mn.startswith('j') and not re.fullmatch(r'jmp[qlw]?', mn)
-
-
-def whole_in_last(pieces):
-    """Instructions of a segment's last block that start in its line: a
-    straddler counted by its last byte belongs to the block's line but
-    not to what the block delivers."""
-    line, ins = list(pieces.items())[-1]
-    return sum(1 for i in ins if ROWS_K[i] // 64 == line)
-
-
-def predict(rows, segs, k, head_addr, body_first=True):
-    """-> (ops, blocks, whole, half, predicted cycles) for head offset k.
-
-    Whole-cycle penalties, the rules the sweeps of 2026-09-15 bear out
-    in every regime: `cut`, a segment's taken conditional branch, or the
-    fused pair it belongs to, astride a line boundary or in a different
-    line from the segment's previous predicted branch; `head`, the loop
-    head within HEAD_TAIL bytes of its line's end, charged on the body
-    alone since a tail or re-entry entered there reads nothing. Half
-    ones: a last block with three or fewer instructions starting in its
-    line, a block holding only an unconditional jump, and a quarter for
-    an unfused taken conditional. A first instruction astride the
-    boundary adds the empty block it leaves. Predicted cycles are
-    max(ops / 6, blocks) plus the penalties, whole where the fetch bounds
-    the loop and halved where the dispatcher does; a residue fits within
-    half a cycle.
-    """
-    global ROWS_K
-    ROWS_K = {i: row[0] - head_addr + k for i, row in enumerate(rows)}
-    ops = blocks = whole = half = 0
-    for n_seg, seg in enumerate(segs):
-        n = len(seg)
-        for a, b in zip(seg, seg[1:]):
-            if rows[a][2] in FUSABLE and rows[b][2].startswith('j'):
-                n -= 1
-        ops += n
-        pieces = collections.OrderedDict()
-        for i in seg:
-            off = rows[i][0] - head_addr + k
-            pieces.setdefault((off + rows[i][1] - 1) // 64, []).append(i)
-        blocks += len(pieces)
-        last = seg[-1]
-        last_mn = rows[last][2]
-        fused = (last - 1 >= seg[0] and rows[last - 1][2] in FUSABLE
-                 and is_cond(last_mn))
-        first_byte = rows[last - 1 if fused else last][0] - head_addr + k
-        last_byte = rows[last][0] - head_addr + k + rows[last][1] - 1
-        if is_cond(last_mn):
-            cut = first_byte // 64 != last_byte // 64
-            prev = [i for i in seg[:-1] if rows[i][2].startswith('j')
-                    and not (fused and i == last - 1)]
-            if not cut and prev:
-                pe = rows[prev[-1]][0] - head_addr + k + rows[prev[-1]][1] - 1
-                cut = pe // 64 != last_byte // 64
-            if cut:
-                whole += 1
-            if not fused:
-                half += 0.5            # an unfused taken conditional, a quarter
-            if len(pieces) > 1 and whole_in_last(pieces) <= 3 and not cut:
-                half += 1              # a cut leaving a short last block
-        elif last_mn == 'jmp':
-            if whole_in_last(pieces) <= 1:
-                half += 1
-        # a segment whose first instruction straddles the boundary leaves
-        # an empty fetch block behind, fetched like any other: 19..21 and
-        # 54..55 of the fill read one block more than the pieces. The loop
-        # head pays a cycle beyond that when its block holds fewer than
-        # two whole instructions, 56..63; a tail or re-entry does not.
-        fo = rows[seg[0]][0] - head_addr + k
-        straddles = fo // 64 != (fo + rows[seg[0]][1] - 1) // 64
-        if straddles:
-            blocks += 1
-        if body_first and n_seg == 0 or rows[seg[0]][3] == 'head':
-            if fo % 64 >= 64 - HEAD_TAIL:
-                whole += 1
-    # penalties are whole cycles where the fetch bounds the loop and half
-    # where the dispatcher does: the 64-byte straight loop pays 0.5 at a
-    # cut its 3.5-cycle dispatch floor absorbs, the fill pays 1 at 4
-    # blocks over a 3.67 floor
-    floor = max(ops / 6.0, blocks)
-    w = 1.0 if blocks >= ops / 6.0 else 0.5
-    pred = floor + w * (whole + half / 2.0)
-    return ops, blocks, whole, half, pred
+def predict(rows, segs, k, head_addr):
+    """-> (ops, blocks, whole, half, predicted cycles) for head offset k:
+    fetchmodel's rules over the path's segments, a segment starting at the
+    `head` label entered at the head."""
+    tri = [[(rows[i][0] - head_addr, rows[i][0] - head_addr + rows[i][1],
+             rows[i][2]) for i in seg] for seg in segs]
+    return block_rules(prepared(tri, {n for n, seg in enumerate(segs)
+                                      if rows[seg[0]][3] == 'head'}), k)
 
 
 def fits(cyc, pred):
@@ -405,11 +288,11 @@ def rescore(path):
     miss = []
     print('# rescored %s: %s %s' % (path, kernel, ' '.join(args)))
     for k, cyc, blk, l1, l2 in meas:
-        ops, blocks, split, short, pred = predict(rows, segs, k, 0, body_first=False)
+        ops, blocks, split, short, pred = predict(rows, segs, k, 0)
         ok = fits(cyc, pred)
         if not ok:
             miss.append(k)
-        print('%2d %6.2f %6.2f %6.2f %6.2f | %4d %6d %5d %5d %6.2f %s'
+        print('%2d %6.2f %6.2f %6.2f %6.2f | %4d %6d %5d %5.1f %6.2f %s'
               % (k, cyc, blk, l1, l2, ops, blocks, split, short, pred,
                  'ok' if ok else 'MISS'))
     print('# %d of %d residues miss%s' % (len(miss), len(meas),
@@ -430,10 +313,22 @@ def main():
         if len(args.args) != 1:
             die('probe-fetch-model: rescore takes one saved table')
         return rescore(args.args[0])
+    # `straight 12` was an IndexError and exit 1, and a width or an end the
+    # kernel has no case for was built as width 6 or as jmp
+    # (fetch-model-exits-2-on-a-kernel-it-cannot-build-from-its-arguments).
+    a = args.args
+    if args.kernel == 'straight' and not (
+            len(a) == 3 and a[0].isdigit() and a[1] in ('3', '6')
+            and a[2] in ('fused', 'split', 'jmp')):
+        die('probe-fetch-model: straight takes N W END, W 3 or 6 and END'
+            ' fused, split or jmp')
+    if args.kernel == 'fill' and not (
+            len(a) <= 1 and (not a or a[0].isdigit() and int(a[0]) > 0)):
+        die('probe-fetch-model: fill takes at most R, a positive number')
     for tool in ('gcc', 'perf', 'objdump'):
         if shutil.which(tool) is None:
             die('probe-fetch-model: %s is not on PATH; nothing ran' % tool)
-    if counts('/bin/true', '') is None:
+    if counts('/bin/true', '', EVENTS) is None:
         die('probe-fetch-model: perf does not count %s here; nothing ran'
             % EVENTS)
     if args.kernel == 'straight':
@@ -455,12 +350,13 @@ def main():
     miss = []
     try:
         for k in ks:
-            b = build(tmp, asm, cmain, k)
+            b = build(tmp, asm, cmain, k, PROBE_NAME)
             if b is None:
-                return 1
+                return 2
             reads = []
             for _ in range(args.pairs):
-                hi, lo = counts(b, iters[0]), counts(b, iters[1])
+                hi = counts(b, iters[0], EVENTS)
+                lo = counts(b, iters[1], EVENTS)
                 if hi is None or lo is None:
                     die('probe-fetch-model: perf stopped counting at K=%d' % k)
                 if args.kernel == 'fill':
@@ -479,11 +375,11 @@ def main():
                 segs = path_fill(rows, r)
             else:
                 segs = path_straight(rows, end)
-            ops, blocks, split, short, pred = predict(rows, segs, k, head_addr, body_first=False)
+            ops, blocks, split, short, pred = predict(rows, segs, k, head_addr)
             ok = fits(m[0], pred)
             if not ok:
                 miss.append(k)
-            print('%2d %6.2f %6.2f %6.2f %6.2f | %4d %6d %5d %5d %6.2f %s'
+            print('%2d %6.2f %6.2f %6.2f %6.2f | %4d %6d %5d %5.1f %6.2f %s'
                   % (k, m[0], m[1], m[2], m[3], ops, blocks, split, short,
                      pred, 'ok' if ok else 'MISS'), flush=True)
         print('# %s: %d of %d residues miss%s'

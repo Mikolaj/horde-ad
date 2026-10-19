@@ -32,8 +32,9 @@ instructions or cycles (tools/perf-per-call.py, or
 tools/cachegrind-per-call.py where perf cannot run).
 
 Exit 0 when every run happened, 2 when one did not: a run failing, taskset
-missing with `--cpu`, or its JSON without one report carrying a time and
-an allocation regression.
+missing with `--cpu`, its JSON without one report carrying a time and an
+allocation regression or with a time slope not above zero, or a `--log`
+that cannot be written.
 """
 
 import os
@@ -48,6 +49,7 @@ from unittest import mock
 # sys.path.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
+from common import measured_env  # noqa: E402
 
 
 def command(binary, name, path, cpu):
@@ -55,13 +57,6 @@ def command(binary, name, path, cpu):
     return ((['taskset', '-c', cpu] if cpu is not None else [])
             + [binary, '-m', 'glob', name, '--regress', 'allocated:iters',
                '--json', path, '+RTS', '-T'])
-
-
-def measured_env():
-    """The environment of a measured run: the caller's, with -V0 last in
-    GHCRTS."""
-    return dict(os.environ,
-                GHCRTS=(os.environ.get('GHCRTS', '') + ' -V0').strip())
 
 
 def slopes(binary, name, cpu):
@@ -87,6 +82,9 @@ def slopes(binary, name, cpu):
         raise ValueError(f'{name}: no time regression in the report')
     # A CriterionError is a ValueError, so main's exit 2 covers it.
     t = common.slope(path, name, regs['time'])
+    if t <= 0:      # a ratio to it was a ZeroDivisionError (ab-time-02)
+        raise ValueError(f'{binary} on {name}: a time slope of {t}, so no '
+                         f'time was measured')
     if 'allocated' not in regs:
         raise ValueError(f'{name}: no allocated regression in the report')
     return t, common.slope(path, name, regs['allocated'])
@@ -211,8 +209,10 @@ def main(argv):
         return 2
     for j, b in enumerate(bins):
         print(f'{chr(ord("A") + j)} = {b}')
-    log = open(log_path, 'w') if log_path else None
+    log = None
     try:
+        # Inside the try, an unwritable path was a traceback (ab-time-03).
+        log = open(log_path, 'w') if log_path else None
         for name in names:
             for j, (med, lo, hi, a0, aj) in enumerate(
                     rounds(bins, n, name, cpu, log), start=1):

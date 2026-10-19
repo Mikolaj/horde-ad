@@ -55,6 +55,11 @@ import sys
 import tempfile
 from unittest import mock
 
+# Beside this file, which a path import (a defect case's unit) leaves off
+# sys.path.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from common import measured_env  # noqa: E402
+
 WEIGHTS = {'Ir': 1, 'I1mr': 10, 'D1mr': 10, 'D1mw': 10,
            'ILmr': 100, 'DLmr': 100, 'DLmw': 100}
 
@@ -92,13 +97,6 @@ def per_call(c1, c2, n):
     y1, y2 = cycles(c1), cycles(c2)
     return ((c2['Ir'] - c1['Ir']) / n,
             None if y1 is None or y2 is None else (y2 - y1) / n)
-
-
-def measured_env():
-    """The environment of a measured run: the caller's, with -V0 last in
-    GHCRTS."""
-    return dict(os.environ,
-                GHCRTS=(os.environ.get('GHCRTS', '') + ' -V0').strip())
 
 
 def command(binary, name, iters, sim, out, cpu=None, args=()):

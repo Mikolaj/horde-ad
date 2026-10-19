@@ -7,8 +7,10 @@ Usage: python3 tools/workaround-cites.py SRC [DOCS]
 
 SRC is a Haskell source tree; DOCS a directory of issue texts, by default
 the `docs/` beside this tool's own directory, whose `ghc-issue-*.md` and
-`vector-issue-*.md` files name their issue in their first lines, by its link
-or reference-style, `[vector issue 570][570]`.
+`vector-issue-*.md` files name their issue, or a merge request, `!12121`,
+in their first lines: by the first link to one, else reference-style,
+`[vector issue 570][570]`, so another issue a title mentions does not
+stand in for it.
 
 The first list is every comment block under SRC --- a run of `--` lines, a
 trailing `--` comment, or a `{- -}` block --- that speaks of a workaround
@@ -18,8 +20,8 @@ GHC flag, and neither "stands in for" nor "unidentified". Those are the
 forms docs/perf-checklist.md's W1 accepts: the issue's URL, the flag or
 optimisation the code stands in for, and "a workaround for an unidentified
 issue". The second list is each issue of DOCS, with the files under SRC
-that cite its number after `#`, `issues/`, `work_items/` or "issue", or
-`(none)`.
+that cite its number after `#`, `issues/`, `work_items/` or "issue", a
+merge request's after `!` or `merge_requests/`, or `(none)`.
 
 Both are candidates for reading and not verdicts: a design note may speak
 of speed without working around anything, and a file may cite an issue for
@@ -46,8 +48,11 @@ CAUSE = re.compile(r'https?://|#\d{3,}\b|(?<![\w-])-f[a-z][\w-]*'
 # hssource's line comment: an operator holding dashes, as <--, opened one
 # (workaround-cites-02).
 COMMENT = re.compile(rf'(?<![{SYM}-])--+(?![{SYM}-])')
-# A link, or a reference-style `[vector issue 570][570]` or `[#27737][...]`.
-ISSUE_LINK = re.compile(r'(?:work_items|issues)/(\d+)|\bissue (\d+)|#(\d{3,})')
+# A link to an issue or a merge request, and failing one a reference-style
+# `[vector issue 570][570]` or `[#27737][...]`, never an anchor such as
+# `(#123-x)` (workaround-cites-04).
+ISSUE_URL = re.compile(r'(?:work_items|issues|(merge_requests))/(\d+)')
+ISSUE_REF = re.compile(r'\bissue (\d+)|(?<!\()#(\d{3,})')
 
 
 def blocks(src):
@@ -111,18 +116,26 @@ def issues(docs):
             continue
         with open(os.path.join(docs, f), errors='replace') as fh:
             head = ''.join(fh.readline() for _ in range(5))
-        link = ISSUE_LINK.search(head)
-        if link:
-            num = next(g for g in link.groups() if g)
-            out[(m.group(1).upper() if m.group(1) == 'ghc' else m.group(1),
-                 num)].append(f)
+        url = ISSUE_URL.search(head)
+        ref = ISSUE_REF.search(head)
+        if url:
+            num = ('!' if url.group(1) else '') + url.group(2)
+        elif ref:
+            num = ref.group(1) or ref.group(2)
+        else:
+            continue
+        out[(m.group(1).upper() if m.group(1) == 'ghc' else m.group(1),
+             num)].append(f)
     return out
 
 
 def citations(files, found):
     lines = []
     for (tracker, num), docs in sorted(found.items()):
-        pat = re.compile(r'(?:#|issues/|work_items/|issue )' + num + r'(?!\d)')
+        pat = re.compile((r'(?:!|merge_requests/)' + num[1:]
+                          if num[0] == '!' else
+                          r'(?:#|issues/|work_items/|issue )' + num)
+                         + r'(?!\d)')
         citing = [rel for rel, txt in files if pat.search(txt)]
         lines.append(f'  {tracker} {num}  {", ".join(docs)}  '
                      + (', '.join(citing) if citing else '(none)'))
@@ -143,7 +156,9 @@ def self_test():
     """A module with comment blocks citing a URL, an issue number, a flag,
     "unidentified" and "stands in for", two naming no cause, one a trailing
     comment, a design note, a pragma and an operator; and issue files of two
-    trackers, one issue in two files and one cited nowhere."""
+    trackers, one issue in two files, one cited nowhere, one whose title
+    mentions another issue, and a merge request's, an anchor in its
+    Contents."""
     import tempfile
     src = ('module M where\n'
            '-- Works around https://github.com/haskell/vector/issues/570.\n'
@@ -164,7 +179,9 @@ def self_test():
            '-- The plain design of h.\n'
            'h = 8\n'
            '{-# INLINE i #-}\n'
-           'i = a --> b\n')
+           'i = a --> b\n'
+           '-- After GHC !12121 and GHC #25642.\n'
+           'j = 9\n')
     bad = []
     with tempfile.TemporaryDirectory() as td:
         os.makedirs(os.path.join(td, 'S'))
@@ -181,6 +198,12 @@ def self_test():
                  '# vector\nhttps://github.com/haskell/vector/issues/571\n'),
                 ('vector-issue-ref.md', '# vector issue: x\n\nFiled as '
                  '[vector issue 572][572]; this file stays.\n'),
+                ('ghc-issue-other.md', '# The example of #1498\n\nPosted on '
+                 '[#25642](https://gitlab.haskell.org/ghc/ghc/-/work_items/'
+                 '25642).\n'),
+                ('ghc-issue-mr.md', '# On GHC !12121\n\nFor [!12121]('
+                 'https://gitlab.haskell.org/ghc/ghc/-/merge_requests/12121)'
+                 '.\n\nContents: [a](#12345-a).\n'),
                 ('position-effect.md', '# not an issue\n')):
             with open(os.path.join(td, 'D', name), 'w') as fh:
                 fh.write(text)
@@ -193,11 +216,13 @@ def self_test():
                 '  M.hs:15  {- The fill    allocates nothing here. -}',
                 '  M.hs:17  a workaround',
                 '== filed issues and the files citing them',
+                '  GHC !12121  ghc-issue-mr.md  M.hs',
+                '  GHC 25642  ghc-issue-other.md  M.hs',
                 '  GHC 27737  ghc-issue-reloads-comment.md, '
                 'ghc-issue-reloads.md  M.hs',
                 '  vector 571  vector-issue-lazy.md  (none)',
                 '  vector 572  vector-issue-ref.md  (none)']
-        if got != want or (nbad, nfiles, nissues) != (3, 1, 3):
+        if got != want or (nbad, nfiles, nissues) != (3, 1, 5):
             bad.append(f'report ({nbad}, {nfiles}, {nissues}):\n  '
                        + '\n  '.join(got))
         S, D, E = (os.path.join(td, x) for x in 'SDE')
