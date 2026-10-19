@@ -27,8 +27,9 @@ import re
 
 TIMESTAMP = re.compile(r'^\d{4}-\d\d-\d\d \d\d:\d\d:\d\d(?:\.\d+)? UTC\n', re.M)
 # 1600#, -1#, 5##, 1.5##, 2.0e-3#: an unboxed numeric literal, not the digits
-# ending a name such as I# or W8#.
-LITERAL = re.compile(r"(?<![\w$'])-?\d+(?:\.\d+)?(?:e-?\d+)?##?")
+# ending a name such as I# or W8#. The lookahead, implied by the rest, spares
+# the lookbehind at every character that cannot start one.
+LITERAL = re.compile(r"(?=[-\d])(?<![\w$'])-?\d+(?:\.\d+)?(?:e-?\d+)?##?")
 
 
 def module_key(path, root, suffix):

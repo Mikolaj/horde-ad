@@ -79,7 +79,7 @@ def report(ta, tb, vs, min_ms):
                   key=lambda k: (-ta[k][0], k))
     lines = [f'{"module":56s} {"ms A":>9s} {"ms B":>9s}  B/A  '
              f'{"GB A":>7s} {"GB B":>7s}  verdict']
-    pools = collections.defaultdict(lambda: [0.0, 0.0, 0, 0])
+    pools = collections.defaultdict(lambda: [0.0, 0.0, 0, 0, 0])
     spread = []
     for k in keys:
         (ma, aa), (mb, ab) = ta[k], tb[k]
@@ -90,7 +90,7 @@ def report(ta, tb, vs, min_ms):
                  else 'changed' if v == 'differs' else None)
         for g in ((group,) if group else ()) + ('all',):
             p = pools[g]
-            pools[g] = [p[0] + ma, p[1] + mb, p[2] + aa, p[3] + ab]
+            pools[g] = [p[0] + ma, p[1] + mb, p[2] + aa, p[3] + ab, p[4] + 1]
         if group == 'controls' and ma >= min_ms:
             spread.append(mb / ma)
     for k in sorted(set(ta) ^ set(tb)):
@@ -98,10 +98,7 @@ def report(ta, tb, vs, min_ms):
     for k in sorted(untimed):
         lines.append(f'{k:56s} no compiler pass timed in {untimed[k]}')
     for g in ('controls', 'changed', 'all'):
-        n = sum(1 for k in keys if g == 'all' or
-                (g == 'controls') == (vs.get(k) in ('same', 'literals'))
-                and vs.get(k) in ('same', 'literals', 'differs'))
-        ma, mb, aa, ab = pools[g]
+        ma, mb, aa, ab, n = pools[g]
         lines.append(f'{g:8s} {n:4d} modules: time {ma:9.0f} -> {mb:9.0f} ms, '
                      f'ratio {ratio(mb, ma)}; allocation ratio {ratio(ab, aa)}')
     if spread:

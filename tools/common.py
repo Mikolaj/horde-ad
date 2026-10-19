@@ -22,10 +22,15 @@ run not having happened; so does an estimate that is not a finite number,
 criterion writing a NaN as null.
 
 GIT_LOCATION and git_env serve the git calls that must not answer for a
-repository the caller set: rewrite-check.py's and rewrite-fold.py's, which
-name theirs by -C, and those of the self-tests that build a scratch one,
-check-doc-wrap.py's, check-plan-citations.py's and pragma-calls.py's
-among them.
+repository the caller set: check-doc-refs.py's, pragma-calls.py's,
+rewrite-check.py's and rewrite-fold.py's, which name theirs by -C, and
+those of the self-tests that build a scratch one, check-doc-wrap.py's,
+check-plan-citations.py's and pragma-calls.py's among them. git_out makes
+the calls of rewrite-check.py and rewrite-fold.py, and scratch_repo the
+scratch repository of check-doc-wrap.py's and check-plan-citations.py's
+self-tests. github_repo returns the OWNER/REPO a remote names on GitHub,
+by which check-doc-refs.py and check-plan-citations.py tell this
+repository's links from others'.
 """
 
 import json
@@ -49,6 +54,47 @@ def git_env(**extra):
     env = {k: v for k, v in os.environ.items() if k not in GIT_LOCATION}
     env.update(extra)
     return env
+
+
+def git_out(repo, *args, stdin=None, env=None, error=RuntimeError):
+    """git's output in REPO, its bytes kept: decoded with surrogateescape,
+    where text mode turned CR LF into LF (rewrite-check-12, rewrite-fold-02)
+    and raised on a byte that is not UTF-8 (rewrite-check-10); git_env's
+    environment, with ENV set. A git that cannot run, or fails, raises
+    ERROR saying so."""
+    try:
+        r = subprocess.run(
+            ["git", "-C", repo] + list(args), capture_output=True,
+            input=None if stdin is None
+            else stdin.encode("utf-8", "surrogateescape"),
+            env=git_env(**(env or {})))
+    except OSError as e:
+        raise error(f"git {' '.join(args)}: {e}")
+    if r.returncode != 0:
+        raise error(f"git {' '.join(args)}: "
+                    + r.stderr.decode("utf-8", "replace").strip())
+    return r.stdout.decode("utf-8", "surrogateescape")
+
+
+def scratch_repo(where="."):
+    """Make WHERE a git repository a self-test can commit to whatever the
+    user's configuration: an identity set, and signing off."""
+    for args in (["init", "-q"], ["config", "user.email", "t@t"],
+                 ["config", "user.name", "t"],
+                 ["config", "commit.gpgsign", "false"]):
+        subprocess.run(["git", "-C", where] + args, check=True,
+                       capture_output=True, env=git_env())
+
+
+def github_repo(remote):
+    """OWNER/REPO, lower-cased, of the GitHub repository REMOTE names; None
+    when that remote is absent or not on GitHub."""
+    # answered dropped-status: a failed lookup prints no URL, which matches
+    # nothing, and each caller handles the None that follows
+    url = subprocess.run(["git", "remote", "get-url", remote],
+                         capture_output=True, text=True).stdout.strip()
+    m = re.search(r"github\.com[:/]([\w.-]+/[\w.-]+?)(?:\.git)?/?$", url)
+    return m.group(1).lower() if m else None
 
 
 # A fence: three or more backticks or tildes, indented at most three spaces;

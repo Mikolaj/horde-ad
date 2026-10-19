@@ -31,7 +31,7 @@ line, a `---` rule right after the closing fence, a list item with a
 headings, the Setext pair among them at levels 1 and 2, and nothing
 from inside or right after the fence or under the item.
 Reproduced 2026-07-28 by hand; since 2026-08-28 `--self-test` builds
-that file and asserts it, the rule after the fence being the row added
+that document and asserts it, the rule after the fence being the row added
 then: a closing fence is not a heading's text, and the outline reported
 "## ```" for it, and the list item the same day, reported as "## - item".
 That the self-test bites is mutants.py's to show.
@@ -100,8 +100,8 @@ def frontmatter_end(lines):
     return 0
 
 
-def outline(path):
-    lines = open(path, encoding='utf-8').read().splitlines()
+def outline(text):
+    lines = text.splitlines()
     headings = []
     prev = ''
     body = frontmatter_end(lines)
@@ -126,8 +126,7 @@ def outline(path):
 
 
 def self_test():
-    """Build the docstring's scratch file and assert its outline."""
-    import tempfile
+    """Build the docstring's scratch document and assert its outline."""
     docs = [
         ("# Top\n\nSetext one\n===\n\nSetext two\n---\n\n```\n"
          "# not a heading\nfenced\n===\n```\n---\n\n- item\n---\n\n"
@@ -145,13 +144,7 @@ def self_test():
     ]
     bad = []
     for doc, want in docs:
-        with tempfile.NamedTemporaryFile("w", suffix=".md",
-                                         delete=False) as fh:
-            fh.write(doc)
-        try:
-            got = [(lv, tx) for _, lv, tx in outline(fh.name)]
-        finally:
-            os.unlink(fh.name)
+        got = [(lv, tx) for _, lv, tx in outline(doc)]
         if got != want:
             bad.append(f'FAIL: outline {got}, expected {want}')
     for b in bad:
@@ -170,7 +163,7 @@ def main(argv):
     common.require_readable(argv)
     for path in argv:
         print(f'=== {path} ===')
-        headings = outline(path)
+        headings = outline(open(path, encoding='utf-8').read())
         if not headings:
             print('  (no headings found)')
         for line_no, level, text in headings:

@@ -35,6 +35,9 @@ import os
 import re
 import sys
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from hssource import hs_paths  # noqa: E402
+
 VOCAB = re.compile(r'work ?around|stands? in for|instead of|SpecConstr|-O2\b'
                    r'|slower|faster|allocat|\bbug\b', re.I)
 CAUSE = re.compile(r'https?://|#\d{3,}\b|(?<![\w-])-f[a-z][\w-]*'
@@ -83,13 +86,9 @@ def blocks(src):
 
 
 def sources(src):
-    for dp, ds, fs in os.walk(src):
-        ds[:] = sorted(d for d in ds if not d.startswith(('.', 'dist')))
-        for f in sorted(fs):
-            if f.endswith('.hs'):
-                p = os.path.join(dp, f)
-                with open(p, errors='replace') as fh:
-                    yield os.path.relpath(p, src), fh.read()
+    for p in hs_paths(src):
+        with open(p, errors='replace') as fh:
+            yield os.path.relpath(p, src), fh.read()
 
 
 def uncited(files):

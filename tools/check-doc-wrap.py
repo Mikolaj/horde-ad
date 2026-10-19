@@ -97,38 +97,47 @@ import common  # noqa: E402
 NEW = "not yet in git"
 
 
+class Blocked(Exception):
+    """wrap80 could not run; the message says why."""
+
+
+def wrap80(*args, text=None):
+    """wrap80's output with ARGS, given TEXT on its input where it is
+    a string."""
+    try:
+        return subprocess.run(["wrap80", *args], input=text,
+                              capture_output=True, text=True,
+                              check=True).stdout
+    except OSError:
+        raise Blocked("wrap80 is not on PATH, so nothing was checked")
+    except subprocess.CalledProcessError as e:
+        raise Blocked(f"wrap80 failed ({e.returncode}), nothing checked")
+
+
 def committed_form(rel):
-    """("--unwrap" flag, name) for the form DOC's last commit is in, NEW, or
-    None.
+    """("--unwrap" flag, name, committed text) for the form DOC's last
+    commit is in, NEW, or None.
 
     NEW where git has no such file, which check() then classifies by the
     working copy; None where the committed version sits at neither fixed
     point -- someone else's hand-wrapping, or a document nobody has run the
     formatter over before committing it. That is a refusal, not a guess.
-    A missing or failing wrap80 raises instead (OSError or
-    CalledProcessError) and check() reports it as BLOCKED: swallowing it
-    here read as "neither fixed point", which diagnoses the document for a
-    fault of the tooling.
+    A missing or failing wrap80 raises Blocked instead, and check() reports
+    it as BLOCKED: swallowing it here read as "neither fixed point", which
+    diagnoses the document for a fault of the tooling.
     """
-    # `HEAD:path` is read from the repository root whatever the cwd, so a
-    # run from a subdirectory needs the prefix, or it reports a committed
-    # document as "neither fixed point".
-    prefix = subprocess.run(["git", "rev-parse", "--show-prefix"],
-                            capture_output=True, text=True).stdout.strip()
-    p = subprocess.run(["git", "show", "HEAD:" + os.path.normpath(
-                            os.path.join(prefix, rel))],
+    # `HEAD:./path`, as `HEAD:path` is read from the repository root whatever
+    # the cwd, so a run from a subdirectory reported a committed document
+    # as "neither fixed point".
+    p = subprocess.run(["git", "show", "HEAD:./" + rel],
                        capture_output=True, text=True)
     if p.returncode != 0:
         return NEW
     base = p.stdout
-    w = subprocess.run(["wrap80"], input=base, capture_output=True,
-                       text=True, check=True).stdout
-    u = subprocess.run(["wrap80", "--unwrap"], input=base,
-                       capture_output=True, text=True, check=True).stdout
-    if base == w:                      # a short document is at both, and the
-        return ([], "wrapped")         # wrapped pass is then a no-op anyway
-    if base == u:
-        return (["--unwrap"], "one line per paragraph")
+    if base == wrap80(text=base):      # a short document is at both, and the
+        return ([], "wrapped", base)   # wrapped pass is then a no-op anyway
+    if base == wrap80("--unwrap", text=base):
+        return (["--unwrap"], "one line per paragraph", base)
     return None
 
 
@@ -188,33 +197,24 @@ def check(doc):
     would not fix, so the summary counts it apart rather than as a failure."""
     rel = os.path.normpath(doc)
     try:
-        got = committed_form(rel)
-    except OSError:
-        print(f"BLOCKED {rel}: wrap80 is not on PATH, so nothing was checked")
+        return verdict(rel)
+    except Blocked as e:
+        print(f"BLOCKED {rel}: {e}")
         return 2
-    except subprocess.CalledProcessError as e:
-        print(f"BLOCKED {rel}: wrap80 failed ({e.returncode}), nothing checked")
-        return 2
+
+
+def verdict(rel):
+    """check()'s verdict on the document at rel, raising Blocked where
+    wrap80 could not run."""
+    got = committed_form(rel)
     if got is None:
         print(f"FAIL {rel}: its committed version is at neither of wrap80's"
               f" fixed points, so the form it keeps cannot be told --- run the"
               f" formatter over it and commit that")
         return 1
+    have = open(rel, encoding="utf-8").read()
     if got is NEW:
-        try:
-            forms = [(f, subprocess.run(["wrap80"] + f + [rel],
-                                        capture_output=True, text=True,
-                                        check=True).stdout)
-                     for f in ([], ["--unwrap"])]
-        except OSError:
-            print(f"BLOCKED {rel}: wrap80 is not on PATH, so nothing was"
-                  f" checked")
-            return 2
-        except subprocess.CalledProcessError as e:
-            print(f"BLOCKED {rel}: wrap80 failed ({e.returncode}), nothing"
-                  f" checked")
-            return 2
-        have = open(rel, encoding="utf-8").read()
+        forms = [(f, wrap80(*f, rel)) for f in ([], ["--unwrap"])]
         at = [(f, n) for (f, t), n in zip(forms, ("wrapped",
                                                   "one line per paragraph"))
               if t == have]
@@ -223,18 +223,11 @@ def check(doc):
                   f" of wrap80's fixed points --- run wrap80 -i or wrap80"
                   f" --unwrap -i over it, whichever form it is to keep")
             return 1
-        got = (at[0][0], at[0][1] + ", " + NEW)
-    flag, form = got
-    try:
-        want = subprocess.run(["wrap80"] + flag + [rel], capture_output=True,
-                              text=True, check=True).stdout
-    except OSError:
-        print(f"BLOCKED {rel}: wrap80 is not on PATH, so nothing was checked")
-        return 2
-    except subprocess.CalledProcessError as e:
-        print(f"BLOCKED {rel}: wrap80 failed ({e.returncode}), nothing checked")
-        return 2
-    have = open(rel, encoding="utf-8").read()
+        got = (at[0][0], at[0][1] + ", " + NEW, have)
+    # A working copy equal to a text known to be at the fixed point, the
+    # committed one or the new one just classified, is what wrap80 leaves.
+    flag, form, fixed = got
+    want = have if have == fixed else wrap80(*flag, rel)
     fake = fake_markers(have)
     if fake:
         i, l = fake[0]
@@ -268,9 +261,8 @@ def check(doc):
     # truncates to the shortest, so without it a mismatch would under-check
     # in silence rather than fall back loudly.
     try:
-        flat = subprocess.run(["wrap80", "--unwrap", rel], capture_output=True,
-                              text=True, check=True).stdout
-    except (OSError, subprocess.CalledProcessError):
+        flat = wrap80("--unwrap", rel)
+    except Blocked:
         flat = None
     # Judged LINE by line inside a block, because a block is not a paragraph:
     # a bulleted run is one block holding several, and an edit to one item
@@ -366,10 +358,7 @@ def self_test():
     with tempfile.TemporaryDirectory() as td:
         os.chdir(td)
         try:
-            for args in (["init", "-q"], ["config", "user.email", "t@t"],
-                         ["config", "user.name", "t"],
-                         ["config", "commit.gpgsign", "false"]):
-                subprocess.run(["git"] + args, check=True, capture_output=True)
+            common.scratch_repo()
             para1 = " ".join(["alpha beta gamma delta epsilon"] * 8)
             para2 = " ".join(["zeta eta theta iota kappa lambda"] * 8)
             raw = "# Control\n\n" + para1 + "\n\n" + para2 + "\n"

@@ -502,13 +502,13 @@ def first_string(binds, t, seen=None):
     return None
 
 
-def rows(mods, resolve, own, hs, hsl):
+def rows(mods, resolve, own, hs=None, hsl=None):
     """(module, size, kind, name, forced term, summing term, signatures,
     library callees) of every Call, its size and kind those of the ops list
     reaching it; a signature per function: exact and literals blanked,
     following every reference (hs) and the benchmark's own code alone
     (hsl); the callees, the library bindings the row's own code refers to,
-    per function."""
+    per function. Without hs, signatures and callees are left empty."""
     memo = {}
 
     def mine(r):
@@ -519,9 +519,9 @@ def rows(mods, resolve, own, hs, hsl):
             memo[r] = shape(r[0], mods[r[0]][0][r[1]], resolve)[1]
         return memo[r]
 
-    def lib_callees(m, term):
+    def lib_callees(refs):
         seen, libs = set(), set()
-        todo = list(shape(m, term, resolve)[1])
+        todo = list(refs)
         while todo:
             r = todo.pop()
             if r in seen:
@@ -552,7 +552,7 @@ def rows(mods, resolve, own, hs, hsl):
                 # f together with the NFData dictionary of the result.
                 forced = terms[6] + ' ' + terms[1]
                 sig, libs = [], []
-                for term in (forced, terms[8]):
+                for term in (forced, terms[8]) if hs is not None else ():
                     s, rs = shape(m, term, resolve)
                     sl, rsl = shape(m, term, resolve, mine)
                     sig.append((sha(s + ''.join(hs[0][r] for r in rs)),
@@ -561,7 +561,7 @@ def rows(mods, resolve, own, hs, hsl):
                                 sha(sl + ''.join(hsl[0][r] for r in rsl)),
                                 sha(LIT.sub('N', sl)
                                     + ''.join(hsl[1][r] for r in rsl))))
-                    libs.append(lib_callees(m, term))
+                    libs.append(lib_callees(rs))
                 for size, kind in owner.get(x) or [('?', '?')]:
                     out.append((m, size, kind, name, forced, terms[8], sig,
                                 libs))
@@ -641,8 +641,9 @@ def compare(ta, tb, root, sample=None):
 
 def row_closures(tree, root, key):
     """(forced closure, summed closure) of the first row under key."""
-    mods, resolve, own, rs, _ = build(tree, root)
-    got = [r for r in rs if r[:4] == key]
+    mods, scopes, own = load(tree, root)
+    resolve = resolver(mods, scopes)
+    got = [r for r in rows(mods, resolve, own) if r[:4] == key]
     if not got:
         raise Unreadable(f'no row {" ".join(key)} in {tree}')
     return tuple(closure(mods, resolve, key[0], got[0][i],
@@ -702,7 +703,7 @@ def sections(path, sec):
     return out
 
 
-def balanced(t, start, i):
+def balanced(t, i):
     """The end of the parenthesised group opening at t[i], or len(t)."""
     d = 0
     for j in range(i, len(t)):
@@ -718,7 +719,7 @@ def drop_groups(t, opener, repl):
     out, i = [], 0
     while (k := t.find(opener, i)) >= 0:
         out.append(t[i:k] + repl)
-        i = balanced(t, k, k + len(opener) - 1)
+        i = balanced(t, k + len(opener) - 1)
     return ''.join(out) + t[i:]
 
 
@@ -898,8 +899,7 @@ def plant(td, name, dyn, lib):
 
 
 def checks(bad, td):
-    """The self-test's cases, each failure appended to bad; a status
-    to exit with where the fixtures cannot be built."""
+    """The self-test's cases, each failure appended to bad."""
     src = os.path.join(td, 'src')
     for rel, text in (('bench/OpsDynamic.hs', 'module OpsDynamic where\n'
                        'import qualified Data.Array.Lib as L\n'),
@@ -1036,9 +1036,7 @@ def self_test():
     bad = []
     try:
         with tempfile.TemporaryDirectory() as td:
-            rc = checks(bad, td)
-            if rc is not None:
-                return rc
+            checks(bad, td)
     except Unreadable as e:
         bad.append(f'a run the self-test needs did not happen: {e}')
     for x in bad:

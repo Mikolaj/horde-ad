@@ -1,8 +1,11 @@
 """What the readers of Haskell source share, kept once so a fix lands once.
 
-Imported by bang-drops.py, hascallstack.py, lazy-reads.py and
-pragma-census.py, never run: each puts its own directory first on sys.path,
-as for common.py.
+Imported by bang-drops.py, hascallstack.py, lazy-reads.py, pragma-calls.py,
+pragma-census.py, pragma-map.py and workaround-cites.py, never run: each
+puts its own directory first on sys.path, as for common.py.
+
+hs_paths walks a tree's .hs files in sorted order, the dist* build
+directories and hidden ones passed over.
 
 strip_comments blanks comments but keeps pragmas and every line break, so
 a line number still names its line; an operator that begins with `--`, such
@@ -20,10 +23,20 @@ definition above it.
 """
 
 import collections
+import os
 import re
 
 NOT_DEFINITIONS = ('import', 'module', 'infixl', 'infixr', 'infix', 'type',
                    'deriving', 'default', 'foreign', 'pattern')
+
+
+def hs_paths(root):
+    """The .hs files under root in a sorted walk, the dist* build
+    directories and hidden ones passed over."""
+    for dp, ds, fs in os.walk(root):
+        ds[:] = sorted(d for d in ds if not d.startswith(('.', 'dist')))
+        yield from (os.path.join(dp, f) for f in sorted(fs)
+                    if f.endswith('.hs'))
 
 
 # Outside a block comment: a pragma or a line comment, each stepped over so

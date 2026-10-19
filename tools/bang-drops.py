@@ -31,7 +31,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from hssource import split_functions, strip_comments  # noqa: E402
+from hssource import hs_paths, split_functions, strip_comments  # noqa: E402
 
 BANG = re.compile(r"(?:(?<=[\s(\[,])|^)!([a-z_][\w']*)")
 
@@ -52,40 +52,35 @@ def unbanged(body, e):
 def drops(old, new):
     """(lines reported, number of files compared)."""
     out, compared = [], 0
-    for dp, ds, fs in os.walk(old):
-        ds[:] = sorted(d for d in ds if not d.startswith(('.', 'dist')))
-        for f in sorted(fs):
-            if not f.endswith('.hs'):
+    for po in hs_paths(old):
+        rel = os.path.relpath(po, old)
+        pn = os.path.join(new, rel)
+        if not os.path.exists(pn):
+            continue
+        compared += 1
+        o, n = defs(po), defs(pn)
+        for fn, body in o.items():
+            if fn not in n:
                 continue
-            po = os.path.join(dp, f)
-            rel = os.path.relpath(po, old)
-            pn = os.path.join(new, rel)
-            if not os.path.exists(pn):
-                continue
-            compared += 1
-            o, n = defs(po), defs(pn)
-            for fn, body in o.items():
-                if fn not in n:
-                    continue
-                nb = n[fn]
-                for x in sorted(set(BANG.findall(body))):
-                    e = re.escape(x)
-                    # NEW's unbanged lines less OLD's: NEW's alone, a tree
-                    # against itself reported a name OLD banged in one
-                    # place and bound unbanged in another (bang-drops-02).
-                    had = collections.Counter(unbanged(body, e))
-                    un = []
-                    for ln in unbanged(nb, e):
-                        if had[ln]:
-                            had[ln] -= 1
-                        else:
-                            un.append(ln)
-                    if un:
-                        out.append(f'{rel}: {fn}: {x} banged in old, '
-                                   f'unbanged in new: {un}')
-                    elif not re.search(r"(?<![\w'])" + e + r"(?![\w'])", nb):
-                        out.append(f'{rel}: {fn}: {x} banged in old, '
-                                   'gone from new')
+            nb = n[fn]
+            for x in sorted(set(BANG.findall(body))):
+                e = re.escape(x)
+                # NEW's unbanged lines less OLD's: NEW's alone, a tree
+                # against itself reported a name OLD banged in one
+                # place and bound unbanged in another (bang-drops-02).
+                had = collections.Counter(unbanged(body, e))
+                un = []
+                for ln in unbanged(nb, e):
+                    if had[ln]:
+                        had[ln] -= 1
+                    else:
+                        un.append(ln)
+                if un:
+                    out.append(f'{rel}: {fn}: {x} banged in old, '
+                               f'unbanged in new: {un}')
+                elif not re.search(r"(?<![\w'])" + e + r"(?![\w'])", nb):
+                    out.append(f'{rel}: {fn}: {x} banged in old, '
+                               'gone from new')
     return out, compared
 
 

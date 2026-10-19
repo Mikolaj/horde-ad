@@ -176,6 +176,7 @@ each repo's own --- so a reader syncing one file to the other syncs the
 code below the block and nothing else.
 """
 
+import concurrent.futures
 import contextlib
 import fnmatch
 import functools
@@ -714,13 +715,20 @@ def check_commands(text, flat, targets, stanzas, ours, allow_make,
     for flag in sorted(set(FLAG_RE.findall(commands))):
         if flag in ours:
             print(f"ok   flag   --{flag}")
-        elif subprocess.run(["git", "grep", "-qF", "--", "--" + flag,
-                             "--", ":!*.md", ":(top,exclude)" + self_path]
-                            ).returncode == 0:
+        elif used_in_repo(flag, self_path):
             print(f"ok   flag   --{flag} (external tool, used in the repo)")
         else:
             out["unknown_flags"].append(flag)
     return failures
+
+
+@functools.lru_cache(maxsize=None)
+def used_in_repo(flag, self_path):
+    """Is --FLAG written in a tracked file but the documents and this
+    script? Computed once a run, however many documents name it."""
+    return subprocess.run(["git", "grep", "-qF", "--", "--" + flag,
+                           "--", ":!*.md", ":(top,exclude)" + self_path]
+                          ).returncode == 0
 
 
 def read_doc(doc):
@@ -729,6 +737,28 @@ def read_doc(doc):
     per document."""
     text = open(doc, encoding="utf-8").read()
     return text, unwrapped(text)
+
+
+def checker(no_siblings):
+    """The check of one document, given as read and unwrapped, against what
+    is read once a run: the repository's paths and the siblings', the allow
+    file, the cabal file, the makefile and our own flags. The check returns
+    its number of failures."""
+    top_level = {d for d in os.listdir(".") if os.path.isdir(d)}
+    known = repo_paths()
+    siblings = [] if no_siblings else sibling_paths()
+    allow_paths, allow_make, allow_cabal = allowed()
+    cabal = cabal_text()
+    cabalflags, stanzas = cabal_flags(cabal), cabal_stanzas(cabal)
+    targets, ours, me = make_targets(), our_flags(), self_path()
+    sib_active = bool(SIBLING_ROOTS) and not no_siblings
+
+    def check(text, flat, out):
+        return (check_doc(flat, known, top_level, allow_paths, cabalflags,
+                          siblings, sib_active, out)
+                + check_commands(text, flat, targets, stanzas, ours,
+                                 allow_make, allow_cabal, me, out))
+    return check
 
 
 # A heading as GitHub anchors it: ATX, indented at most three spaces, a
@@ -778,16 +808,6 @@ def doc_headings(text):
         seen[anchor] = 0
         out.append((i, len(m.group(1)), anchor, title))
     return out
-
-
-def own_repo():
-    """OWNER/REPO, lower-cased, of origin on GitHub; None otherwise."""
-    # answered dropped-status: a failed lookup prints no URL, which matches
-    # nothing, so this repository's GitHub links are then left unchecked
-    url = subprocess.run(["git", "remote", "get-url", "origin"],
-                         capture_output=True, text=True).stdout.strip()
-    m = re.search(r"github\.com[:/]([\w.-]+/[\w.-]+?)(?:\.git)?/?$", url)
-    return m.group(1).lower() if m else None
 
 
 def link_target(url, doc, own, root):
@@ -1003,22 +1023,12 @@ def self_test():
     os.close(fd)
 
     def run_doc(no_siblings):
-        top_level = {d for d in os.listdir(".") if os.path.isdir(d)}
-        known = repo_paths()
-        siblings = [] if no_siblings else sibling_paths()
-        allow_paths, allow_make, allow_cabal = allowed()
-        text = cabal_text()
         out = {"external": [], "unclassified": [], "unknown_flags": [],
                "unverified": []}
         buf = io.StringIO()
-        body, flat = read_doc(doc)
+        check = checker(no_siblings)
         with contextlib.redirect_stdout(buf):
-            n = check_doc(flat, known, top_level, allow_paths,
-                          cabal_flags(text), siblings,
-                          bool(SIBLING_ROOTS) and not no_siblings, out)
-            n += check_commands(body, flat, make_targets(),
-                                cabal_stanzas(text), our_flags(),
-                                allow_make, allow_cabal, self_path(), out)
+            n = check(*read_doc(doc), out)
         return n, buf.getvalue(), out
 
     try:
@@ -1146,13 +1156,7 @@ def main():
               " --without-siblings.")
         return 2
 
-    top_level = {d for d in os.listdir(".") if os.path.isdir(d)}
-    known = repo_paths()
-    siblings = [] if no_siblings else sibling_paths()
-    allow_paths, allow_make, allow_cabal = allowed()
-    text = cabal_text()
-    cabalflags, stanzas = cabal_flags(text), cabal_stanzas(text)
-    targets, ours = make_targets(), our_flags()
+    check = checker(no_siblings)
     out = {"external": [], "unclassified": [], "unknown_flags": [],
            "unverified": []}
     failures = 0
@@ -1160,17 +1164,16 @@ def main():
         print("NOTE: --without-siblings, so upstream references are not"
               " resolved here.\n")
 
-    me = self_path()
-    own = own_repo()
-    for doc in docs:
+    # None, origin absent or not on GitHub, leaves this repository's GitHub
+    # links unchecked.
+    own = common.github_repo("origin")
+    # The documents unwrapped in parallel, a wrap80 run each.
+    with concurrent.futures.ThreadPoolExecutor() as pool:
+        read = list(pool.map(read_doc, docs))
+    for doc, (text, flat) in zip(docs, read):
         if len(docs) > 1:
             print(f"\n=== {doc} ===")
-        text, flat = read_doc(doc)
-        failures += check_doc(flat, known, top_level, allow_paths,
-                              cabalflags, siblings,
-                              bool(SIBLING_ROOTS) and not no_siblings, out)
-        failures += check_commands(text, flat, targets, stanzas, ours,
-                                   allow_make, allow_cabal, me, out)
+        failures += check(text, flat, out)
         failures += check_anchors(doc, flat, own)
 
     for label, items, always in (

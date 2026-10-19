@@ -70,12 +70,9 @@ SKIP = ('Rec {', 'end Rec', 'Result size')
 DATA_LINES = 200
 
 
-class Module:
-    """One module's Core: binding counts and, where the dump carries size
-    comments, terms by binding name; total terms; the two digests."""
-    def __init__(self, names, sizes, terms, digests):
-        self.names, self.sizes, self.terms, self.digests = (
-            names, sizes, terms, digests)
+# One module's Core: binding counts and, where the dump carries size
+# comments, terms by binding name; total terms; the two digests.
+Module = collections.namedtuple('Module', 'names sizes terms digests')
 
 
 def family(tok):

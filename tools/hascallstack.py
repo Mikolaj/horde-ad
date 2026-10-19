@@ -205,7 +205,7 @@ def drop_hcs(sig):
     return head + new + rest
 
 
-def stack_import(cfg, s):
+def stack_import(s):
     """(the GHC.Stack import line or None, whether the code names
     HasCallStack)."""
     has = re.search(r'^import\s+GHC\.Stack\b.*$', s, re.M)
@@ -215,7 +215,7 @@ def stack_import(cfg, s):
 
 
 def fix_import(cfg, s):
-    has, uses = stack_import(cfg, s)
+    has, uses = stack_import(s)
     if uses and not has:
         lines = s.split('\n')
         imps = [i for i, l in enumerate(lines) if l.startswith('import ')]
@@ -278,7 +278,7 @@ def check(cfg, texts):
                            % (name(k), cfg['path'][k[0]], i + 1,
                               line.strip()[:60]))
     for m in cfg['mods']:
-        has, uses = stack_import(cfg, texts[m])
+        has, uses = stack_import(texts[m])
         if bool(has) != uses:
             out.append('GHC.Stack import %s: %s'
                        % ('missing' if uses else 'unused', cfg['path'][m]))

@@ -578,17 +578,7 @@ NEAREST = 16              # dead spots tried per group, nearest first
 
 def heads_of(src):
     """The `.L` labels some later instruction jumps backwards to."""
-    seen, heads = set(), set()
-    for line in src:
-        s = line.strip()
-        m = LABEL.match(s)
-        if m:
-            seen.add(m.group(1))
-            continue
-        m = JUMP.match(s)
-        if m and m.group(1) in seen:     # jumps back: its target is a loop head
-            heads.add(m.group(1))
-    return heads
+    return set(edges_of(src))
 
 
 def edges_of(src):
@@ -1401,8 +1391,9 @@ def plan_dead(src, args, path):
     return ins, len(groups), len(planned)
 
 
-def pad_note(path):
-    """Say where the pad went, and clear it: one module's worth an invocation.
+def take_pad(path):
+    """Say where the pad went, clear it and return its lines, none where
+    there is no pad: one module's worth an invocation.
 
     Unconditional, not under ALIGN_AS_VERBOSE. The pad is once per
     invocation and GHC invokes this once per module, so on a multi-module
@@ -1411,8 +1402,12 @@ def pad_note(path):
     build gives, the docstring above having the rest.
     """
     global PAD
+    if not PAD:
+        return []
+    lines = ['\t.section .text', '\t.p2align 3', f'\t.space {PAD}, 0x90', '']
     print(f'align-as: {PAD} pad byte(s) appended to {path}', file=sys.stderr)
     PAD = 0
+    return lines
 
 
 def rewrite(path, args):
@@ -1441,9 +1436,7 @@ def rewrite(path, args):
         for i, line in enumerate(src):
             out.append(line)
             out += ins.get(i, [])
-        if PAD:
-            out += ['\t.section .text', '\t.p2align 3', f'\t.space {PAD}, 0x90', '']
-            pad_note(path)
+        out += take_pad(path)
         with open(path, 'w') as f:
             f.write('\n'.join(out))
         return n, 0, 0
@@ -1463,14 +1456,12 @@ def rewrite(path, args):
     if not st:
         # The pad is owed by the FIRST module this shim is handed, and a
         # module with no loop head is still that module. Returning here
-        # before the PAD block below sent it to whichever later module
+        # before the take_pad at the end sent it to whichever later module
         # happened to have a head -- or nowhere, when none did -- putting
         # the pair's libraries out of phase with nothing said about it.
-        if PAD:
+        if pad := take_pad(path):
             with open(path, 'a') as f:
-                f.write('\n\t.section .text\n\t.p2align 3'
-                        f'\n\t.space {PAD}, 0x90\n')
-            pad_note(path)
+                f.write('\n' + '\n'.join(pad))
         return 0, 0, dropped
 
     L = lengths(src, st, args, path)
@@ -1493,9 +1484,7 @@ def rewrite(path, args):
                                f' {(ln - 1) % BOUND}')
                     n += 1
         out.append(line)
-    if PAD:
-        out += ['\t.section .text', '\t.p2align 3', f'\t.space {PAD}, 0x90', '']
-        pad_note(path)
+    out += take_pad(path)
     with open(path, 'w') as f:
         f.write('\n'.join(out))
     return n, back, dropped

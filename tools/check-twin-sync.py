@@ -44,6 +44,7 @@ copy carries. That the self-test bites is mutants.py's to show.
 """
 import ast
 import contextlib
+import functools
 import glob
 import io
 import os
@@ -68,6 +69,8 @@ MARKER_END = "# --- end per-repo configuration"
 CONFIG_NAMES = ("SEARCH_ROOTS", "PUBLISHED_REF", "TWIN_ROOT")
 
 
+# Cached: the self-test compares the same unchanged files several times.
+@functools.lru_cache(maxsize=None)
 def comparable(text):
     """The part of a script the twins must agree on; a file that is not
     Python is compared whole."""

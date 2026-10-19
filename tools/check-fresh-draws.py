@@ -39,6 +39,7 @@ Exit 0 when the rule holds, 1 with a line per finding, 2 when nothing was
 read: no file given and none tracked, or a file that cannot be opened.
 """
 
+import functools
 import os
 import re
 import subprocess
@@ -149,13 +150,10 @@ class Definition:
         self.path, self.module, self.name = path, module, name
         self.kind, self.line = kind, line
         self.lines = []  # (line number, blanked text)
-        self._tokens = None
 
+    @functools.cached_property
     def tokens(self):
-        if self._tokens is None:
-            self._tokens = {t for _, text in self.lines
-                            for t in TOKEN.findall(text)}
-        return self._tokens
+        return {t for _, text in self.lines for t in TOKEN.findall(text)}
 
     def first(self, token):
         """The number of the first line mentioning TOKEN."""
@@ -208,7 +206,7 @@ def findings(files):
         defs.extend(ds)
     code = [d for d in defs if d.kind != 'import']
     for d in code:
-        toks = d.tokens()
+        toks = d.tokens
         for bad in FORBIDDEN:
             if bad in toks:
                 out.append('%s:%d: %s in %s; no duplicable primitive but %s '
@@ -225,7 +223,7 @@ def findings(files):
         grew = False
         for d in code:
             if d.name and d.name not in draw:
-                toks = d.tokens()
+                toks = d.tokens
                 if PLAIN not in toks and toks & draw:
                     draw.add(d.name)
                     grew = True
@@ -237,7 +235,7 @@ def findings(files):
                 out.append('%s: ALLOW lists %s.%s, which is gone; drop it '
                            'from ALLOW' % (key[0], key[0], key[1]))
             continue
-        toks = d.tokens()
+        toks = d.tokens
         if DUPABLE not in toks:
             out.append('%s:%d: ALLOW lists %s, which no longer uses %s; drop '
                        'it from ALLOW' % (d.path, d.line, d.name, DUPABLE))

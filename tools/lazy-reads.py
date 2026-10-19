@@ -29,7 +29,7 @@ import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from hssource import split_functions, strip_comments  # noqa: E402
+from hssource import hs_paths, split_functions, strip_comments  # noqa: E402
 
 PER_ELEM = (r"\b(vMap|vAll|vAny|vZipWith\w*|vGenerate|vFold\w*|vFromListN|"
             r"all|any|map|foldl'?|foldr|zipWith\w*|filter|iterate|"
@@ -40,43 +40,38 @@ BINDING = re.compile(r"^\s*(?:let\s+|where\s+|)([a-z_][\w']*)\s*=(?!=)\s*(.*)$")
 def reads(tree):
     """(lines reported, number of files read)."""
     out, read = [], 0
-    for dp, ds, fs in os.walk(tree):
-        ds[:] = sorted(d for d in ds if not d.startswith(('.', 'dist')))
-        for f in sorted(fs):
-            if not f.endswith('.hs'):
-                continue
-            p = os.path.join(dp, f)
-            read += 1
-            with open(p, errors='replace') as fh:
-                defs = split_functions(strip_comments(fh.read()))
-            for fn, body in defs.items():
-                lines = body.split('\n')
-                for i, line in enumerate(lines):
-                    m = BINDING.match(line)
-                    if not m or line.startswith(fn):
+    for p in hs_paths(tree):
+        read += 1
+        with open(p, errors='replace') as fh:
+            defs = split_functions(strip_comments(fh.read()))
+        for fn, body in defs.items():
+            lines = body.split('\n')
+            for i, line in enumerate(lines):
+                m = BINDING.match(line)
+                if not m or line.startswith(fn):
+                    continue
+                x, rhs = m.group(1), m.group(2)
+                if x == 'in' or not rhs or rhs.lstrip().startswith('\\'):
+                    continue
+                e = re.escape(x)
+                # Not \b around the name, which finds no boundary after
+                # a prime, so x' was never found read (lazy-reads-01).
+                w = r"(?<![\w'])" + e + r"(?![\w'])"
+                tags = set()
+                for j, u in enumerate(lines):
+                    if j == i or not re.search(w, u):
                         continue
-                    x, rhs = m.group(1), m.group(2)
-                    if x == 'in' or not rhs or rhs.lstrip().startswith('\\'):
-                        continue
-                    e = re.escape(x)
-                    # Not \b around the name, which finds no boundary after
-                    # a prime, so x' was never found read (lazy-reads-01).
-                    w = r"(?<![\w'])" + e + r"(?![\w'])"
-                    tags = set()
-                    for j, u in enumerate(lines):
-                        if j == i or not re.search(w, u):
-                            continue
-                        if re.search(r"\\[^->]*->.*" + w, u):
-                            tags.add('lambda')
-                        if re.search(r"\(\s*" + e + r"\s*[^\w\s(),\[\]]+\s*\)"
-                                     r"|\(\s*[^\w\s(),\[\]]+\s*" + e
-                                     + r"\s*\)", u):
-                            tags.add('section')
-                        if re.search(PER_ELEM + r".*" + w, u):
-                            tags.add('per-elem-arg')
-                    if tags:
-                        out.append(f"{os.path.relpath(p, tree)}\t{fn}\t"
-                                   f"{x} = {rhs[:70]}\t{','.join(sorted(tags))}")
+                    if re.search(r"\\[^->]*->.*" + w, u):
+                        tags.add('lambda')
+                    if re.search(r"\(\s*" + e + r"\s*[^\w\s(),\[\]]+\s*\)"
+                                 r"|\(\s*[^\w\s(),\[\]]+\s*" + e
+                                 + r"\s*\)", u):
+                        tags.add('section')
+                    if re.search(PER_ELEM + r".*" + w, u):
+                        tags.add('per-elem-arg')
+                if tags:
+                    out.append(f"{os.path.relpath(p, tree)}\t{fn}\t"
+                               f"{x} = {rhs[:70]}\t{','.join(sorted(tags))}")
     return out, read
 
 

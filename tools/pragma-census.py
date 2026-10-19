@@ -129,11 +129,13 @@ or `--write` when nothing differs, 1 when one does not, 2 when SRC holds no
 did not take.
 """
 
+import functools
 import os
 import re
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import hssource  # noqa: E402
 from hssource import blank_blocks, strip_comments  # noqa: E402
 
 # A pragma's kind ends at a word boundary, and CONLIKE, or a SPECIALISE's
@@ -142,8 +144,9 @@ from hssource import blank_blocks, strip_comments  # noqa: E402
 # INLINE CONLIKE g as one of CONLIKE (pragma-census-17, -18).
 KIND = r'INLINE|INLINABLE|INLINEABLE|NOINLINE|SPECIALI[SZ]E'
 MODIFIERS = r'\b\s*(?:(?:CONLIKE|(?:NO)?INLINE)\b\s*)*'
-PRAGMA = re.compile(r'\{-#\s*(?:' + KIND + ')' + MODIFIERS
-                    + r'(?:\[~?\d+\]\s*)?\(?([^\s)#,]+)')
+# A pragma's kind, its phase and the name it is on.
+KINDS = re.compile(r'\{-#\s*(' + KIND + ')' + MODIFIERS
+                   + r'(\[~?\d+\]\s*)?\(?([^\s)#,]+)')
 TOP_SIG = re.compile(r"^([a-z_][\w']*(?:\s*,\s*[a-z_][\w']*)*"
                      r"|\([!#$%&*+./<=>?@\\^|~:-]+\))\s*::(.*)")
 OP = r"[!#$%&*+./<=>?@\\^|~:-]+"
@@ -165,6 +168,14 @@ def code(lines):
     return strip_comments('\n'.join(lines)).split('\n')
 
 
+def pragma_kinds(lines, top=False):
+    """{name: (kind, whether phased)} of the pragmas in the code of lines,
+    those at column 0 alone where top."""
+    return {m.group(3): (m.group(1), bool(m.group(2)))
+            for x in code(lines) if not top or x[:1] not in ' \t'
+            for m in KINDS.finditer(x)}
+
+
 def past_asides(lines, j):
     """The first line from j that is neither blank nor a pragma or a comment
     at column 0, blank_blocks having blanked the block comments."""
@@ -176,26 +187,9 @@ def past_asides(lines, j):
 def constraints(ctx):
     """The class constraints of a context, the rest dropped."""
     ctx = re.sub(r'^\s*forall\b[^.]*\.', '', ctx).strip()
-    if ctx.startswith('(') and ctx.endswith(')'):
-        depth = 0
-        for i, ch in enumerate(ctx):
-            depth += ch == '('
-            depth -= ch == ')'
-            if depth == 0 and i < len(ctx) - 1:
-                break
-        else:
-            ctx = ctx[1:-1]
-    parts, depth, cur = [], 0, ''
-    for ch in ctx:
-        depth += ch in '(['
-        depth -= ch in ')]'
-        if ch == ',' and depth == 0:
-            parts.append(cur)
-            cur = ''
-        else:
-            cur += ch
-    parts.append(cur)
-    return [' '.join(p.split()) for p in parts
+    if ctx.startswith('(') and bracket_end(ctx, 0) == len(ctx):
+        ctx = ctx[1:-1]
+    return [' '.join(p.split()) for p in depth0(ctx, ',')
             if p.strip() and p.strip() != 'HasCallStack' and '~' not in p
             and not p.strip().startswith('TypeError') and '<=' not in p]
 
@@ -362,10 +356,7 @@ def class_at(lines, i):
     words = re.findall(r"[A-Za-z_][\w']*", h.split('|')[0])
     body = instance_body(lines, j, k, hm)
     sigs = body_signatures(lines, j, k)
-    pk = {}
-    for b in code(lines[i:k]):
-        for p in KINDS.finditer(b):
-            pk[p.group(3)] = (p.group(1), bool(p.group(2)))
+    pk = pragma_kinds(lines[i:k])
     return (words[0] if words else None), sigs, body, pk, k
 
 
@@ -415,8 +406,7 @@ def census(text):
     [(line, class, method)] of the instance methods and [(line, class,
     method)] of the class default methods carrying no pragma."""
     lines = blank_blocks(text).split('\n')
-    module_pragmas = {m.group(1) for line in code(lines)
-                      for m in PRAGMA.finditer(line)}
+    module_pragmas = set(pragma_kinds(lines))
     funs, meths, dms = [], [], []
     i = 0
     while i < len(lines):
@@ -446,8 +436,7 @@ def census(text):
                 if cs:
                     cls = cls_head.split()[0]
                     body = instance_body(lines, j, k, hm)
-                    pragmas = {p.group(1) for b in code(lines[i:k])
-                               for p in PRAGMA.finditer(b)}
+                    pragmas = set(pragma_kinds(lines[i:k]))
                     seen = set()
                     for n, b in body:
                         name = method_name(b)
@@ -461,8 +450,6 @@ def census(text):
     return funs, meths, dms
 
 
-KINDS = re.compile(r'\{-#\s*(' + KIND + ')' + MODIFIERS
-                   + r'(\[~?\d+\]\s*)?\(?([^\s)#,]+)')
 NOTE = re.compile(r'\b(?:INLINE|INLINABLE|NOINLINE)\b|\bpragma\b')
 F1NOTE = re.compile(r'\bF1\b')
 A3NOTE = re.compile(r'\bA3\b')
@@ -612,6 +599,9 @@ LEAD = re.compile(r'--\s*(INLINE(?: \[~?\d+\])?|INLINABLE|INLINEABLE|NOINLINE'
 CITE = re.compile(r'\b(?:I[123]|F1|A3|S2|W[34])\b|\bsee\b')
 VERSION = re.compile(r'\bGHC (?:\d+\.\d+[\d.]*|HEAD)\b')
 DATE = re.compile(r'\b\d{4}-\d{2}-\d{2}\b')
+# A pragma's, a lead's or a declaration's spelling as the rule compares it.
+CANON = {'INLINEABLE': 'INLINABLE', 'SPECIALISE': 'INLINABLE',
+         'SPECIALIZE': 'INLINABLE', 'No pragma': 'none', 'no pragma': 'none'}
 
 
 def reasoned(lines, i, has):
@@ -624,8 +614,7 @@ def reasoned(lines, i, has):
     if not m:
         return False
     lead = re.sub(r' \[.*', '', m.group(1))
-    lead = {'INLINEABLE': 'INLINABLE', 'SPECIALISE': 'INLINABLE',
-            'SPECIALIZE': 'INLINABLE', 'No pragma': 'none'}.get(lead, lead)
+    lead = CANON.get(lead, lead)
     text = ' '.join(plain)
     cited = CITE.search(text) or (VERSION.search(text) and DATE.search(text))
     return lead == has and bool(cited)
@@ -662,8 +651,7 @@ def declared(comments, line=0):
     m = DECL.search(text)
     if not m:
         return None
-    pragma = {'INLINEABLE': 'INLINABLE', 'No pragma': 'none',
-              'no pragma': 'none'}.get(m.group(1), m.group(1))
+    pragma = CANON.get(m.group(1), m.group(1))
     words = [x.strip().strip('`') for x in
              re.split(r',\s*(?:and\s+)?|\s+and\s+', (m.group(2) or '').strip())
              if x.strip()]
@@ -993,8 +981,8 @@ def forwarding(texts, classes=None):
         lines = text.split('\n')
         mod, aliases, opens = module_info(text)
         info[mod] = (aliases, opens)
-        kinds = {m.group(3): m.group(1) for x in code(lines)
-                 if x[:1] not in ' \t' for m in KINDS.finditer(x)}
+        kinds = {x: kind for x, (kind, _)
+                 in pragma_kinds(lines, top=True).items()}
         for i, line in enumerate(lines):
             m = top_signature(lines, i)
             if not m:
@@ -1016,10 +1004,7 @@ def forwarding(texts, classes=None):
             if not hm:
                 continue
             cls = re.sub(r'^.*\.', '', (hm.group(1).split('=>', 1)[-1]).split()[0])
-            pk = {}
-            for b in code(lines[i:k]):
-                for p in KINDS.finditer(b):
-                    pk[p.group(3)] = p.group(1)
+            pk = {x: kind for x, (kind, _) in pragma_kinds(lines[i:k]).items()}
             seen = set()
             for n, b in instance_body(lines, j, k, hm):
                 meth = method_name(b)
@@ -1043,6 +1028,9 @@ def forwarding(texts, classes=None):
         seen.add(x)
         return set().union(*[defining(y, name, seen) for y in info[x][1]])
 
+    # Cached: table's keys are fixed by now, and the rounds below repeat
+    # its calls.
+    @functools.lru_cache(maxsize=None)
     def resolve(mod, qual, name):
         aliases, opens = info[mod]
         if qual:
@@ -1101,8 +1089,7 @@ def departs(lines, notes, has):
     """Whether a comment above a binding gives P's reason for the pragma it
     carries, one other than INLINE, which overrides what its body and its
     callees would make it."""
-    other = {'INLINEABLE': 'INLINABLE', 'SPECIALISE': 'INLINABLE',
-             'SPECIALIZE': 'INLINABLE'}.get(has, has) or 'none'
+    other = CANON.get(has, has) or 'none'
     return other != 'INLINE' and any(reasoned(lines, x, other) for x in notes)
 
 
@@ -1178,11 +1165,7 @@ def rule_check(text, classes, fwd=None, fus=None, marked=(),
     lines, fwd, mod = text.split('\n'), fwd or {}, module_info(text)[0]
     fus = fus or set()
     unmarked, unbuilt = [], []
-    kinds = {}
-    for line in code(lines):
-        for m in KINDS.finditer(line):
-            if line[:1] not in (' ', '\t'):
-                kinds[m.group(3)] = (m.group(1), bool(m.group(2)))
+    kinds = pragma_kinds(lines, top=True)
     start = next((n for n, x in enumerate(lines) if re.match(r'module\b', x)),
                  0)
     mdecl = declared([x for x in lines[:start] if x.lstrip().startswith('--')],
@@ -1193,8 +1176,7 @@ def rule_check(text, classes, fwd=None, fus=None, marked=(),
     def judge(n, name, has, phased, ty, over, notes, extra=(), decl=mdecl,
               key=None, eqs=()):
         key = key or (mod, name)
-        has = {'INLINEABLE': 'INLINABLE', 'SPECIALISE': 'INLINABLE',
-               'SPECIALIZE': 'INLINABLE'}.get(has, has)
+        has = CANON.get(has, has)
         if decl is not None:
             judged.append((decl, n + 1, name, has))
         if phased:
@@ -1269,10 +1251,7 @@ def rule_check(text, classes, fwd=None, fus=None, marked=(),
                 cls = re.sub(r'^.*\.', '', cls_head.split()[0])
                 over = bool(constraints(ctx)) if ctx else False
                 body = instance_body(lines, j, k, hm)
-                pk = {}
-                for b in code(lines[i:k]):
-                    for p in KINDS.finditer(b):
-                        pk[p.group(3)] = (p.group(1), bool(p.group(2)))
+                pk = pragma_kinds(lines[i:k])
                 hdecl = declared(plain_lines(lines, i), i + 1)
                 isigs = body_signatures(lines, j, k)
                 seen = set()
@@ -1333,13 +1312,8 @@ SKIP = frozenset()  # paths relative to SRC that --skip leaves out
 
 
 def hs_files(src):
-    files = []
-    for d, dirs, names in os.walk(src):
-        dirs[:] = sorted(x for x in dirs if not x.startswith(('.', 'dist')))
-        files += [os.path.join(d, x) for x in sorted(names)
-                  if x.endswith('.hs')
-                  and os.path.relpath(os.path.join(d, x), src) not in SKIP]
-    return files
+    return [p for p in hssource.hs_paths(src)
+            if os.path.relpath(p, src) not in SKIP]
 
 
 def rule_findings(src):
@@ -1788,6 +1762,11 @@ def self_test_rule():
            'f15 g t | otherwise = error "f15: no"  -- f15 is not recursive\n'
            'f17 :: [Int] -> T a -> T a\n'
            'f17 = permT . id\n'
+           'f18 :: T a -> Int\n'
+           'f18 = f10 . id\n'
+           '  where\n'
+           '    {-# INLINE f10 #-}  -- the local f10, not the top-level one\n'
+           '    f10 = lenT\n'
            'instance Functor T where\n'
            '  fmap = mapT\n'
            'instance Num a => Num (T a) where\n'

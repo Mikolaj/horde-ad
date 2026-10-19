@@ -94,6 +94,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
 import dumps  # noqa: E402
+import hssource  # noqa: E402
 
 # The module keying and the normalisation the cache was written with, part
 # of its signature so a cache keyed or normalised the old way is recounted
@@ -219,15 +220,11 @@ def hs_files(src):
     """[(path, module, text)] of every .hs file under src, build directories
     and hidden ones passed over."""
     out = []
-    for dp, ds, fs in os.walk(src):
-        ds[:] = [d for d in ds if not d.startswith(('.', 'dist'))]
-        for f in fs:
-            if f.endswith('.hs'):
-                p = os.path.join(dp, f)
-                with open(p, errors='replace') as fh:
-                    txt = fh.read()
-                m = MODULE.search(txt)
-                out.append((p, m.group(1) if m else 'Main', txt))
+    for p in hssource.hs_paths(src):
+        with open(p, errors='replace') as fh:
+            txt = fh.read()
+        m = MODULE.search(txt)
+        out.append((p, m.group(1) if m else 'Main', txt))
     return out
 
 
@@ -359,10 +356,8 @@ def verdicts(a, b, names, per=None):
                 if ca != cb:
                     moved.append(f'{k.split("/")[-1]} {ca}->{cb}')
             amb = ' (name not unique)' if dup[n] > 1 else ''
-        more = f' +{len(moved) - 6}' if len(moved) > 6 else ''
         lines.append(f'{f}\t{n}{amb}\t'
-                     + ('DEAD' if not moved else
-                        'MOVED ' + ', '.join(moved[:6]) + more))
+                     + ('MOVED ' + listed(moved) if moved else 'DEAD'))
     return lines
 
 
@@ -406,6 +401,9 @@ def inline_census(root, tokens, prags, srcs=None):
     srcs = srcs or {}
     scopes = {m: scope(t) for m, t in srcs.items()}
     paths = dict((k, p) for p, k in dumps.walk(root, '.dump-simpl'))
+    # (imported copies, recursive binders) per dump, read once however many
+    # targets its module holds.
+    read = {}
     dup = collections.Counter(n for _, _, n in prags)
     lines, shared, flagged, seen = [], {}, 0, 0
     for f, mod, n in prags:
@@ -422,8 +420,11 @@ def inline_census(root, tokens, prags, srcs=None):
         called_re = re.compile(rf"((?:[A-Z][\w']*\.)+)"
                                rf"(?:(?:\$[sw])+{e}[0-9]*|{e})")
         copy_re = re.compile(rf"((?:[A-Z][\w']*\.)*)\$s(?:\$[sw])*{e}[0-9]*")
-        texts = [dumps.read_text(paths[k]) for k in own]
-        foreign = set().union(*map(imported_copies, texts))
+        for k in own:
+            if k not in read:
+                t = dumps.read_text(paths[k])
+                read[k] = imported_copies(t), rec_binders(t)
+        foreign = set().union(*(read[k][0] for k in own))
         called, copied = [], []
         for k in sorted(tokens):
             if k in own:
@@ -448,7 +449,7 @@ def inline_census(root, tokens, prags, srcs=None):
                     ncopy += v
             if ncopy:
                 copied.append(f'{here} {ncopy}')
-        rec = any(n in rec_binders(t) for t in texts)
+        rec = any(n in read[k][1] for k in own)
         parts = []
         if called:
             parts.append('CALLED ' + listed(called))

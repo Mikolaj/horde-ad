@@ -70,22 +70,8 @@ class Refusal(Exception):
 
 
 def git(repo, *args, stdin=None, env=None):
-    """git's output, its bytes kept: decoded with surrogateescape, where text
-    mode turned CR LF into LF in every file a substitution reached
-    (rewrite-fold-02); git's location variables cleared, an inherited
-    GIT_DIR overriding -C (rewrite-fold-03)."""
-    try:
-        r = subprocess.run(
-            ['git', '-C', repo] + list(args), capture_output=True,
-            input=None if stdin is None
-            else stdin.encode('utf-8', 'surrogateescape'),
-            env=common.git_env(**(env or {})))
-    except OSError as e:
-        raise Refusal('git %s: %s' % (' '.join(args), e))
-    if r.returncode != 0:
-        raise Refusal('git %s: %s' % (
-            ' '.join(args), r.stderr.decode('utf-8', 'replace').strip()))
-    return r.stdout.decode('utf-8', 'surrogateescape')
+    """common.git_out's output, a Refusal where git fails."""
+    return common.git_out(repo, *args, stdin=stdin, env=env, error=Refusal)
 
 
 def resolve(repo, rev):

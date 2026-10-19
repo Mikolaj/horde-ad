@@ -268,11 +268,12 @@ roots, and `resolve` returns at its `os.path.exists` check before
 reaching the ambiguity branch, so the root `CLAUDE.md` shadows the pair
 and `CLAUDE.md:1` resolves ok -- a live row needs a basename duplicated
 under the search roots with no copy at the repo root, which the
-self-test builds. The two copies of this script differ only in
-SEARCH_ROOTS and the per-repo block; `tools/check-twin-sync.py` compares
-them whenever both checkouts are mounted.
+self-test builds. The two copies of this script differ only in the
+per-repo block; `tools/check-twin-sync.py` compares them whenever both
+checkouts are mounted.
 """
 
+import collections
 import datetime
 import functools
 import os
@@ -287,13 +288,13 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import common  # noqa: E402
 
+# --- per-repo configuration -----------------------------------------
 SEARCH_ROOTS = ["src", "test", "bench", "example", "tools", ".github", "."]
 # The ref a pinned commit has to be reachable from to count as published.
 # `git show` is an object-database lookup with no reachability requirement,
 # so without this a link or stamp naming an unpushed or squashed-away
 # commit resolves here and nowhere else.
 PUBLISHED_REF = "origin/master"
-# --- per-repo configuration -----------------------------------------
 # Permalinks into another repository that a local clone can check, keyed by
 # the URL up to the commit: the clone's path from the root. A commit there
 # counts as published when one of the clone's remote-tracking refs holds it.
@@ -375,18 +376,6 @@ def reachable_from(sha, ref):
                           capture_output=True).returncode == 0
 
 
-def own_slug():
-    """OWNER/REPO, lower-cased, of the GitHub repository PUBLISHED_REF's
-    remote names; None when that remote is absent or not on GitHub."""
-    # answered dropped-status: a failed lookup prints no URL, which matches
-    # nothing below and so leaves every link checked as this repository's
-    url = subprocess.run(["git", "remote", "get-url",
-                          PUBLISHED_REF.split("/", 1)[0]],
-                         capture_output=True, text=True).stdout.strip()
-    m = re.search(r"github\.com[:/]([\w.-]+/[\w.-]+?)(?:\.git)?/?$", url)
-    return m.group(1).lower() if m else None
-
-
 def published(sha):
     """Is sha reachable from PUBLISHED_REF? None if that ref is absent."""
     return reachable_from(sha, PUBLISHED_REF)
@@ -421,9 +410,31 @@ def blob_lines(clone, sha, path):
     return p.stdout.splitlines() if p.returncode == 0 else False
 
 
+Body = collections.namedtuple("Body", "text squashed flat words")
+WORD_RE = re.compile(r"[\w']+")
+
+
+@functools.lru_cache(maxsize=None)
+def blob_body(clone, sha, path):
+    """PATH's text at SHA in CLONE but its imports: as it is, squashed to
+    lower-case letters and digits, with its runs of white space single
+    spaces, and as the set of its words. Read once a file, however many
+    links cite it."""
+    text = "\n".join(ln for ln in blob_lines(clone, sha, path)
+                     if not ln.startswith("import "))
+    return Body(text, re.sub(r"[^a-z0-9]", "", text.lower()),
+                " ".join(text.split()), frozenset(WORD_RE.findall(text)))
+
+
 @functools.lru_cache(maxsize=None)
 def foreign_published(clone, sha):
     """Does one of CLONE's remote-tracking refs hold SHA?"""
+    # origin's default branch first: one ancestry test, where the scan below
+    # walks every remote ref, which in a GHC clone is seconds a commit.
+    if subprocess.run(["git", "-C", clone, "merge-base", "--is-ancestor",
+                       sha, "refs/remotes/origin/HEAD"],
+                      capture_output=True).returncode == 0:
+        return True
     p = subprocess.run(["git", "-C", clone, "for-each-ref", "--count=1",
                         "--contains", sha, "refs/remotes"],
                        capture_output=True, text=True)
@@ -547,12 +558,16 @@ def name_keys(code, note, quote):
     return [k for k in IDENT_RE.findall(code) if k not in KEYWORDS]
 
 
-def word_in(key, text):
-    """Is KEY in TEXT as a whole identifier, or, a phrase, at all?"""
-    if " " in key or not key[0].isalpha() and key[0] != "_":
-        return key in text
+def word_in(key, body):
+    """Is KEY in BODY as a whole identifier, or, a phrase, at all?"""
+    if " " in key:
+        return key in body.flat
+    if not key[0].isalpha() and key[0] != "_":
+        return key in body.text
+    if WORD_RE.fullmatch(key):
+        return key in body.words
     return re.search(r"(?<![\w'])" + re.escape(key) + r"(?![\w'])",
-                     text) is not None
+                     body.text) is not None
 
 
 def names_path(code, path):
@@ -620,13 +635,10 @@ def check_links(text, own, foreign):
             # A name the file does not hold, or holds in its imports alone,
             # is about something else, the program a draft describes most
             # often, and says nothing about the line.
-            body = "\n".join(ln for ln in lines
-                              if not ln.startswith("import "))
-            body_squashed = re.sub(r"[^a-z0-9]", "", body.lower())
+            body = blob_body(clone, sha, path)
             names = [(name, [k for k in keys if (
-                k[5:] in body_squashed if k.startswith("flag:")
-                else word_in(k, " ".join(body.split()) if " " in k
-                             else body))]) for name, keys in names]
+                k[5:] in body.squashed if k.startswith("flag:")
+                else word_in(k, body))]) for name, keys in names]
             names = [(name, keys) for name, keys in names if keys]
             if not names:
                 continue
@@ -800,10 +812,12 @@ def self_test():
             def git(*a):
                 subprocess.run(["git"] + list(a), check=True,
                                capture_output=True)
-            git("init", "-q")
-            git("config", "user.email", "t@t")
-            git("config", "user.name", "t")
-            git("config", "commit.gpgsign", "false")
+
+            def head(*a):
+                return subprocess.run(["git", *a, "rev-parse", "HEAD"],
+                                      capture_output=True, text=True,
+                                      check=True).stdout.strip()
+            common.scratch_repo()
             git("remote", "add", "origin", "https://github.com/x/y.git")
             open("a.hs", "w").write("line one\nline two\nline three\n")
             os.makedirs("sub")
@@ -818,9 +832,7 @@ def self_test():
             open("s.sh", "w").write("true\n")
             git("add", "-A")
             git("commit", "-qm", "c1")
-            c1 = subprocess.run(["git", "rev-parse", "HEAD"],
-                                capture_output=True, text=True,
-                                check=True).stdout.strip()
+            c1 = head()
             url = "https://github.com/x/y/blob/%s/a.hs"
 
             open("stop.md", "w").write("Link %s#L1 pinned.\n" % (url % c1))
@@ -835,9 +847,7 @@ def self_test():
             git("update-ref", "refs/remotes/origin/master", c1)
             open("a.hs", "a").write("line four\n")
             git("commit", "-aqm", "c2")
-            c2 = subprocess.run(["git", "rev-parse", "HEAD"],
-                                capture_output=True, text=True,
-                                check=True).stdout.strip()
+            c2 = head()
             p = run("stop.md")
             expect("same link passes once the ref exists", p.returncode, 0)
             open("ok.md", "w").write("`a.hs:1` fine.\n")
@@ -999,21 +1009,14 @@ def self_test():
 
             def fgit(*a):
                 git("-C", "fx", *a)
-            fgit("init", "-q")
-            fgit("config", "user.email", "t@t")
-            fgit("config", "user.name", "t")
-            fgit("config", "commit.gpgsign", "false")
+            common.scratch_repo("fx")
             fgit("add", "-A")
             fgit("commit", "-qm", "f1")
-            fa = subprocess.run(["git", "-C", "fx", "rev-parse", "HEAD"],
-                                capture_output=True, text=True,
-                                check=True).stdout.strip()
+            fa = head("-C", "fx")
             fgit("update-ref", "refs/remotes/origin/main", fa)
             open("fx/src/N.hs", "a").write("-- local\n")
             fgit("commit", "-aqm", "f2")
-            fb = subprocess.run(["git", "-C", "fx", "rev-parse", "HEAD"],
-                                capture_output=True, text=True,
-                                check=True).stdout.strip()
+            fb = head("-C", "fx")
             pre = "https://example.org/fx/-/blob/"
             fmap = "--foreign=" + pre + "=fx"
             deep = at("    + 19")
@@ -1168,7 +1171,9 @@ def check(doc, do_restamp):
     urlcites = sorted({(m.group(1).lower(), m.group(2), m.group(3),
                         int(m.group(4)), int(m.group(5) or m.group(4)))
                        for m in URL_RE.finditer(text)})
-    own = own_slug()
+    # The repository PUBLISHED_REF's remote names; None, no such remote or
+    # not on GitHub, leaves every link checked as this repository's.
+    own = common.github_repo(PUBLISHED_REF.split("/", 1)[0])
     for slug, sha, path, lo, hi in urlcites:
         if own is not None and slug != own:
             print(f"note {path}#L{lo}-L{hi} @ {sha[:9]} --- in {slug},"
@@ -1215,17 +1220,15 @@ def check(doc, do_restamp):
                        m.group(4) or m.group(3) or "")
                       for clone, rx in foreign_res(FOREIGN_RUN)
                       for m in rx.finditer(text)})
-    absent = {}
+    absent = collections.Counter()
     for clone, sha, path, lo, hi in foreign:
         where = path + (f"#L{lo}" + (f"-L{hi}" if hi != lo else "")
                         if lo else "")
         if not is_clone(clone):
-            absent.setdefault((clone, None), 0)
             absent[(clone, None)] += 1
             continue
         lines = blob_lines(clone, sha, path)
         if lines is None:
-            absent.setdefault((clone, sha), 0)
             absent[(clone, sha)] += 1
             continue
         if lines is False:

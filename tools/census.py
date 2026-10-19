@@ -473,8 +473,7 @@ TASKSET = '#!/bin/sh\necho "$2" >> "{log}"\nshift 2\nexec "$@"\n'
 
 
 def checks(bad, td):
-    """The self-test's cases, each failure appended to bad; a status
-    to exit with where the fixtures cannot be built."""
+    """The self-test's cases, each failure appended to bad."""
     def put(name, text, mode=None):
         p = os.path.join(td, name)
         with open(p, 'w') as fh:
@@ -613,9 +612,7 @@ def self_test():
     bad = []
     try:
         with tempfile.TemporaryDirectory() as td:
-            rc = checks(bad, td)
-            if rc is not None:
-                return rc
+            checks(bad, td)
     except Unreadable as e:
         bad.append(f'a run the self-test needs did not happen: {e}')
     for x in bad:

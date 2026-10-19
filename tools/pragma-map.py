@@ -50,27 +50,22 @@ def head(lines, i):
 def load(root):
     """(file, head or 'top', name, occurrence) -> pragma and phase."""
     out = {}
-    for dp, ds, fs in os.walk(root):
-        ds[:] = sorted(d for d in ds if not d.startswith(('.', 'dist')))
-        for f in sorted(fs):
-            if not f.endswith('.hs'):
-                continue
-            p = os.path.join(dp, f)
-            rel = os.path.relpath(p, root)
-            with open(p, errors='replace') as fh:
-                lines = hssource.strip_comments(fh.read()).split('\n')
-            cnt, inst = collections.Counter(), 'top'
-            for i, line in enumerate(lines):
-                if HEAD.match(line):
-                    inst = head(lines, i)
-                elif line[:1].isalpha():
-                    inst = 'top'
-                for g in PRAGMA.finditer(line):
-                    key = (rel, inst if line[:1] in (' ', '\t') else 'top',
-                           g.group(3))
-                    cnt[key] += 1
-                    out[key + (cnt[key],)] = (g.group(1).replace(
-                        'INLINEABLE', 'INLINABLE') + (g.group(2) or ''))
+    for p in hssource.hs_paths(root):
+        rel = os.path.relpath(p, root)
+        with open(p, errors='replace') as fh:
+            lines = hssource.strip_comments(fh.read()).split('\n')
+        cnt, inst = collections.Counter(), 'top'
+        for i, line in enumerate(lines):
+            if HEAD.match(line):
+                inst = head(lines, i)
+            elif line[:1].isalpha():
+                inst = 'top'
+            for g in PRAGMA.finditer(line):
+                key = (rel, inst if line[:1] in (' ', '\t') else 'top',
+                       g.group(3))
+                cnt[key] += 1
+                out[key + (cnt[key],)] = (g.group(1).replace(
+                    'INLINEABLE', 'INLINABLE') + (g.group(2) or ''))
     return out
 
 

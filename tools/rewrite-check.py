@@ -70,21 +70,8 @@ class GitError(Exception):
 
 
 def git(repo, *args, stdin=None):
-    """git's output, its bytes kept: decoded with surrogateescape, where text
-    mode turned CR LF into LF (rewrite-check-12) and raised on a byte that is
-    not UTF-8 (rewrite-check-10)."""
-    try:
-        r = subprocess.run(
-            ['git', '-C', repo] + list(args), capture_output=True,
-            input=None if stdin is None
-            else stdin.encode('utf-8', 'surrogateescape'),
-            env=common.git_env())
-    except OSError as e:
-        raise GitError(f'git {" ".join(args)}: {e}')
-    if r.returncode != 0:
-        raise GitError(f'git {" ".join(args)}: '
-                       + r.stderr.decode('utf-8', 'replace').strip())
-    return r.stdout.decode('utf-8', 'surrogateescape')
+    """common.git_out's output, a GitError where git fails."""
+    return common.git_out(repo, *args, stdin=stdin, error=GitError)
 
 
 def commits(repo, rng):

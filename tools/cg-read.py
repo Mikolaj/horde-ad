@@ -78,6 +78,7 @@ import bisect
 import collections
 import contextlib
 import difflib
+import functools
 import io
 import math
 import os
@@ -387,13 +388,7 @@ def sweep(b, lo, hi, cnt):
 
 
 def binaries():
-    cache = {}
-
-    def get(path):
-        if path not in cache:
-            cache[path] = Binary(path)
-        return cache[path]
-    return get
+    return functools.lru_cache(maxsize=None)(Binary)
 
 
 def number(s, what, kind=int):

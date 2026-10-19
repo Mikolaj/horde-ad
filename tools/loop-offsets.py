@@ -367,12 +367,8 @@ def zero_run(insns, k, n, run_of=4):
     bodies a binary; it moves no straddling count, and run31-nospec's exit
     spans astride, a half built without the switch, from 65 to 64.
     """
-    body = ''.join(i[2] for i in insns[k:n + 1])
-    run = 0
-    for i in range(0, len(body), 2):
-        run = run + 1 if body[i:i + 2] == '00' else 0
-        if run >= run_of:
-            return True
+    if b'\0' * run_of in bytes.fromhex(''.join(i[2] for i in insns[k:n + 1])):
+        return True
     return any(i[2] == '0000' for i in insns[k:n + 1])
 
 
