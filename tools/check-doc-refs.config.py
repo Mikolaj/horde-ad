@@ -32,7 +32,7 @@ SELF_TEST_DOC = """\
 missing module of our namespace and `../ox-arrays/no/such/file.hs` is
 missing in a live sibling: all four must fail, as must the
 wrapped-span row below.
-`--noSuchFlag` is listed, never failed, while `--restamp` is external,
+`--noSuchFlag` is listed, never failed, while `--foreign` is external,
 another tool's, and so is `--allocation-only`, a tool's in this tree;
 `+noSuchFlag` stays unclassified.
 A span the formatter wrapped, `two words
@@ -82,7 +82,7 @@ SELF_TEST_OK = ["Core/Ast.hs", "bench/ConvVjpBench.hs", "minimalTest",
                 "target cabal all",
                 "Arith/Internal.hs", "Data.Array.Strided.Arith",
                 "HordeAd.Core.Ops", "HordeAd.ADEngine",
-                "with_expensive_assertions", "--restamp", "--allocation-only"]
+                "with_expensive_assertions", "--foreign", "--allocation-only"]
 # Citation shapes pass 1 owns: skipped here, in no bucket and no row.
 SELF_TEST_SKIPPED = ["Core/Ops.hs:297,1581", "Core/Ops.hs:297",
                      "Core/Ops.hs:297-320"]
